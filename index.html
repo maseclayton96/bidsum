@@ -890,7 +890,16 @@ function renderHome(){
 function memberCard(m){
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  // myBids defined in renderMember above
+  // For PMs include estimator bids on their GCs
+  const pmGcIds2=m.type==='PM'?new Set(DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+  const myBids=DB.bids.filter(b=>{
+    if(parseInt(b.memberId)===parseInt(m.id))return true;
+    if(m.type==='PM'&&pmGcIds2.has(parseInt(b.gcId))){
+      const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+      return bm&&bm.type==='EST';
+    }
+    return false;
+  });
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
   return`<div class="member-card" onclick="goMember(${m.id})">
@@ -1061,10 +1070,10 @@ function renderBidsTab(bids,m){
         </select>
       </td>
       <td onclick="openBidEdit(${gi})"><span class="fu ${fu.cls}"><span class="fu-dot"></span>${fu.label}</span></td>
-      <td onclick="event.stopPropagation();" style="text-align:center;">${docs.length===0?'—':docs.length===1?`<a href="${docs[0].dataUrl}" download="${docs[0].name}" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;" onclick="event.stopPropagation();">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
+      <td onclick="event.stopPropagation();" style="text-align:center;">${docs.length===0?'—':docs.length===1?`<a href="javascript:void(0)" onclick="event.stopPropagation();openPDFByBidIdx(${gi},0)" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
         <button onclick="event.stopPropagation();togglePDFMenu(this,${gi})" style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;">📄${docs.length} ▾</button>
         <div class="pdf-menu" id="pdf-menu-${gi}" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:220px;z-index:500;padding:4px 0;">
-          ${docs.map((p,pi)=>{const revNum=docs.length-1-pi;const revLbl=revNum===0?'Latest':`REV ${revNum}`;return`<a href="${p.dataUrl}" download="${p.name}" onclick="event.stopPropagation();closePDFMenus();" style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" class="pdf-menu-item"><span style="font-size:14px;">📄</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span style="font-size:10px;font-weight:700;color:${revNum===0?'var(--green)':'var(--text3)'};">${revLbl}</span></a>`;}).join('')}
+          ${docs.map((p,pi)=>{const revNum=docs.length-1-pi;const revLbl=revNum===0?'Latest':`REV ${revNum}`;return`<a href="javascript:void(0)" onclick="event.stopPropagation();closePDFMenus();openPDFByBidIdx(${gi},${pi})" style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" class="pdf-menu-item"><span style="font-size:14px;">📄</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span style="font-size:10px;font-weight:700;color:${rn===0?'var(--green)':'var(--text3)'};">${rl}</span></a>`;}).join('')}
         </div>
       </div>`}</td>
       <td onclick="openBidEdit(${gi})" style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b.notes?b.notes.replace(/"/g,"'"):''}">${b.notes||''}</td>
@@ -1373,7 +1382,7 @@ function renderGCBids(gc,bids){
       </td>
       <td onclick="openBidEdit(${gi})"><span class="fu ${fu.cls}"><span class="fu-dot"></span>${fu.label}</span></td>
       <td onclick="event.stopPropagation();" style="text-align:center;">
-        ${docs.length===0?'—':docs.length===1?`<a href="${docs[0].dataUrl}" download="${docs[0].name}" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;" onclick="event.stopPropagation();">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
+        ${docs.length===0?'—':docs.length===1?`<a href="javascript:void(0)" onclick="event.stopPropagation();openPDFByBidIdx(${gi},0)" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
           <button onclick="event.stopPropagation();togglePDFMenu(this,${gi})" style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;">📄${docs.length} ▾</button>
           <div class="pdf-menu" id="pdf-menu-gc-${gi}" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:220px;z-index:500;padding:4px 0;">
             ${docs.map((p,pi)=>{const rn=docs.length-1-pi;const rl=rn===0?'Latest':`REV ${rn}`;return`<a href="${p.dataUrl}" download="${p.name}" onclick="event.stopPropagation();closePDFMenus();" style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text);text-decoration:none;" class="pdf-menu-item"><span>📄</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span style="font-size:10px;font-weight:700;color:${rn===0?'var(--green)':'var(--text3)'};">${rl}</span></a>`;}).join('')}
@@ -1872,7 +1881,7 @@ function renderPDFList(){
       <div class="pdf-name" title="${p.name}">${p.name}</div>
       <div class="pdf-date">${p.date}</div>
       ${revLabel}
-      <a class="pdf-dl" href="${p.dataUrl}" download="${p.name}">View</a>
+      <a class="pdf-dl" href="javascript:void(0)" onclick="openPDF('${i}','pending')">View</a>
       <button class="pdf-rm" onclick="removePDF(${i})" title="Remove">✕</button>
     </div>`;
   }).join('');
@@ -2313,6 +2322,47 @@ function initDrag(el,type){
 function initAllDraggables(){
   document.querySelectorAll('[data-gcid]').forEach(el=>initDrag(el,'gc'));
   document.querySelectorAll('[data-contactid]').forEach(el=>initDrag(el,'contact'));
+}
+
+// ── PDF viewer — works on mobile and desktop ──
+function openPDFByBidIdx(bidIdx,pdfIdx){
+  const b=DB.bids[bidIdx];
+  if(!b||!b.pdfs||!b.pdfs[pdfIdx])return;
+  openPDFData(b.pdfs[pdfIdx]);
+}
+function openPDF(idx,src){
+  let p=null;
+  if(src==='pending')p=([...pendingPDFs,...currentBidPDFs])[parseInt(idx)];
+  if(!p)return;
+  openPDFData(p);
+}
+function openPDFData(p){
+  if(!p||!p.dataUrl)return;
+  try{
+    // Convert base64 dataUrl to blob and open as object URL
+    const arr=p.dataUrl.split(',');
+    const mime=arr[0].match(/:(.*?);/)[1];
+    const bstr=atob(arr[1]);
+    const bytes=new Uint8Array(bstr.length);
+    for(let i=0;i<bstr.length;i++)bytes[i]=bstr.charCodeAt(i);
+    const blob=new Blob([bytes],{type:mime});
+    const url=URL.createObjectURL(blob);
+    // Open in new tab — works on iOS, Android, and desktop
+    const win=window.open(url,'_blank');
+    if(!win){
+      // Popup blocked — fallback: create a link and click it
+      const a=document.createElement('a');
+      a.href=url;a.download=p.name;a.target='_blank';
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},2000);
+    } else {
+      setTimeout(()=>URL.revokeObjectURL(url),10000);
+    }
+  }catch(e){
+    console.error('PDF open error:',e);
+    // Last resort: direct dataUrl
+    window.open(p.dataUrl,'_blank');
+  }
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
