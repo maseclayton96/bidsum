@@ -721,8 +721,8 @@ function showErr(e){console.error(e);const ind=document.getElementById('autosave
 
 // ═══════════════════════════════════════ NAVIGATION ══════════════════════════════════
 function goHome(){NAV={screen:'home',memberId:null,gcId:null,memberTab:'bids',gcTab:'contacts'};render();}
-function goMember(id,tab){NAV.screen='member';NAV.memberId=id;NAV.memberTab=tab||'bids';NAV.gcId=null;render();}
-function goGC(gcId,fromMemberId){NAV.screen='gc';NAV.gcId=gcId;NAV.gcTab='contacts';if(fromMemberId!=null)NAV.memberId=fromMemberId;render();}
+function goMember(id,tab){NAV.screen='member';NAV.memberId=parseInt(id);NAV.memberTab=tab||'bids';NAV.gcId=null;render();}
+function goGC(gcId,fromMemberId){NAV.screen='gc';NAV.gcId=parseInt(gcId);NAV.gcTab='contacts';if(fromMemberId!=null)NAV.memberId=parseInt(fromMemberId);render();}
 function setMemberTab(t){NAV.memberTab=t;render();}
 function setGCTab(t){NAV.gcTab=t;render();}
 
@@ -741,12 +741,12 @@ function renderNav(){
   if(NAV.screen==='home'){
     na.innerHTML=`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>`;
   } else if(NAV.screen==='member'){
-    const m=DB.members.find(x=>x.id===NAV.memberId);
+    const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
     bc.innerHTML=`<span class="bc-item" onclick="goHome()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">${m?m.first+' '+m.last:'Member'}</span>`;
     na.innerHTML=`<button class="btn-nav" onclick="openMemberEdit()">Edit profile</button><button class="btn-nav-primary" onclick="openBidModal()">+ New bid</button>`;
   } else if(NAV.screen==='gc'){
-    const m=DB.members.find(x=>x.id===NAV.memberId);
-    const gc=DB.gcs.find(x=>x.id===NAV.gcId);
+    const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
+    const gc=DB.gcs.find(x=>parseInt(x.id)===parseInt(NAV.gcId));
     bc.innerHTML=`<span class="bc-item" onclick="goHome()">Home</span><span class="bc-sep">›</span>
       ${m?`<span class="bc-item" onclick="goMember(${NAV.memberId},'clients')">${m.first} ${m.last}</span><span class="bc-sep">›</span>`:''}
       <span class="bc-item cur">${gc?gc.name+(gc.office?' – '+gc.office:''):'GC'}</span>`;
@@ -770,7 +770,7 @@ function renderHome(){
   const pms=DB.members.filter(m=>m.type==='PM');
   const ests=DB.members.filter(m=>m.type==='EST');
   const lb=[...DB.members].map(m=>{
-    const mb=DB.bids.filter(b=>b.memberId===m.id);
+    const mb=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
     const aw=mb.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
     return{m,bids:mb.length,wins:aw.length,val:aw.reduce((s,b)=>s+(b.value||0),0)};
   }).sort((a,b)=>b.val-a.val).slice(0,5);
@@ -822,7 +822,7 @@ function renderHome(){
 function memberCard(m){
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  const myBids=DB.bids.filter(b=>b.memberId===m.id);
+  const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
   return`<div class="member-card" onclick="goMember(${m.id})">
@@ -842,17 +842,17 @@ function memberCard(m){
 
 // ═══════════════════════════════════════ MEMBER SCREEN ═══════════════════════════════
 function renderMember(){
-  const m=DB.members.find(x=>x.id===NAV.memberId);
+  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
   if(!m){goHome();return;}
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  const myBids=DB.bids.filter(b=>b.memberId===m.id);
+  const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const aVal=awarded.reduce((s,b)=>s+(b.value||0),0);
   const closed=myBids.filter(b=>['Awarded to GC','Awarded','Lost'].includes(b.status));
   const wr=closed.length?Math.round(awarded.length/closed.length*100):0;
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
-  const gcClients=DB.gcs.filter(g=>g.memberIds&&g.memberIds.includes(m.id));
+  const gcClients=DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id)));
   const tabs=['bids','clients','follow-ups'];
   document.getElementById('app').innerHTML=`
     <div class="profile-hero">
@@ -885,8 +885,8 @@ function renderBidsTab(bids,m){
   const cf=document.getElementById('bid-cf')?document.getElementById('bid-cf').value:'';
   let filtered=[...bids];
   if(sf)filtered=filtered.filter(b=>b.status===sf);
-  if(mf)filtered=filtered.filter(b=>String(b.memberId)===mf);
-  if(cf)filtered=filtered.filter(b=>String(b.gcId)===cf);
+  if(mf)filtered=filtered.filter(b=>parseInt(b.memberId)===parseInt(mf));
+  if(cf)filtered=filtered.filter(b=>parseInt(b.gcId)===parseInt(cf));
   if(tf)filtered=filtered.filter(b=>{
     const gc=DB.gcs.find(g=>g.id===b.gcId)||{};
     const ct=DB.contacts.find(c=>c.id===b.contactId)||{};
@@ -952,7 +952,7 @@ function renderBidsTab(bids,m){
 }
 function reRenderBidsTab(memberId){
   const m=memberId?DB.members.find(x=>x.id===memberId):null;
-  const myBids=m?DB.bids.filter(b=>b.memberId===m.id):DB.bids;
+  const myBids=m?DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)):DB.bids;
   const container=document.querySelector('.tab-content-bids');
   if(container)container.innerHTML=renderBidsTab(myBids,m);
 }
@@ -965,7 +965,7 @@ function renderClientsTab(gcClients,m){
   <div class="gc-grid">
     ${gcClients.map(gc=>{
       const cts=DB.contacts.filter(c=>c.gcId===gc.id);
-      const bids=DB.bids.filter(b=>b.gcId===gc.id&&b.memberId===m.id);
+      const bids=DB.bids.filter(b=>b.gcId===gc.id&&parseInt(b.memberId)===parseInt(m.id));
       const ini=gc.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
       return`<div class="gc-card" onclick="goGC(${gc.id},${m.id})">
         <div class="gc-logo">${gc.logo?`<img src="${gc.logo}" alt="${gc.name}" onerror="this.parentNode.textContent='${ini}'">`:`${ini}`}</div>
@@ -986,8 +986,8 @@ let CAL={year:new Date().getFullYear(),month:new Date().getMonth()};
 function calPrev(){CAL.month--;if(CAL.month<0){CAL.month=11;CAL.year--;}reRenderFollowUps();}
 function calNext(){CAL.month++;if(CAL.month>11){CAL.month=0;CAL.year++;}reRenderFollowUps();}
 function reRenderFollowUps(){
-  const m=DB.members.find(x=>x.id===NAV.memberId);
-  const myBids=m?DB.bids.filter(b=>b.memberId===m.id):DB.bids;
+  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
+  const myBids=m?DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)):DB.bids;
   const container=document.querySelector('.tab-content-followups');
   if(container)container.innerHTML=renderFollowUpsTab(myBids);
 }
@@ -1122,7 +1122,7 @@ function renderFollowUpsTab(bids){
 
 // ═══════════════════════════════════════ GC SCREEN ═══════════════════════════════════
 function renderGCScreen(){
-  const gc=DB.gcs.find(x=>x.id===NAV.gcId);if(!gc){goHome();return;}
+  const gc=DB.gcs.find(x=>parseInt(x.id)===parseInt(NAV.gcId));if(!gc){goHome();return;}
   const ini=gc.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
   const contacts=DB.contacts.filter(c=>c.gcId===gc.id);
   const bids=DB.bids.filter(b=>b.gcId===gc.id);
@@ -1236,13 +1236,13 @@ function fuState(bid){
   return{cls:'fu-ok',label:diff+'d',urgency:3};
 }
 function nextBidNum(memberId){
-  const m=DB.members.find(x=>x.id==memberId);
+  const m=DB.members.find(x=>parseInt(x.id)===parseInt(memberId));
   if(!m||!m.series){
     const nums=DB.bids.map(b=>{const n=parseInt(b.num);return isNaN(n)?0:n;});
     return String(Math.max(0,...nums)+1);
   }
   const base=parseInt(m.series);
-  const memberBids=DB.bids.filter(b=>b.memberId===m.id);
+  const memberBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
   const nums=memberBids.map(b=>{const n=parseInt(b.num);return isNaN(n)?0:n;}).filter(n=>n>=base&&n<base+1000);
   return String(Math.max(base-1,...nums)+1);
 }
@@ -1272,7 +1272,7 @@ function openMemberModal(defaultType){
   openModal('member');
 }
 function openMemberEdit(){
-  const m=DB.members.find(x=>x.id===NAV.memberId);if(!m)return;
+  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));if(!m)return;
   EDIT.memberIdx=DB.members.indexOf(m);
   document.getElementById('member-modal-title').textContent='Edit member';
   document.getElementById('btn-delete-member').style.display='block';
@@ -1318,14 +1318,14 @@ document.addEventListener('change',function(e){if(e.target&&e.target.id==='m-ser
 
 // ═══════════════════════════════════════ GC MODAL ════════════════════════════════════
 function openGCModal(memberId){
-  EDIT.gcIdx=null;EDIT.memberForGC=memberId;
+  EDIT.gcIdx=null;EDIT.memberForGC=parseInt(memberId)||null;
   document.getElementById('gc-modal-title').textContent='Add General Contractor';
   document.getElementById('btn-delete-gc').style.display='none';
   ['gc-name','gc-office','gc-web','gc-logo','gc-street','gc-city','gc-phone'].forEach(id=>document.getElementById(id).value='');
   openModal('gc');
 }
 function openGCEdit(){
-  const gc=DB.gcs.find(x=>x.id===NAV.gcId);if(!gc)return;
+  const gc=DB.gcs.find(x=>parseInt(x.id)===parseInt(NAV.gcId));if(!gc)return;
   EDIT.gcIdx=DB.gcs.indexOf(gc);
   document.getElementById('gc-modal-title').textContent='Edit GC';
   document.getElementById('btn-delete-gc').style.display='block';
@@ -1350,7 +1350,7 @@ async function saveGC(){
       const row=await sbPatch('gcs',id,body);
       DB.gcs[EDIT.gcIdx]=mapGC({...row,member_ids:DB.gcs[EDIT.gcIdx].memberIds});
     }else{
-      const memberIds=memberId?[memberId]:[];
+      const memberIds=memberId?[parseInt(memberId)]:[];
       const row=await sbPost('gcs',{...body,member_ids:memberIds});
       DB.gcs.push(mapGC(row));
     }
@@ -1550,8 +1550,8 @@ function onRepChange(){
 }
 function populateBidGCSelect(memberId,selectedGcId){
   const sel=document.getElementById('b-gc');
-  const m=DB.members.find(x=>x.id==memberId);
-  const myGCs=m?DB.gcs.filter(g=>g.memberIds&&g.memberIds.includes(m.id)):[];
+  const m=DB.members.find(x=>parseInt(x.id)===parseInt(memberId));
+  const myGCs=m?DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))):[];
   const otherGCs=DB.gcs.filter(g=>!myGCs.find(mg=>mg.id===g.id));
   sel.innerHTML='<option value="">— select GC —</option>';
   if(myGCs.length)sel.innerHTML+=`<optgroup label="My GCs">${myGCs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('')}</optgroup>`;
@@ -1591,7 +1591,7 @@ function autoSaveBid(){
       DB.bids[EDIT.bidIdx]=mapBid(row);
       showSaved('✓ Saved');
       const container=document.querySelector('.tab-content-bids');
-      if(container){const m=DB.members.find(x=>x.id===NAV.memberId);const myBids=m?DB.bids.filter(b=>b.memberId===m.id):DB.bids;container.innerHTML=renderBidsTab(myBids,m);}
+      if(container){const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));const myBids=m?DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)):DB.bids;container.innerHTML=renderBidsTab(myBids,m);}
     }catch(e){showErr(e);}
   },600);
 }
