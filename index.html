@@ -411,6 +411,21 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
   .pstat-p{padding:8px 14px;min-width:80px;}
   .paint-title{font-size:24px;}
 }
+
+/* vCard drop */
+.vcf-drop{border:1.5px dashed var(--blue);border-radius:var(--r);padding:12px 16px;text-align:center;cursor:pointer;background:var(--blue-bg);transition:all .15s;margin-bottom:12px;}
+.vcf-drop:hover{background:#C8DDEF;}
+.vcf-drop.drag-over{background:#B8D4EC;border-style:solid;}
+.vcf-label{font-size:12px;font-weight:600;color:var(--blue);}
+.vcf-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+/* PDF parse */
+.pdf-parse-zone{border:1.5px dashed var(--green);border-radius:var(--r);padding:12px 16px;text-align:center;cursor:pointer;background:var(--green-bg);transition:all .15s;margin-bottom:12px;}
+.pdf-parse-zone:hover{background:#C8E6C9;}
+.pdf-parse-zone.drag-over{background:#B8DDB8;border-style:solid;}
+.pdf-parse-label{font-size:12px;font-weight:600;color:var(--green);}
+.pdf-parse-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.parse-spinner{display:none;font-size:12px;color:var(--text2);margin-top:8px;}
+.parse-spinner.show{display:block;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -508,6 +523,16 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <div class="modal-close" onclick="closeModal('contact')">✕</div>
     </div>
     <div class="modal-body">
+      <!-- vCard drop zone -->
+      <div class="vcf-drop" id="vcf-drop-zone"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="onVCFDrop(event)"
+        onclick="document.getElementById('vcf-file-input').click()">
+        <div class="vcf-label">📇 Drop Outlook / iPhone contact (.vcf) here</div>
+        <div class="vcf-sub">Or click to browse — auto-fills all fields</div>
+      </div>
+      <input type="file" id="vcf-file-input" accept=".vcf,.vcard" style="display:none;" onchange="onVCFSelect(event)">
       <div class="frow">
         <div class="fg"><label>First name</label><input id="ct-first" placeholder="James"></div>
         <div class="fg"><label>Last name</label><input id="ct-last" placeholder="Rivera"></div>
@@ -579,6 +604,17 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <div class="modal-close" onclick="closeModal('bid')">✕</div>
     </div>
     <div class="modal-body">
+      <!-- PDF Parse zone -->
+      <div class="pdf-parse-zone" id="pdf-parse-zone"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="onBidPDFDrop(event)"
+        onclick="document.getElementById('bid-pdf-parse-input').click()">
+        <div class="pdf-parse-label">🤖 Drop bid proposal PDF here to auto-fill fields</div>
+        <div class="pdf-parse-sub">Claude AI reads your PDF and extracts Bid #, GC, job name, value, contact & date</div>
+        <div class="parse-spinner" id="parse-spinner">⟳ Reading PDF...</div>
+      </div>
+      <input type="file" id="bid-pdf-parse-input" accept=".pdf" style="display:none;" onchange="onBidPDFSelect(event)">
       <div class="frow">
         <div class="fg"><label>Bid #</label><input id="b-num" oninput="autoSaveBid()" placeholder="e.g. 1001"></div>
         <div class="fg"><label>Assigned rep</label><select id="b-rep" onchange="onRepChange();autoSaveBid()"></select></div>
@@ -1697,6 +1733,168 @@ function showContactPopup(idx){
   document.getElementById('contact-popup-overlay').classList.add('open');
 }
 function closeContactPopup(){document.getElementById('contact-popup-overlay').classList.remove('open');}
+
+// ═══════════════════════════ vCard PARSER ════════════════════════════
+function onVCFDrop(e){
+  e.preventDefault();
+  document.getElementById('vcf-drop-zone').classList.remove('drag-over');
+  const file=e.dataTransfer.files[0];
+  if(file)parseVCF(file);
+}
+function onVCFSelect(e){
+  const file=e.target.files[0];
+  if(file)parseVCF(file);
+  e.target.value='';
+}
+function parseVCF(file){
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const text=ev.target.result;
+    const lines=text.split(/\r?\n/);
+    const getField=(key)=>{
+      const line=lines.find(l=>new RegExp('^'+key+'[;:]','i').test(l));
+      return line?line.split(':').slice(1).join(':').trim():'';
+    };
+    // Full name
+    const fn=getField('FN');
+    // Structured name: N:Last;First
+    const nLine=lines.find(l=>/^N[;:]/i.test(l));
+    const nVal=nLine?nLine.split(':').slice(1).join(':').trim():'';
+    let first='',last='';
+    if(nVal){const p=nVal.split(';');last=(p[0]||'').trim();first=(p[1]||'').trim();}
+    else if(fn){const p=fn.split(' ');first=p[0]||'';last=p.slice(1).join(' ');}
+    // Title
+    const title=getField('TITLE');
+    // Email
+    const emailLine=lines.find(l=>/^EMAIL/i.test(l));
+    const email=emailLine?emailLine.split(':').slice(1).join(':').trim():'';
+    // Phone - prefer CELL, then WORK, then any
+    const cellLine=lines.find(l=>/^TEL[^:]*(?:CELL|MOBILE)/i.test(l));
+    const workLine=lines.find(l=>/^TEL[^:]*WORK/i.test(l));
+    const anyLine=lines.find(l=>/^TEL/i.test(l));
+    const cell=cellLine?cellLine.split(':').slice(1).join(':').trim():'';
+    const phone=workLine?workLine.split(':').slice(1).join(':').trim():(cell?'':anyLine?anyLine.split(':').slice(1).join(':').trim():'');
+    // LinkedIn
+    const liLine=lines.find(l=>/^URL/i.test(l)&&l.toLowerCase().includes('linkedin'));
+    const linkedin=liLine?liLine.split(':').slice(1).join(':').trim():'';
+    // Photo (base64)
+    let photo='';
+    const photoIdx=lines.findIndex(l=>/^PHOTO/i.test(l));
+    if(photoIdx>=0){
+      let b64=lines[photoIdx].split(':').slice(1).join(':').trim();
+      let i=photoIdx+1;
+      while(i<lines.length&&(lines[i].startsWith(' ')||lines[i].startsWith('\t'))){b64+=lines[i].trim();i++;}
+      if(b64)photo='data:image/jpeg;base64,'+b64;
+    }
+    // Fill form
+    if(first)document.getElementById('ct-first').value=first;
+    if(last)document.getElementById('ct-last').value=last;
+    if(email)document.getElementById('ct-email').value=email;
+    if(phone)document.getElementById('ct-phone').value=phone;
+    if(cell&&cell!==phone)document.getElementById('ct-cell').value=cell;
+    if(linkedin)document.getElementById('ct-linkedin').value=linkedin;
+    if(photo)setContactPhotoPreview(photo);
+    if(title){
+      const roles=['Project Executive','Project Manager','Asst. Project Manager','Project Engineer','Estimator','Intern'];
+      const match=roles.find(r=>title.toLowerCase().includes(r.toLowerCase().split(' ')[0]));
+      if(match)document.getElementById('ct-role').value=match;
+    }
+    const dz=document.getElementById('vcf-drop-zone');
+    dz.style.background='#B8DDB8';
+    dz.querySelector('.vcf-label').textContent='✓ Contact imported — review and save';
+    setTimeout(()=>{dz.style.background='';dz.querySelector('.vcf-label').textContent='📇 Drop Outlook / iPhone contact (.vcf) here';},3000);
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════ BID PDF PARSER ══════════════════════════
+function onBidPDFDrop(e){
+  e.preventDefault();
+  document.getElementById('pdf-parse-zone').classList.remove('drag-over');
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type==='application/pdf')parseBidPDF(file);
+}
+function onBidPDFSelect(e){
+  const file=e.target.files[0];
+  if(file)parseBidPDF(file);
+  e.target.value='';
+}
+async function parseBidPDF(file){
+  const spinner=document.getElementById('parse-spinner');
+  const zone=document.getElementById('pdf-parse-zone');
+  spinner.className='parse-spinner show';
+  spinner.textContent='⟳ Reading PDF with AI...';
+  zone.style.pointerEvents='none';
+  try{
+    // Convert PDF to base64
+    const b64=await new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload=ev=>res(ev.target.result.split(',')[1]);
+      reader.onerror=rej;
+      reader.readAsDataURL(file);
+    });
+    const prompt=`Extract bid information from this proposal PDF and return ONLY a JSON object with these exact fields:
+{
+  "bidNum": "the bid number (just the number, e.g. 2061)",
+  "gcName": "the general contractor / customer company name",
+  "contactName": "the ATTN contact person name",
+  "jobName": "the project name",
+  "value": 97561,
+  "date": "YYYY-MM-DD format of the bid date",
+  "notes": "any key exclusions or qualifications in one sentence"
+}
+If a field is not found leave it as empty string or 0. Return ONLY valid JSON.`;
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:500,
+        messages:[{role:'user',content:[
+          {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+          {type:'text',text:prompt}
+        ]}]
+      })
+    });
+    const data=await response.json();
+    const text=data.content.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(text);
+    // Fill bid form fields
+    if(parsed.bidNum)document.getElementById('b-num').value=parsed.bidNum;
+    if(parsed.jobName)document.getElementById('b-job').value=parsed.jobName;
+    if(parsed.value)document.getElementById('b-val').value=parsed.value;
+    if(parsed.date)document.getElementById('b-date').value=parsed.date;
+    if(parsed.notes)document.getElementById('b-notes').value=parsed.notes;
+    // Try to match GC name to existing GCs
+    if(parsed.gcName){
+      const gcSel=document.getElementById('b-gc');
+      const opts=Array.from(gcSel.options);
+      const match=opts.find(o=>o.text.toLowerCase().includes(parsed.gcName.toLowerCase().split(' ')[0]));
+      if(match){gcSel.value=match.value;onGCChange();}
+      // After GC loads, try to match contact
+      if(parsed.contactName){
+        setTimeout(()=>{
+          const ctSel=document.getElementById('b-contact');
+          const ctOpts=Array.from(ctSel.options);
+          const ctMatch=ctOpts.find(o=>o.text.toLowerCase().includes(parsed.contactName.toLowerCase().split(' ').pop().toLowerCase()));
+          if(ctMatch)ctSel.value=ctMatch.value;
+        },300);
+      }
+    }
+    // Also add to PDF attachments list
+    pendingPDFs.unshift({name:file.name,size:file.size,date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),dataUrl:await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);})});
+    renderPDFList();
+    spinner.textContent='✓ Fields filled — review and adjust as needed';
+    spinner.style.color='var(--green)';
+    setTimeout(()=>{spinner.className='parse-spinner';spinner.style.color='';},4000);
+  }catch(e){
+    spinner.textContent='⚠ Could not parse PDF — fill manually';
+    spinner.style.color='var(--red)';
+    setTimeout(()=>{spinner.className='parse-spinner';spinner.style.color='';},3000);
+  }finally{
+    zone.style.pointerEvents='';
+  }
+}
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
 </script>
