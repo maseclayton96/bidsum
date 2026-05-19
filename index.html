@@ -444,6 +444,11 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .drag-over-target{border:2px dashed var(--blue)!important;background:var(--blue-bg)!important;}
 .drag-handle{color:var(--text3);font-size:14px;cursor:grab;padding:0 4px;flex-shrink:0;}
 .drag-handle:hover{color:var(--text2);}
+
+/* Member card color swatches */
+.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.color-swatch:hover{transform:scale(1.15);}
+.color-swatch.selected{border-color:var(--text)!important;transform:scale(1.1);}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -467,12 +472,12 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
     </div>
     <div class="modal-body">
       <div class="frow">
-        <div class="fg"><label>First name</label><input id="m-first" placeholder="First name"></div>
-        <div class="fg"><label>Last name</label><input id="m-last" placeholder="Last name"></div>
+        <div class="fg"><label>First name</label><input id="m-first" placeholder="First name" oninput="updateCardPreview()"></div>
+        <div class="fg"><label>Last name</label><input id="m-last" placeholder="Last name" oninput="updateCardPreview()"></div>
       </div>
       <div class="frow">
         <div class="fg"><label>Initials <span style="color:var(--text3);font-weight:400;">(used on bid list)</span></label>
-          <input id="m-initials" placeholder="e.g. CM" maxlength="4" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();checkInitialsDuplicate()">
+          <input id="m-initials" placeholder="e.g. CM" maxlength="4" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();checkInitialsDuplicate();updateCardPreview()">
           <div class="form-hint" id="initials-hint"></div>
         </div>
         <div class="fg"></div>
@@ -504,6 +509,31 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       </div>
       <div class="fg"><label>Email</label><input id="m-email" type="email" placeholder="name@company.com"></div>
       <div class="fg"><label>Phone</label><input id="m-phone" placeholder="(555) 000-0000" oninput="fmtPhone(this)"></div>
+      <!-- Card customization -->
+      <div class="fg">
+        <label>Card style <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="m-color-swatches">
+          <div style="font-size:11px;color:var(--text3);width:100%;margin-bottom:2px;">Pick a color theme:</div>
+          <div class="color-swatch" data-bg="#DDEAF7" data-txt="#1B3F6E" data-grad="" onclick="selectCardColor(this)" style="background:#DDEAF7;border:2px solid #1B3F6E;"></div>
+          <div class="color-swatch" data-bg="#D9EFE3" data-txt="#1E5C3A" data-grad="" onclick="selectCardColor(this)" style="background:#D9EFE3;border:2px solid #1E5C3A;"></div>
+          <div class="color-swatch" data-bg="#EDE8FA" data-txt="#4A2080" data-grad="" onclick="selectCardColor(this)" style="background:#EDE8FA;border:2px solid #4A2080;"></div>
+          <div class="color-swatch" data-bg="#FCEFD8" data-txt="#7A3E0A" data-grad="" onclick="selectCardColor(this)" style="background:#FCEFD8;border:2px solid #C47A12;"></div>
+          <div class="color-swatch" data-bg="#FAE0E0" data-txt="#8B1A1A" data-grad="" onclick="selectCardColor(this)" style="background:#FAE0E0;border:2px solid #8B1A1A;"></div>
+          <div class="color-swatch" data-bg="#D5EFEF" data-txt="#0D5252" data-grad="" onclick="selectCardColor(this)" style="background:#D5EFEF;border:2px solid #0D5252;"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1a2a4a,#2563a8)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1a2a4a,#2563a8);"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1E5C3A,#2d8a5a)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1E5C3A,#2d8a5a);"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#4A2080,#7B3FBF)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#4A2080,#7B3FBF);"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#181714,#3a3632)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#181714,#3a3632);"></div>
+          <div class="color-swatch selected" data-bg="" data-txt="" data-grad="" onclick="selectCardColor(this)" style="background:var(--bg3);border:2px solid var(--border2);" title="Default">✕</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+          <div id="m-card-preview" style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:2px solid rgba(0,0,0,.1);flex-shrink:0;background:#DDEAF7;color:#1B3F6E;">CM</div>
+          <div style="font-size:11px;color:var(--text3);">Preview — updates as you type your name</div>
+        </div>
+        <input type="hidden" id="m-card-bg" value="">
+        <input type="hidden" id="m-card-txt" value="">
+        <input type="hidden" id="m-card-grad" value="">
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn-danger" id="btn-delete-member" style="display:none;" onclick="deleteMember()">Delete</button>
@@ -769,7 +799,7 @@ function showLoader(msg){
 function hideLoader(){const el=document.getElementById('sb-loader');if(el)el.style.display='none';}
 
 // map Supabase snake_case to our camelCase DB shape
-function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||''};}
+function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||''};}
 function mapGC(r){return{id:parseInt(r.id),name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:(r.member_ids||[]).map(Number)};}
 function mapTeam(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),name:r.name};}
 function mapContact(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
@@ -943,18 +973,23 @@ function memberCard(m){
     });
   }catch(e){myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));}
   const awarded=myBids.filter(b=>b.status==='Awarded');
-  const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
-  return`<div class="member-card" onclick="goMember(${m.id})">
+  const closed=myBids.filter(b=>['Awarded','Lost'].includes(b.status));
+  const winRate=closed.length?Math.round(awarded.length/closed.length*100):0;
+  // Use custom colors if set
+  const cardBg=m.cardBg||col.bg;
+  const cardTxt=m.cardTxt||col.txt;
+  const cardStyle=m.cardGradient?`background:${m.cardGradient};`:`background:${cardBg};`;
+  return`<div class="member-card" onclick="goMember(${m.id})" style="${m.cardGradient?'background:'+m.cardGradient+';':''}">
     <div class="mc-top">
-      <div class="mc-avatar" style="background:${col.bg};color:${col.txt};">${initials(m.first,m.last)}</div>
-      ${m.type==='PM'&&m.series?`<span class="mc-series">${m.series}s</span>`:''}
+      <div class="mc-avatar" style="background:${cardTxt}22;color:${cardTxt};border:2px solid ${cardTxt}33;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+      ${m.type==='PM'&&m.series?`<span class="mc-series" style="color:${cardTxt};background:${cardTxt}18;border-color:${cardTxt}30;">${m.series}s</span>`:''}
     </div>
-    <div class="mc-name">${m.first} ${m.last}</div>
-    <div class="mc-role">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}</div>
+    <div class="mc-name" style="${m.cardGradient?'color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.3);':''}">${m.first} ${m.last}</div>
+    <div class="mc-role" style="${m.cardGradient?'color:rgba(255,255,255,.7);':''}">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}</div>
     <div class="mc-stats">
-      <div><div class="mcs-val">${myBids.length}</div><div class="mcs-lbl">Bids</div></div>
-      <div><div class="mcs-val">${awarded.length}</div><div class="mcs-lbl">Wins</div></div>
-      <div><div class="mcs-val" style="color:${overdue>0?'var(--red)':'inherit'}">${overdue}</div><div class="mcs-lbl">Overdue</div></div>
+      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${myBids.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Bids</div></div>
+      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${awarded.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Wins</div></div>
+      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${winRate}%</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Win rate</div></div>
     </div>
   </div>`;
 }
@@ -1504,7 +1539,7 @@ function openMemberModal(defaultType){
   EDIT.memberIdx=null;
   document.getElementById('member-modal-title').textContent='Add team member';
   document.getElementById('btn-delete-member').style.display='none';
-  ['m-first','m-last','m-title','m-email','m-phone','m-initials'].forEach(id=>document.getElementById(id).value='');document.getElementById('initials-hint').textContent='';
+  ['m-first','m-last','m-title','m-email','m-phone','m-initials','m-card-bg','m-card-txt','m-card-grad'].forEach(id=>document.getElementById(id).value='');document.getElementById('initials-hint').textContent='';document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));const defS=document.querySelector('.color-swatch[data-grad=""][data-bg=""][data-txt=""]');if(defS)defS.classList.add('selected');updateCardPreview();
   document.getElementById('m-type').value=defaultType||'PM';
   document.getElementById('m-series').value='';
   document.getElementById('series-hint').textContent='';
@@ -1524,6 +1559,14 @@ function openMemberEdit(){
   document.getElementById('m-phone').value=m.phone||'';
   document.getElementById('m-initials').value=m.initials||'';
   document.getElementById('initials-hint').textContent='';
+  document.getElementById('m-card-bg').value=m.cardBg||'';
+  document.getElementById('m-card-txt').value=m.cardTxt||'';
+  document.getElementById('m-card-grad').value=m.cardGradient||'';
+  updateCardPreview();
+  // Mark selected swatch
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+  const activeSwatch=document.querySelector(`.color-swatch[data-grad="${m.cardGradient||''}"][data-bg="${m.cardBg||''}"]`);
+  if(activeSwatch)activeSwatch.classList.add('selected');else{const def=document.querySelector('.color-swatch[data-bg=""][data-grad=""][data-txt=""]');if(def)def.classList.add('selected');}
   document.getElementById('m-series').value=m.series||'';
   toggleSeriesField();updateSeriesHint();
   openModal('member');
@@ -1533,7 +1576,7 @@ async function saveMember(){
   if(!first){alert('First name required.');return;}
   const type=document.getElementById('m-type').value;
   const series=type==='PM'?document.getElementById('m-series').value:'';
-  const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase()};
+  const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase(),card_bg:document.getElementById('m-card-bg').value,card_txt:document.getElementById('m-card-txt').value,card_gradient:document.getElementById('m-card-grad').value};
   showLoader();
   try{
     if(EDIT.memberIdx!==null){
@@ -2495,6 +2538,29 @@ function checkInitialsDuplicate(){
   const taken=DB.members.filter((m,i)=>m.initials&&m.initials.toUpperCase()===val&&i!==EDIT.memberIdx).map(m=>m.first+' '+m.last);
   if(taken.length){hint.textContent='⚠️ Already used by '+taken.join(', ');hint.style.color='var(--red)';}
   else{hint.textContent='✓ Available';hint.style.color='var(--green)';}
+}
+
+function selectCardColor(el){
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('m-card-bg').value=el.dataset.bg||'';
+  document.getElementById('m-card-txt').value=el.dataset.txt||'';
+  document.getElementById('m-card-grad').value=el.dataset.grad||'';
+  updateCardPreview();
+}
+function updateCardPreview(){
+  const preview=document.getElementById('m-card-preview');
+  if(!preview)return;
+  const first=(document.getElementById('m-first')||{}).value||'';
+  const last=(document.getElementById('m-last')||{}).value||'';
+  const ini=document.getElementById('m-initials').value||(first[0]||'')+(last[0]||'');
+  preview.textContent=ini.toUpperCase()||'?';
+  const bg=document.getElementById('m-card-bg').value;
+  const txt=document.getElementById('m-card-txt').value;
+  const grad=document.getElementById('m-card-grad').value;
+  if(grad){preview.style.background=grad;preview.style.color=txt||'#fff';}
+  else if(bg){preview.style.background=bg;preview.style.color=txt||'#1B3F6E';}
+  else{preview.style.background='var(--bg3)';preview.style.color='var(--text2)';}
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
