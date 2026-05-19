@@ -513,22 +513,24 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <div class="fg">
         <label>Card style <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="m-color-swatches">
-          <div style="font-size:11px;color:var(--text3);width:100%;margin-bottom:2px;">Pick a color theme:</div>
-          <div class="color-swatch" data-bg="#DDEAF7" data-txt="#1B3F6E" data-grad="" onclick="selectCardColor(this)" style="background:#DDEAF7;border:2px solid #1B3F6E;"></div>
-          <div class="color-swatch" data-bg="#D9EFE3" data-txt="#1E5C3A" data-grad="" onclick="selectCardColor(this)" style="background:#D9EFE3;border:2px solid #1E5C3A;"></div>
-          <div class="color-swatch" data-bg="#EDE8FA" data-txt="#4A2080" data-grad="" onclick="selectCardColor(this)" style="background:#EDE8FA;border:2px solid #4A2080;"></div>
-          <div class="color-swatch" data-bg="#FCEFD8" data-txt="#7A3E0A" data-grad="" onclick="selectCardColor(this)" style="background:#FCEFD8;border:2px solid #C47A12;"></div>
-          <div class="color-swatch" data-bg="#FAE0E0" data-txt="#8B1A1A" data-grad="" onclick="selectCardColor(this)" style="background:#FAE0E0;border:2px solid #8B1A1A;"></div>
-          <div class="color-swatch" data-bg="#D5EFEF" data-txt="#0D5252" data-grad="" onclick="selectCardColor(this)" style="background:#D5EFEF;border:2px solid #0D5252;"></div>
-          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1a2a4a,#2563a8)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1a2a4a,#2563a8);"></div>
-          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1E5C3A,#2d8a5a)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1E5C3A,#2d8a5a);"></div>
-          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#4A2080,#7B3FBF)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#4A2080,#7B3FBF);"></div>
-          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#181714,#3a3632)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#181714,#3a3632);"></div>
-          <div class="color-swatch selected" data-bg="" data-txt="" data-grad="" onclick="selectCardColor(this)" style="background:var(--bg3);border:2px solid var(--border2);" title="Default">✕</div>
+          <div style="font-size:11px;color:var(--text3);width:100%;margin-bottom:2px;">Pick an avatar color:</div>
+          <div class="color-swatch" data-bg="#DDEAF7" data-txt="#1B3F6E" data-grad="" onclick="selectCardColor(this)" style="background:#DDEAF7;border:2px solid #1B3F6E;" title="Blue"></div>
+          <div class="color-swatch" data-bg="#D9EFE3" data-txt="#1E5C3A" data-grad="" onclick="selectCardColor(this)" style="background:#D9EFE3;border:2px solid #1E5C3A;" title="Green"></div>
+          <div class="color-swatch" data-bg="#EDE8FA" data-txt="#4A2080" data-grad="" onclick="selectCardColor(this)" style="background:#EDE8FA;border:2px solid #4A2080;" title="Purple"></div>
+          <div class="color-swatch" data-bg="#FCEFD8" data-txt="#7A3E0A" data-grad="" onclick="selectCardColor(this)" style="background:#FCEFD8;border:2px solid #C47A12;" title="Amber"></div>
+          <div class="color-swatch" data-bg="#FAE0E0" data-txt="#8B1A1A" data-grad="" onclick="selectCardColor(this)" style="background:#FAE0E0;border:2px solid #8B1A1A;" title="Red"></div>
+          <div class="color-swatch" data-bg="#D5EFEF" data-txt="#0D5252" data-grad="" onclick="selectCardColor(this)" style="background:#D5EFEF;border:2px solid #0D5252;" title="Teal"></div>
+          <div class="color-swatch" data-bg="#FFF3CD" data-txt="#664D03" data-grad="" onclick="selectCardColor(this)" style="background:#FFF3CD;border:2px solid #997404;" title="Yellow"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1a2a4a,#2563a8)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1a2a4a,#2563a8);" title="Navy gradient"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1E5C3A,#2d8a5a)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1E5C3A,#2d8a5a);" title="Forest gradient"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#4A2080,#7B3FBF)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#4A2080,#7B3FBF);" title="Purple gradient"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#8B1A1A,#C0392B)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#8B1A1A,#C0392B);" title="Red gradient"></div>
+          <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#181714,#3a3632)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#181714,#3a3632);" title="Charcoal gradient"></div>
+          <div class="color-swatch selected" data-bg="" data-txt="" data-grad="" onclick="selectCardColor(this)" style="background:var(--bg3);border:2px solid var(--border2);" title="Default (auto)">✕</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
           <div id="m-card-preview" style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:2px solid rgba(0,0,0,.1);flex-shrink:0;background:#DDEAF7;color:#1B3F6E;">CM</div>
-          <div style="font-size:11px;color:var(--text3);">Preview — updates as you type your name</div>
+          <div style="font-size:11px;color:var(--text3);">Avatar preview — this circle appears on all pages</div>
         </div>
         <input type="hidden" id="m-card-bg" value="">
         <input type="hidden" id="m-card-txt" value="">
@@ -910,7 +912,7 @@ function renderHome(){
         const pct=maxVal?Math.round(r.val/maxVal*100):0;
         return`<div class="lb-row" onclick="goMember(${r.m.id})">
           <div class="lb-rank ${i===0?'gold':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-          <div class="lb-avatar" style="background:${col.bg};color:${col.txt};">${initials(r.m.first,r.m.last)}</div>
+          <div class="lb-avatar" style="${memberAvatarStyle(r.m)}">${r.m.initials||(r.m.first[0]+r.m.last[0]).toUpperCase()}</div>
           <div class="lb-name">${r.m.first} ${r.m.last}<br><span class="lb-series">${r.m.type==='PM'&&r.m.series?r.m.series+' series':'Estimator'}</span></div>
           <div class="lb-stats">
             <div class="lb-stat"><div class="lb-stat-val">${r.bids}</div><div class="lb-stat-lbl">Bids</div></div>
@@ -937,7 +939,7 @@ function renderHome(){
         const pct=Math.round(awVal/estMaxVal*100);
         return`<div class="lb-row" onclick="goMember(${m.id})">
           <div class="lb-rank ${i===0?'gold':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-          <div class="lb-avatar" style="background:${col.bg};color:${col.txt};">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+          <div class="lb-avatar" style="${memberAvatarStyle(m)}">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
           <div class="lb-name">${m.first} ${m.last}<br><span class="lb-series">Estimator</span></div>
           <div class="lb-stats">
             <div class="lb-stat"><div class="lb-stat-val">${mb.length}</div><div class="lb-stat-lbl">Bids</div></div>
@@ -979,21 +981,17 @@ function memberCard(m){
   const awarded=yearBids.filter(b=>b.status==='Awarded');
   const closed=yearBids.filter(b=>['Awarded','Lost'].includes(b.status));
   const winRate=closed.length?Math.round(awarded.length/closed.length*100):0;
-  // Use custom colors if set
-  const cardBg=m.cardBg||col.bg;
-  const cardTxt=m.cardTxt||col.txt;
-  const cardStyle=m.cardGradient?`background:${m.cardGradient};`:`background:${cardBg};`;
-  return`<div class="member-card" onclick="goMember(${m.id})" style="${m.cardGradient?'background:'+m.cardGradient+';':''}">
+  return`<div class="member-card" onclick="goMember(${m.id})">
     <div class="mc-top">
-      <div class="mc-avatar" style="background:${cardTxt}22;color:${cardTxt};border:2px solid ${cardTxt}33;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
-      ${m.type==='PM'&&m.series?`<span class="mc-series" style="color:${cardTxt};background:${cardTxt}18;border-color:${cardTxt}30;">${m.series}s</span>`:''}
+      <div class="mc-avatar" style="${memberAvatarStyle(m)}">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+      ${m.type==='PM'&&m.series?`<span class="mc-series">${m.series}s</span>`:''}
     </div>
-    <div class="mc-name" style="${m.cardGradient?'color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.3);':''}">${m.first} ${m.last}</div>
-    <div class="mc-role" style="${m.cardGradient?'color:rgba(255,255,255,.7);':''}">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}</div>
+    <div class="mc-name">${m.first} ${m.last}</div>
+    <div class="mc-role">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}</div>
     <div class="mc-stats">
-      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${yearBids.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Bids ${curYear.slice(2)}</div></div>
-      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${fmtVal(awarded.reduce((s,b)=>s+(b.value||0),0))}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Contracts</div></div>
-      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${awarded.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Wins</div></div>
+      <div><div class="mcs-val">${yearBids.length}</div><div class="mcs-lbl">Bids ${curYear.slice(2)}</div></div>
+      <div><div class="mcs-val">${fmtVal(awarded.reduce((s,b)=>s+(b.value||0),0))}</div><div class="mcs-lbl">Contracts</div></div>
+      <div><div class="mcs-val">${awarded.length}</div><div class="mcs-lbl">Wins</div></div>
     </div>
   </div>`;
 }
@@ -1027,7 +1025,7 @@ function renderMember(){
   const tabs=['bids','clients','follow-ups'];
   document.getElementById('app').innerHTML=`
     <div class="profile-hero">
-      <div class="profile-avatar" style="background:${col.bg};color:${col.txt};">${initials(m.first,m.last)}</div>
+      <div class="profile-avatar" style="${memberAvatarStyle(m)}">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
       <div>
         <div class="profile-name">${m.first} ${m.last}</div>
         <div class="profile-meta">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}${m.type==='PM'&&m.series?' · '+m.series+' series':''}</div>
@@ -2599,6 +2597,22 @@ function onYearFilterChange(sel,memberId){
     return;
   }
   reRenderBidsTab(memberId);
+}
+
+// Returns the bg/txt colors for a member's avatar circle
+function memberColors(m){
+  const ci=DB.members.indexOf(m);
+  const def=MEMBER_COLORS[ci%MEMBER_COLORS.length];
+  // Custom card colors set in profile editor
+  const bg=m.cardBg||def.bg;
+  const txt=m.cardTxt||def.txt;
+  const grad=m.cardGradient||'';
+  return{bg,txt,grad};
+}
+function memberAvatarStyle(m){
+  const {bg,txt,grad}=memberColors(m);
+  if(grad)return`background:${grad};color:#fff;`;
+  return`background:${bg};color:${txt};`;
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
