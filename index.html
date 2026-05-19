@@ -471,6 +471,13 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="fg"><label>Last name</label><input id="m-last" placeholder="Last name"></div>
       </div>
       <div class="frow">
+        <div class="fg"><label>Initials <span style="color:var(--text3);font-weight:400;">(used on bid list)</span></label>
+          <input id="m-initials" placeholder="e.g. CM" maxlength="4" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();checkInitialsDuplicate()">
+          <div class="form-hint" id="initials-hint"></div>
+        </div>
+        <div class="fg"></div>
+      </div>
+      <div class="frow">
         <div class="fg"><label>Role</label>
           <select id="m-type" onchange="toggleSeriesField()">
             <option value="PM">Project Manager</option>
@@ -667,6 +674,13 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
           </select>
         </div>
       </div>
+      <div class="fg">
+        <label>Company</label>
+        <select id="b-company" onchange="autoSaveBid()">
+          <option value="ACI">ACI</option>
+          <option value="Bonas">Bonas</option>
+        </select>
+      </div>
       <div class="frow">
         <div class="fg"><label>Bid date</label><input id="b-date" type="date" onchange="autoSaveBid()"></div>
         <div class="fg"><label>Follow-up in (days)</label><input id="b-followdays" type="number" oninput="autoSaveBid()" placeholder="7" min="1"></div>
@@ -755,11 +769,11 @@ function showLoader(msg){
 function hideLoader(){const el=document.getElementById('sb-loader');if(el)el.style.display='none';}
 
 // map Supabase snake_case to our camelCase DB shape
-function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone};}
+function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||''};}
 function mapGC(r){return{id:parseInt(r.id),name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:(r.member_ids||[]).map(Number)};}
 function mapTeam(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),name:r.name};}
 function mapContact(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
-function mapBid(r){return{id:parseInt(r.id),num:r.num,memberId:parseInt(r.member_id),gcId:parseInt(r.gc_id),gcName:r.gc_name,contactId:parseInt(r.contact_id),contactName:r.contact_name,job:r.job,value:parseFloat(r.value)||0,date:r.date,followDays:parseInt(r.follow_days)||7,decision:r.decision,status:r.status,notes:r.notes,pdfs:r.pdfs||[]};}
+function mapBid(r){return{id:parseInt(r.id),num:r.num,memberId:parseInt(r.member_id),gcId:parseInt(r.gc_id),gcName:r.gc_name,contactId:parseInt(r.contact_id),contactName:r.contact_name,job:r.job,value:parseFloat(r.value)||0,date:r.date,followDays:parseInt(r.follow_days)||7,decision:r.decision,status:r.status,notes:r.notes,pdfs:r.pdfs||[],company:r.company||'ACI'};}
 
 async function load(){
   showLoader();
@@ -828,7 +842,7 @@ function renderNav(){
 function renderHome(){
   const allBids=DB.bids;
   const totalBids=allBids.length;
-  const awarded=allBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
+  const awarded=allBids.filter(b=>b.status==='Awarded');
   const totalWins=awarded.length;
   const totalWinVal=awarded.reduce((s,b)=>s+(b.value||0),0);
   const closed=allBids.filter(b=>['Awarded to GC','Awarded','Lost'].includes(b.status));
@@ -837,9 +851,9 @@ function renderHome(){
   awarded.forEach(b=>{if(!bigWin||b.value>bigWin.value){bigWin=b;bigWinMember=DB.members.find(m=>m.id===b.memberId);}});
   const pms=DB.members.filter(m=>m.type==='PM');
   const ests=DB.members.filter(m=>m.type==='EST');
-  const lb=[...DB.members].map(m=>{
+  const lb=[...DB.members].filter(m=>m.type==='PM').map(m=>{
     const mb=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
-    const aw=mb.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
+    const aw=mb.filter(b=>b.status==='Awarded');
     return{m,bids:mb.length,wins:aw.length,val:aw.reduce((s,b)=>s+(b.value||0),0)};
   }).sort((a,b)=>b.val-a.val).slice(0,5);
   const maxVal=lb[0]?lb[0].val||1:1;
@@ -883,7 +897,32 @@ function renderHome(){
     <div class="home-section">
       <div class="section-hd"><div class="section-title">Estimators</div></div>
       <div class="member-grid">${ests.map(m=>memberCard(m)).join('')}<div class="add-card" onclick="openMemberModal('EST')">+ Add estimator</div></div>
-    </div>`;
+    </div>
+    ${ests.length?`<div class="home-section">
+      <div class="section-hd"><div class="section-title">Estimator Performance</div></div>
+      <div class="leaderboard">${[...ests].map(m=>{
+        const mb=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
+        const aw=mb.filter(b=>b.status==='Awarded');
+        const awVal=aw.reduce((s,b)=>s+(b.value||0),0);
+        const cl=mb.filter(b=>['Awarded','Lost'].includes(b.status));
+        const wr=cl.length?Math.round(aw.length/cl.length*100):0;
+        const ci=DB.members.indexOf(m);
+        const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
+        const estMaxVal=Math.max(1,...ests.map(e=>DB.bids.filter(b=>parseInt(b.memberId)===parseInt(e.id)&&b.status==='Awarded').reduce((s,b)=>s+(b.value||0),0)));
+        const pct=Math.round(awVal/estMaxVal*100);
+        return`<div class="lb-row" onclick="goMember(${m.id})">
+          <div class="lb-avatar" style="background:${col.bg};color:${col.txt};">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+          <div class="lb-name">${m.first} ${m.last}<br><span class="lb-series">Estimator</span></div>
+          <div class="lb-stats">
+            <div class="lb-stat"><div class="lb-stat-val">${mb.length}</div><div class="lb-stat-lbl">Bids</div></div>
+            <div class="lb-stat"><div class="lb-stat-val">${aw.length}</div><div class="lb-stat-lbl">Wins</div></div>
+            <div class="lb-stat"><div class="lb-stat-val">${fmtVal(awVal)}</div><div class="lb-stat-lbl">Awarded</div></div>
+            <div class="lb-stat"><div class="lb-stat-val">${wr}%</div><div class="lb-stat-lbl">Win rate</div></div>
+            <div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%;background:${col.txt};"></div></div>
+          </div>
+        </div>`;
+      }).join('')}</div>
+    </div>`:''}`;
 }
 
 
@@ -905,7 +944,7 @@ function memberCard(m){
       return false;
     });
   }catch(e){myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));}
-  const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
+  const awarded=myBids.filter(b=>b.status==='Awarded');
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
   return`<div class="member-card" onclick="goMember(${m.id})">
     <div class="mc-top">
@@ -942,7 +981,7 @@ function renderMember(){
     }catch(e){}
     return false;
   });
-  const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
+  const awarded=myBids.filter(b=>b.status==='Awarded');
   const aVal=awarded.reduce((s,b)=>s+(b.value||0),0);
   const closed=myBids.filter(b=>['Awarded to GC','Awarded','Lost'].includes(b.status));
   const wr=closed.length?Math.round(awarded.length/closed.length*100):0;
@@ -983,6 +1022,8 @@ function renderBidsTab(bids,m){
   if(sf)filtered=filtered.filter(b=>b.status===sf);
   if(mf)filtered=filtered.filter(b=>parseInt(b.contactId)===parseInt(mf));
   if(cf)filtered=filtered.filter(b=>parseInt(b.gcId)===parseInt(cf));
+  const cmpf=document.getElementById('bid-cmpf')?document.getElementById('bid-cmpf').value:'';
+  if(cmpf)filtered=filtered.filter(b=>(b.company||'ACI')===cmpf);
   if(tf)filtered=filtered.filter(b=>{
     const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId))||{};
     const ct=DB.contacts.find(c=>parseInt(c.id)===parseInt(b.contactId))||{};
@@ -1024,6 +1065,11 @@ function renderBidsTab(bids,m){
     <select id="bid-cf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
       <option value="" ${!cf?'selected':''}>All Clients</option>${gcOpts}
     </select>
+    <select id="bid-cmpf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
+      <option value="">ACI + Bonas</option>
+      <option value="ACI" ${document.getElementById('bid-cmpf')&&document.getElementById('bid-cmpf').value==='ACI'?'selected':''}>ACI</option>
+      <option value="Bonas" ${document.getElementById('bid-cmpf')&&document.getElementById('bid-cmpf').value==='Bonas'?'selected':''}>Bonas</option>
+    </select>
     <span style="font-size:12px;color:var(--text3);">${filtered.length} bid${filtered.length!==1?'s':''}</span>
   </div>`;
   if(!filtered.length)return filterBar+`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">${bids.length?'No bids match your filters':'No bids yet — hit "+ New bid" to get started'}</div></div>`;
@@ -1053,18 +1099,17 @@ function renderBidsTab(bids,m){
       <td onclick="openBidEdit(${gi})"><span class="bid-num">${b.num||'—'}</span></td>
       <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(()=>{
         if(!mb)return'—';
-        // If viewing a PM page and bid rep is an estimator, show estimator name
-        // If viewing an estimator page, find the PM via GC
+        const mbIni=mb.initials||(mb.first[0]+mb.last[0]).toUpperCase();
         const viewer=m?m:null;
         if(viewer&&viewer.type==='PM'&&mb.type==='EST'){
-          return'<span title="Estimator">✏️ '+mb.first+' '+mb.last+'</span>';
+          return'<span title="'+mb.first+' '+mb.last+' (Estimator)">✏️ '+mbIni+'</span>';
         } else if(viewer&&viewer.type==='EST'){
           const bidGC=b.gcId?DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId)):null;
           const pmId=bidGC&&bidGC.memberIds&&bidGC.memberIds.length?bidGC.memberIds[0]:null;
           const pm=pmId?DB.members.find(x=>parseInt(x.id)===parseInt(pmId)):null;
-          if(pm&&parseInt(pm.id)!==parseInt(mb.id))return'<span title="PM">👤 '+pm.first+' '+pm.last+'</span>';
+          if(pm&&parseInt(pm.id)!==parseInt(mb.id)){const pmIni=pm.initials||(pm.first[0]+pm.last[0]).toUpperCase();return'<span title="PM: '+pm.first+' '+pm.last+'">👤 '+pmIni+'</span>';}
         }
-        return mb.first+' '+mb.last;
+        return mbIni;
       })()}</td>
       <td onclick="openBidEdit(${gi})" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${b.job||'—'}</td>
       <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gcLabel}</td>
@@ -1379,18 +1424,17 @@ function renderGCBids(gc,bids){
       </td>
       <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(()=>{
         if(!mb)return'—';
-        // If viewing a PM page and bid rep is an estimator, show estimator name
-        // If viewing an estimator page, find the PM via GC
+        const mbIni=mb.initials||(mb.first[0]+mb.last[0]).toUpperCase();
         const viewer=m?m:null;
         if(viewer&&viewer.type==='PM'&&mb.type==='EST'){
-          return'<span title="Estimator">✏️ '+mb.first+' '+mb.last+'</span>';
+          return'<span title="'+mb.first+' '+mb.last+' (Estimator)">✏️ '+mbIni+'</span>';
         } else if(viewer&&viewer.type==='EST'){
           const bidGC=b.gcId?DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId)):null;
           const pmId=bidGC&&bidGC.memberIds&&bidGC.memberIds.length?bidGC.memberIds[0]:null;
           const pm=pmId?DB.members.find(x=>parseInt(x.id)===parseInt(pmId)):null;
-          if(pm&&parseInt(pm.id)!==parseInt(mb.id))return'<span title="PM">👤 '+pm.first+' '+pm.last+'</span>';
+          if(pm&&parseInt(pm.id)!==parseInt(mb.id)){const pmIni=pm.initials||(pm.first[0]+pm.last[0]).toUpperCase();return'<span title="PM: '+pm.first+' '+pm.last+'">👤 '+pmIni+'</span>';}
         }
-        return mb.first+' '+mb.last;
+        return mbIni;
       })()}</td>
       <td onclick="event.stopPropagation();">
         <select class="inline-status-sel status-${statusKey}" onchange="updateBidStatusInline(${gi},this.value)">
@@ -1462,7 +1506,7 @@ function openMemberModal(defaultType){
   EDIT.memberIdx=null;
   document.getElementById('member-modal-title').textContent='Add team member';
   document.getElementById('btn-delete-member').style.display='none';
-  ['m-first','m-last','m-title','m-email','m-phone'].forEach(id=>document.getElementById(id).value='');
+  ['m-first','m-last','m-title','m-email','m-phone','m-initials'].forEach(id=>document.getElementById(id).value='');document.getElementById('initials-hint').textContent='';
   document.getElementById('m-type').value=defaultType||'PM';
   document.getElementById('m-series').value='';
   document.getElementById('series-hint').textContent='';
@@ -1480,6 +1524,8 @@ function openMemberEdit(){
   document.getElementById('m-title').value=m.title||'';
   document.getElementById('m-email').value=m.email||'';
   document.getElementById('m-phone').value=m.phone||'';
+  document.getElementById('m-initials').value=m.initials||'';
+  document.getElementById('initials-hint').textContent='';
   document.getElementById('m-series').value=m.series||'';
   toggleSeriesField();updateSeriesHint();
   openModal('member');
@@ -1489,7 +1535,7 @@ async function saveMember(){
   if(!first){alert('First name required.');return;}
   const type=document.getElementById('m-type').value;
   const series=type==='PM'?document.getElementById('m-series').value:'';
-  const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim()};
+  const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase()};
   showLoader();
   try{
     if(EDIT.memberIdx!==null){
@@ -1704,7 +1750,7 @@ function openBidModal(){
   EDIT.bidIdx=null;pendingPDFs=[];currentBidPDFs=[];
   document.getElementById('bid-modal-title').textContent='New bid';
   document.getElementById('btn-delete-bid').style.display='none';
-  ['b-job','b-notes','b-decision'].forEach(id=>document.getElementById(id).value='');document.getElementById('b-val').value='0';
+  ['b-job','b-notes','b-decision'].forEach(id=>document.getElementById(id).value='');document.getElementById('b-val').value='0';if(document.getElementById('b-company'))document.getElementById('b-company').value='ACI';
   document.getElementById('b-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('b-followdays').value='7';
   document.getElementById('b-status').value='Submitted';
@@ -1752,6 +1798,7 @@ function openBidEdit(idx){
   document.getElementById('b-decision').value=b.decision||'';
   document.getElementById('b-status').value=b.status||'Pending';
   document.getElementById('b-notes').value=b.notes||'';
+  if(document.getElementById('b-company'))document.getElementById('b-company').value=b.company||'ACI';
   populateBidRepSelect(b.memberId);
   populateBidGCSelect(b.memberId,b.gcId);
   populateBidContactSelect(b.gcId,b.contactId);
@@ -1858,7 +1905,7 @@ function autoSaveBid(){
     const ct=contactId?DB.contacts.find(c=>c.id===contactId):null;
     const memberId=parseInt(document.getElementById('b-rep').value)||null;
     const allPDFs=[...pendingPDFs,...currentBidPDFs];
-    const body={num:document.getElementById('b-num').value.trim(),member_id:memberId,gc_id:gcId,gc_name:gc?gc.name:'',contact_id:contactId,contact_name:ct?ct.first+' '+ct.last:'',job,value:parseFloat(document.getElementById('b-val').value)||0,date:document.getElementById('b-date').value,follow_days:parseInt(document.getElementById('b-followdays').value)||7,decision:document.getElementById('b-decision').value||null,status:document.getElementById('b-status').value,notes:document.getElementById('b-notes').value.trim(),pdfs:allPDFs};
+    const company=document.getElementById('b-company')?document.getElementById('b-company').value:'ACI';const body={num:document.getElementById('b-num').value.trim(),member_id:memberId,gc_id:gcId,gc_name:gc?gc.name:'',contact_id:contactId,contact_name:ct?ct.first+' '+ct.last:'',job,value:parseFloat(document.getElementById('b-val').value)||0,date:document.getElementById('b-date').value,follow_days:parseInt(document.getElementById('b-followdays').value)||7,decision:document.getElementById('b-decision').value||null,status:document.getElementById('b-status').value,notes:document.getElementById('b-notes').value.trim(),pdfs:allPDFs,company};
     try{
       const id=DB.bids[EDIT.bidIdx].id;
       const row=await sbPatch('bids',id,body);
@@ -1887,7 +1934,7 @@ async function saveBid(){
   const ct=contactId?DB.contacts.find(c=>c.id===contactId):null;
   const memberId=parseInt(document.getElementById('b-rep').value)||null;
   const allPDFs=[...pendingPDFs,...currentBidPDFs];
-  const body={num:document.getElementById('b-num').value.trim(),member_id:memberId,gc_id:gcId,gc_name:gc?gc.name:'',contact_id:contactId,contact_name:ct?ct.first+' '+ct.last:'',job,value:parseFloat(document.getElementById('b-val').value)||0,date:document.getElementById('b-date').value,follow_days:parseInt(document.getElementById('b-followdays').value)||7,decision:document.getElementById('b-decision').value||null,status:document.getElementById('b-status').value,notes:document.getElementById('b-notes').value.trim(),pdfs:allPDFs};
+  const company=document.getElementById('b-company')?document.getElementById('b-company').value:'ACI';const body={num:document.getElementById('b-num').value.trim(),member_id:memberId,gc_id:gcId,gc_name:gc?gc.name:'',contact_id:contactId,contact_name:ct?ct.first+' '+ct.last:'',job,value:parseFloat(document.getElementById('b-val').value)||0,date:document.getElementById('b-date').value,follow_days:parseInt(document.getElementById('b-followdays').value)||7,decision:document.getElementById('b-decision').value||null,status:document.getElementById('b-status').value,notes:document.getElementById('b-notes').value.trim(),pdfs:allPDFs,company};
   showLoader();
   try{
     if(EDIT.bidIdx!==null){
@@ -2441,6 +2488,15 @@ function openPDFData(p){
     // Last resort: direct dataUrl
     window.open(p.dataUrl,'_blank');
   }
+}
+
+function checkInitialsDuplicate(){
+  const val=document.getElementById('m-initials').value.toUpperCase();
+  const hint=document.getElementById('initials-hint');
+  if(!val){hint.textContent='';return;}
+  const taken=DB.members.filter((m,i)=>m.initials&&m.initials.toUpperCase()===val&&i!==EDIT.memberIdx).map(m=>m.first+' '+m.last);
+  if(taken.length){hint.textContent='⚠️ Already used by '+taken.join(', ');hint.style.color='var(--red)';}
+  else{hint.textContent='✓ Available';hint.style.color='var(--green)';}
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
