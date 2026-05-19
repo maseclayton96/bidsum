@@ -1,4 +1,4 @@
-import { getDb, initDb } from './db.js';
+import { neon } from '@neondatabase/serverless';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -6,77 +6,66 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const sql = getDb();
-  await initDb();
-
+  const sql = neon(process.env.DATABASE_URL);
   const { table, id } = req.query;
   const allowed = ['members','gcs','teams','contacts','bids'];
   if (!allowed.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
+  // Init tables on first run
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS members (id BIGSERIAL PRIMARY KEY, first TEXT, last TEXT, type TEXT, title TEXT, series TEXT, email TEXT, phone TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`;
+    await sql`CREATE TABLE IF NOT EXISTS gcs (id BIGSERIAL PRIMARY KEY, name TEXT, office TEXT, web TEXT, logo TEXT, street TEXT, city TEXT, phone TEXT, member_ids JSONB DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW())`;
+    await sql`CREATE TABLE IF NOT EXISTS teams (id BIGSERIAL PRIMARY KEY, gc_id BIGINT, name TEXT)`;
+    await sql`CREATE TABLE IF NOT EXISTS contacts (id BIGSERIAL PRIMARY KEY, gc_id BIGINT, first TEXT, last TEXT, role TEXT, team TEXT, email TEXT, phone TEXT, cell TEXT, notes TEXT, linkedin TEXT, photo TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`;
+    await sql`CREATE TABLE IF NOT EXISTS bids (id BIGSERIAL PRIMARY KEY, num TEXT, member_id BIGINT, gc_id BIGINT, gc_name TEXT, contact_id BIGINT, contact_name TEXT, job TEXT, value NUMERIC DEFAULT 0, date TEXT, follow_days INT DEFAULT 7, decision TEXT, status TEXT DEFAULT 'Submitted', notes TEXT, pdfs JSONB DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT NOW())`;
+  } catch(e) { console.error('Init error:', e.message); }
+
   try {
     if (req.method === 'GET') {
       let rows;
-      if (table === 'bids') rows = await sql`SELECT * FROM bids ORDER BY id DESC`;
-      else rows = await sql`SELECT * FROM ${sql(table)} ORDER BY id ASC`;
+      if (table === 'members') rows = await sql`SELECT * FROM members ORDER BY id ASC`;
+      else if (table === 'gcs') rows = await sql`SELECT * FROM gcs ORDER BY id ASC`;
+      else if (table === 'teams') rows = await sql`SELECT * FROM teams ORDER BY id ASC`;
+      else if (table === 'contacts') rows = await sql`SELECT * FROM contacts ORDER BY id ASC`;
+      else if (table === 'bids') rows = await sql`SELECT * FROM bids ORDER BY id DESC`;
       return res.json(rows);
     }
 
     if (req.method === 'POST') {
-      const body = req.body;
-      if (table === 'members') {
-        const rows = await sql`INSERT INTO members (first,last,type,title,series,email,phone) VALUES (${body.first},${body.last},${body.type},${body.title},${body.series},${body.email},${body.phone}) RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'gcs') {
-        const rows = await sql`INSERT INTO gcs (name,office,web,logo,street,city,phone,member_ids) VALUES (${body.name},${body.office},${body.web},${body.logo},${body.street},${body.city},${body.phone},${JSON.stringify(body.member_ids||[])}) RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'teams') {
-        const rows = await sql`INSERT INTO teams (gc_id,name) VALUES (${body.gc_id},${body.name}) RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'contacts') {
-        const rows = await sql`INSERT INTO contacts (gc_id,first,last,role,team,email,phone,cell,notes,linkedin,photo) VALUES (${body.gc_id},${body.first},${body.last},${body.role},${body.team},${body.email},${body.phone},${body.cell},${body.notes},${body.linkedin},${body.photo}) RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'bids') {
-        const rows = await sql`INSERT INTO bids (num,member_id,gc_id,gc_name,contact_id,contact_name,job,value,date,follow_days,decision,status,notes,pdfs) VALUES (${body.num},${body.member_id},${body.gc_id},${body.gc_name},${body.contact_id},${body.contact_name},${body.job},${body.value},${body.date},${body.follow_days},${body.decision},${body.status},${body.notes},${JSON.stringify(body.pdfs||[])}) RETURNING *`;
-        return res.json(rows[0]);
-      }
+      const b = req.body;
+      let rows;
+      if (table === 'members') rows = await sql`INSERT INTO members (first,last,type,title,series,email,phone) VALUES (${b.first},${b.last},${b.type},${b.title},${b.series},${b.email},${b.phone}) RETURNING *`;
+      else if (table === 'gcs') rows = await sql`INSERT INTO gcs (name,office,web,logo,street,city,phone,member_ids) VALUES (${b.name},${b.office},${b.web},${b.logo},${b.street},${b.city},${b.phone},${JSON.stringify(b.member_ids||[])}) RETURNING *`;
+      else if (table === 'teams') rows = await sql`INSERT INTO teams (gc_id,name) VALUES (${b.gc_id},${b.name}) RETURNING *`;
+      else if (table === 'contacts') rows = await sql`INSERT INTO contacts (gc_id,first,last,role,team,email,phone,cell,notes,linkedin,photo) VALUES (${b.gc_id},${b.first},${b.last},${b.role},${b.team},${b.email},${b.phone},${b.cell},${b.notes},${b.linkedin},${b.photo}) RETURNING *`;
+      else if (table === 'bids') rows = await sql`INSERT INTO bids (num,member_id,gc_id,gc_name,contact_id,contact_name,job,value,date,follow_days,decision,status,notes,pdfs) VALUES (${b.num},${b.member_id},${b.gc_id},${b.gc_name},${b.contact_id},${b.contact_name},${b.job},${b.value},${b.date},${b.follow_days},${b.decision||null},${b.status},${b.notes},${JSON.stringify(b.pdfs||[])}) RETURNING *`;
+      return res.json(rows[0]);
     }
 
     if (req.method === 'PATCH') {
-      const body = req.body;
-      if (table === 'members') {
-        const rows = await sql`UPDATE members SET first=${body.first},last=${body.last},type=${body.type},title=${body.title},series=${body.series},email=${body.email},phone=${body.phone} WHERE id=${id} RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'gcs') {
-        const rows = await sql`UPDATE gcs SET name=${body.name},office=${body.office},web=${body.web},logo=${body.logo},street=${body.street},city=${body.city},phone=${body.phone} WHERE id=${id} RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'teams') {
-        const rows = await sql`UPDATE teams SET name=${body.name} WHERE id=${id} RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'contacts') {
-        const rows = await sql`UPDATE contacts SET first=${body.first},last=${body.last},role=${body.role},team=${body.team},email=${body.email},phone=${body.phone},cell=${body.cell},notes=${body.notes},linkedin=${body.linkedin},photo=${body.photo} WHERE id=${id} RETURNING *`;
-        return res.json(rows[0]);
-      }
-      if (table === 'bids') {
-        const rows = await sql`UPDATE bids SET num=${body.num},member_id=${body.member_id},gc_id=${body.gc_id},gc_name=${body.gc_name},contact_id=${body.contact_id},contact_name=${body.contact_name},job=${body.job},value=${body.value},date=${body.date},follow_days=${body.follow_days},decision=${body.decision},status=${body.status},notes=${body.notes},pdfs=${JSON.stringify(body.pdfs||[])} WHERE id=${id} RETURNING *`;
-        return res.json(rows[0]);
-      }
+      const b = req.body; const rid = parseInt(id);
+      let rows;
+      if (table === 'members') rows = await sql`UPDATE members SET first=${b.first},last=${b.last},type=${b.type},title=${b.title},series=${b.series},email=${b.email},phone=${b.phone} WHERE id=${rid} RETURNING *`;
+      else if (table === 'gcs') rows = await sql`UPDATE gcs SET name=${b.name},office=${b.office},web=${b.web},logo=${b.logo},street=${b.street},city=${b.city},phone=${b.phone} WHERE id=${rid} RETURNING *`;
+      else if (table === 'teams') rows = await sql`UPDATE teams SET name=${b.name} WHERE id=${rid} RETURNING *`;
+      else if (table === 'contacts') rows = await sql`UPDATE contacts SET first=${b.first},last=${b.last},role=${b.role},team=${b.team},email=${b.email},phone=${b.phone},cell=${b.cell},notes=${b.notes},linkedin=${b.linkedin},photo=${b.photo} WHERE id=${rid} RETURNING *`;
+      else if (table === 'bids') rows = await sql`UPDATE bids SET num=${b.num},member_id=${b.member_id},gc_id=${b.gc_id},gc_name=${b.gc_name},contact_id=${b.contact_id},contact_name=${b.contact_name},job=${b.job},value=${b.value},date=${b.date},follow_days=${b.follow_days},decision=${b.decision||null},status=${b.status},notes=${b.notes},pdfs=${JSON.stringify(b.pdfs||[])} WHERE id=${rid} RETURNING *`;
+      return res.json(rows[0]);
     }
 
     if (req.method === 'DELETE') {
-      await sql`DELETE FROM ${sql(table)} WHERE id=${id}`;
+      const rid = parseInt(id);
+      if (table === 'members') await sql`DELETE FROM members WHERE id=${rid}`;
+      else if (table === 'gcs') await sql`DELETE FROM gcs WHERE id=${rid}`;
+      else if (table === 'teams') await sql`DELETE FROM teams WHERE id=${rid}`;
+      else if (table === 'contacts') await sql`DELETE FROM contacts WHERE id=${rid}`;
+      else if (table === 'bids') await sql`DELETE FROM bids WHERE id=${rid}`;
       return res.json({ ok: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (e) {
-    console.error(e);
+    console.error('API error:', e.message);
     return res.status(500).json({ error: e.message });
   }
 }
