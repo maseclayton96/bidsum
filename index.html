@@ -894,35 +894,33 @@ function renderHome(){
       <div class="section-hd"><div class="section-title">Project Managers</div></div>
       <div class="member-grid">${pms.map(m=>memberCard(m)).join('')}<div class="add-card" onclick="openMemberModal('PM')">+ Add project manager</div></div>
     </div>
-    <div class="home-section">
-      <div class="section-hd"><div class="section-title">Estimators</div></div>
-      <div class="member-grid">${ests.map(m=>memberCard(m)).join('')}<div class="add-card" onclick="openMemberModal('EST')">+ Add estimator</div></div>
-    </div>
     ${ests.length?`<div class="home-section">
-      <div class="section-hd"><div class="section-title">Estimator Performance</div></div>
-      <div class="leaderboard">${[...ests].map(m=>{
+      <div class="section-hd"><div class="section-title">Estimator Leaderboard</div></div>
+      <div class="leaderboard">${[...ests].map(m=>{const _aw=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)&&b.status==="Awarded").reduce((s,b)=>s+(b.value||0),0);return{m,_aw};}).sort((a,b)=>b._aw-a._aw).map(({m},i)=>{
         const mb=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
         const aw=mb.filter(b=>b.status==='Awarded');
         const awVal=aw.reduce((s,b)=>s+(b.value||0),0);
-        const cl=mb.filter(b=>['Awarded','Lost'].includes(b.status));
-        const wr=cl.length?Math.round(aw.length/cl.length*100):0;
         const ci=DB.members.indexOf(m);
         const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
         const estMaxVal=Math.max(1,...ests.map(e=>DB.bids.filter(b=>parseInt(b.memberId)===parseInt(e.id)&&b.status==='Awarded').reduce((s,b)=>s+(b.value||0),0)));
         const pct=Math.round(awVal/estMaxVal*100);
         return`<div class="lb-row" onclick="goMember(${m.id})">
+          <div class="lb-rank ${i===0?'gold':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
           <div class="lb-avatar" style="background:${col.bg};color:${col.txt};">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
           <div class="lb-name">${m.first} ${m.last}<br><span class="lb-series">Estimator</span></div>
           <div class="lb-stats">
             <div class="lb-stat"><div class="lb-stat-val">${mb.length}</div><div class="lb-stat-lbl">Bids</div></div>
             <div class="lb-stat"><div class="lb-stat-val">${aw.length}</div><div class="lb-stat-lbl">Wins</div></div>
             <div class="lb-stat"><div class="lb-stat-val">${fmtVal(awVal)}</div><div class="lb-stat-lbl">Awarded</div></div>
-            <div class="lb-stat"><div class="lb-stat-val">${wr}%</div><div class="lb-stat-lbl">Win rate</div></div>
             <div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%;background:${col.txt};"></div></div>
           </div>
         </div>`;
       }).join('')}</div>
-    </div>`:''}`;
+    </div>`:''}
+    <div class="home-section">
+      <div class="section-hd"><div class="section-title">Estimators</div></div>
+      <div class="member-grid">${ests.map(m=>memberCard(m)).join('')}<div class="add-card" onclick="openMemberModal('EST')">+ Add estimator</div></div>
+    </div>`;
 }
 
 
