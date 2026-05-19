@@ -64,9 +64,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .mc-series{font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px 7px;}
 .mc-name{font-size:15px;font-weight:600;letter-spacing:-.2px;margin-bottom:2px;}
 .mc-role{font-size:11px;color:var(--text3);margin-bottom:14px;}
-.mc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.mcs-val{font-size:17px;font-weight:700;}
-.mcs-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+.mc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center;}
+.mcs-val{font-size:15px;font-weight:700;line-height:1.2;}
+.mcs-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:1px;white-space:nowrap;}
 .add-card{background:transparent;border:1.5px dashed var(--border2);border-radius:var(--rlg);padding:18px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--text3);min-height:148px;}
 .add-card:hover{background:var(--bg2);border-color:var(--border2);color:var(--text2);}
 
@@ -972,8 +972,11 @@ function memberCard(m){
       return false;
     });
   }catch(e){myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));}
-  const awarded=myBids.filter(b=>b.status==='Awarded');
-  const closed=myBids.filter(b=>['Awarded','Lost'].includes(b.status));
+  // Filter to current year for card stats
+  const curYear=new Date().getFullYear().toString();
+  const yearBids=myBids.filter(b=>b.date&&b.date.startsWith(curYear));
+  const awarded=yearBids.filter(b=>b.status==='Awarded');
+  const closed=yearBids.filter(b=>['Awarded','Lost'].includes(b.status));
   const winRate=closed.length?Math.round(awarded.length/closed.length*100):0;
   // Use custom colors if set
   const cardBg=m.cardBg||col.bg;
@@ -987,8 +990,8 @@ function memberCard(m){
     <div class="mc-name" style="${m.cardGradient?'color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.3);':''}">${m.first} ${m.last}</div>
     <div class="mc-role" style="${m.cardGradient?'color:rgba(255,255,255,.7);':''}">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}</div>
     <div class="mc-stats">
-      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${myBids.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Bids</div></div>
-      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${fmtVal(awarded.reduce((s,b)=>s+(b.value||0),0))}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Awarded $</div></div>
+      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${yearBids.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Bids ${curYear.slice(2)}</div></div>
+      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${fmtVal(awarded.reduce((s,b)=>s+(b.value||0),0))}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Contracts</div></div>
       <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${awarded.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Wins</div></div>
     </div>
   </div>`;
@@ -1057,6 +1060,8 @@ function renderBidsTab(bids,m){
   if(cf)filtered=filtered.filter(b=>parseInt(b.gcId)===parseInt(cf));
   const cmpf=document.getElementById('bid-cmpf')?document.getElementById('bid-cmpf').value:'';
   if(cmpf)filtered=filtered.filter(b=>(b.company||'ACI')===cmpf);
+  const yf=document.getElementById('bid-yf')?document.getElementById('bid-yf').value:'';
+  if(yf)filtered=filtered.filter(b=>b.date&&b.date.startsWith(yf));
   if(tf)filtered=filtered.filter(b=>{
     const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId))||{};
     const ct=DB.contacts.find(c=>parseInt(c.id)===parseInt(b.contactId))||{};
@@ -1102,6 +1107,18 @@ function renderBidsTab(bids,m){
       <option value="">ACI + Bonas</option>
       <option value="ACI" ${document.getElementById('bid-cmpf')&&document.getElementById('bid-cmpf').value==='ACI'?'selected':''}>ACI</option>
       <option value="Bonas" ${document.getElementById('bid-cmpf')&&document.getElementById('bid-cmpf').value==='Bonas'?'selected':''}>Bonas</option>
+    </select>
+    <select id="bid-yf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
+      ${(()=>{
+        const thisYear=new Date().getFullYear();
+        // Auto-detect years from existing bids
+        const bidYears=new Set(bids.map(b=>b.date?b.date.slice(0,4):'').filter(y=>y&&y.length===4));
+        // Always include last year, current year, next year
+        [thisYear-1,thisYear,thisYear+1].forEach(y=>bidYears.add(String(y)));
+        const sortedYears=[...bidYears].sort((a,b2)=>parseInt(b2)-parseInt(a));
+        const curYf=document.getElementById('bid-yf')?document.getElementById('bid-yf').value:'';
+        return'<option value="">All years</option>'+sortedYears.map(y=>`<option value="${y}" ${curYf===y?'selected':''}>${y}</option>`).join('');
+      })()}
     </select>
     <span style="font-size:12px;color:var(--text3);">${filtered.length} bid${filtered.length!==1?'s':''}</span>
   </div>`;
