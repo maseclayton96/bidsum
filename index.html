@@ -890,18 +890,7 @@ function renderHome(){
 function memberCard(m){
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  // For PMs: also include estimator bids done on their GCs
-  // For Estimators: show all bids they personally submitted
-  const pmGcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
-  const myBids=DB.bids.filter(b=>{
-    if(parseInt(b.memberId)===parseInt(m.id))return true;
-    // PM sees estimator bids on their GCs
-    if(m.type==='PM'&&pmGcIds.has(parseInt(b.gcId))){
-      const bidMember=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
-      return bidMember&&bidMember.type==='EST';
-    }
-    return false;
-  });
+  // myBids defined in renderMember above
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
   return`<div class="member-card" onclick="goMember(${m.id})">
@@ -925,7 +914,16 @@ function renderMember(){
   if(!m){goHome();return;}
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
+  // For PMs: include estimator bids done on their GCs
+  const pmGcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+  const myBids=DB.bids.filter(b=>{
+    if(parseInt(b.memberId)===parseInt(m.id))return true;
+    if(m.type==='PM'&&pmGcIds.has(parseInt(b.gcId))){
+      const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+      return bm&&bm.type==='EST';
+    }
+    return false;
+  });
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const aVal=awarded.reduce((s,b)=>s+(b.value||0),0);
   const closed=myBids.filter(b=>['Awarded to GC','Awarded','Lost'].includes(b.status));
@@ -964,7 +962,7 @@ function renderBidsTab(bids,m){
   const cf=document.getElementById('bid-cf')?document.getElementById('bid-cf').value:'';
   let filtered=[...bids];
   if(sf)filtered=filtered.filter(b=>b.status===sf);
-  if(mf)filtered=filtered.filter(b=>parseInt(b.memberId)===parseInt(mf));
+  if(mf)filtered=filtered.filter(b=>parseInt(b.contactId)===parseInt(mf));
   if(cf)filtered=filtered.filter(b=>parseInt(b.gcId)===parseInt(cf));
   if(tf)filtered=filtered.filter(b=>{
     const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId))||{};
@@ -984,7 +982,10 @@ function renderBidsTab(bids,m){
   });
   filtered.sort((a,b2)=>{const na=parseInt(a.num)||0;const nb=parseInt(b2.num)||0;return na-nb;});
   const memberId=m?m.id:null;
-  const memberOpts=DB.members.map(x=>`<option value="${x.id}" ${mf===String(x.id)?'selected':''}>${x.first} ${x.last}</option>`).join('');
+  // Build contact options from contacts present in these bids
+  const contactSet=new Map();
+  bids.forEach(b=>{const ct=DB.contacts.find(c=>parseInt(c.id)===parseInt(b.contactId));if(ct&&!contactSet.has(ct.id))contactSet.set(ct.id,ct);});
+  const contactOpts=[...contactSet.values()].sort((a,b2)=>(a.last||'').localeCompare(b2.last||'')).map(ct=>`<option value="${ct.id}" ${mf===String(ct.id)?'selected':''}>${ct.first} ${ct.last} (${ct.role||''})</option>`).join('');
   const gcSet=new Map();
   bids.forEach(b=>{const g=DB.gcs.find(x=>parseInt(x.id)===parseInt(b.gcId));if(g&&!gcSet.has(g.id))gcSet.set(g.id,g);});
   const gcOpts=[...gcSet.values()].map(g=>`<option value="${g.id}" ${cf===String(g.id)?'selected':''}>${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
@@ -999,7 +1000,7 @@ function renderBidsTab(bids,m){
       <option ${sf==='No-go'?'selected':''}>No-go</option>
     </select>
     <select id="bid-mf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
-      <option value="" ${!mf?'selected':''}>All Est / PM</option>${memberOpts}
+      <option value="" ${!mf?'selected':''}>All GC Contacts</option>${contactOpts}
     </select>
     <select id="bid-cf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
       <option value="" ${!cf?'selected':''}>All Clients</option>${gcOpts}
