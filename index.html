@@ -891,15 +891,20 @@ function memberCard(m){
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
   // For PMs include estimator bids on their GCs
-  const pmGcIds2=m.type==='PM'?new Set(DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
-  const myBids=DB.bids.filter(b=>{
-    if(parseInt(b.memberId)===parseInt(m.id))return true;
-    if(m.type==='PM'&&pmGcIds2.has(parseInt(b.gcId))){
-      const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
-      return bm&&bm.type==='EST';
-    }
-    return false;
-  });
+  let myBids=[];
+  try{
+    const pmGcIds2=m.type==='PM'?new Set(DB.gcs.filter(g=>g&&g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+    myBids=DB.bids.filter(b=>{
+      try{
+        if(parseInt(b.memberId)===parseInt(m.id))return true;
+        if(m.type==='PM'&&pmGcIds2.has(parseInt(b.gcId))){
+          const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+          return bm&&bm.type==='EST';
+        }
+      }catch(e){}
+      return false;
+    });
+  }catch(e){myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));}
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
   return`<div class="member-card" onclick="goMember(${m.id})">
@@ -919,18 +924,22 @@ function memberCard(m){
 
 // ═══════════════════════════════════════ MEMBER SCREEN ═══════════════════════════════
 function renderMember(){
+  try{
   const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
   if(!m){goHome();return;}
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
   // For PMs: include estimator bids done on their GCs
-  const pmGcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+  let pmGcIds=new Set();
+  try{pmGcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g&&g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();}catch(e){}
   const myBids=DB.bids.filter(b=>{
-    if(parseInt(b.memberId)===parseInt(m.id))return true;
-    if(m.type==='PM'&&pmGcIds.has(parseInt(b.gcId))){
-      const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
-      return bm&&bm.type==='EST';
-    }
+    try{
+      if(parseInt(b.memberId)===parseInt(m.id))return true;
+      if(m.type==='PM'&&pmGcIds.has(parseInt(b.gcId))){
+        const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+        return bm&&bm.type==='EST';
+      }
+    }catch(e){}
     return false;
   });
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
@@ -957,6 +966,7 @@ function renderMember(){
     </div>
     <div class="tab-bar">${tabs.map(t=>`<button class="tab${NAV.memberTab===t?' active':''}" onclick="setMemberTab('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('')}</div>
     ${NAV.memberTab==='bids'?`<div class='tab-content-bids'>${renderBidsTab(myBids,m)}</div>`:NAV.memberTab==='clients'?renderClientsTab(gcClients,m):`<div class='tab-content-followups'>${renderFollowUpsTab(myBids)}</div>`}`;
+  }catch(err){console.error('renderMember error:',err);document.getElementById('app').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Error loading profile</div><div style="font-size:12px;color:var(--text3);margin-top:6px;">${err.message}</div><button class="btn-primary" style="margin-top:14px;" onclick="goHome()">← Back to home</button></div>`;}
 }
 
 function rowClass(b){
