@@ -988,8 +988,8 @@ function memberCard(m){
     <div class="mc-role" style="${m.cardGradient?'color:rgba(255,255,255,.7);':''}">${m.title||''} · ${m.type==='PM'?'Project Manager':'Estimator'}</div>
     <div class="mc-stats">
       <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${myBids.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Bids</div></div>
+      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${fmtVal(awarded.reduce((s,b)=>s+(b.value||0),0))}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Awarded $</div></div>
       <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${awarded.length}</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Wins</div></div>
-      <div><div class="mcs-val" style="${m.cardGradient?'color:#fff;':''}">${winRate}%</div><div class="mcs-lbl" style="${m.cardGradient?'color:rgba(255,255,255,.6);':''}">Win rate</div></div>
     </div>
   </div>`;
 }
