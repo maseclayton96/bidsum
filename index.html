@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BidSum </title>
+<title>BidSum</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -688,11 +688,11 @@ function showLoader(msg){
 function hideLoader(){const el=document.getElementById('sb-loader');if(el)el.style.display='none';}
 
 // map Supabase snake_case to our camelCase DB shape
-function mapMember(r){return{id:r.id,first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone};}
-function mapGC(r){return{id:r.id,name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:r.member_ids||[]};}
-function mapTeam(r){return{id:r.id,gcId:r.gc_id,name:r.name};}
-function mapContact(r){return{id:r.id,gcId:r.gc_id,first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
-function mapBid(r){return{id:r.id,num:r.num,memberId:r.member_id,gcId:r.gc_id,gcName:r.gc_name,contactId:r.contact_id,contactName:r.contact_name,job:r.job,value:r.value,date:r.date,followDays:r.follow_days,decision:r.decision,status:r.status,notes:r.notes,pdfs:r.pdfs||[]};}
+function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone};}
+function mapGC(r){return{id:parseInt(r.id),name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:(r.member_ids||[]).map(Number)};}
+function mapTeam(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),name:r.name};}
+function mapContact(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
+function mapBid(r){return{id:parseInt(r.id),num:r.num,memberId:parseInt(r.member_id),gcId:parseInt(r.gc_id),gcName:r.gc_name,contactId:parseInt(r.contact_id),contactName:r.contact_name,job:r.job,value:parseFloat(r.value)||0,date:r.date,followDays:parseInt(r.follow_days)||7,decision:r.decision,status:r.status,notes:r.notes,pdfs:r.pdfs||[]};}
 
 async function load(){
   showLoader();
