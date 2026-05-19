@@ -2601,9 +2601,11 @@ function onYearFilterChange(sel,memberId){
 
 // Returns the bg/txt colors for a member's avatar circle
 function memberColors(m){
-  const ci=DB.members.indexOf(m);
-  const def=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  // Custom card colors set in profile editor
+  // Find by id so it works even after object reference changes (e.g. after save)
+  const ci=DB.members.findIndex(x=>parseInt(x.id)===parseInt(m.id));
+  const safeIdx=ci>=0?ci:0;
+  const def=MEMBER_COLORS[safeIdx%MEMBER_COLORS.length];
+  // Use custom colors if saved, otherwise fall back to auto color
   const bg=m.cardBg||def.bg;
   const txt=m.cardTxt||def.txt;
   const grad=m.cardGradient||'';
