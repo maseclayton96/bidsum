@@ -1090,12 +1090,23 @@ function renderBidsTab(bids,m){
     </tr>`;
   }).join('')}</tbody></table></div>`;
 }
+function getViewerBids(m){
+  if(!m)return DB.bids;
+  const gcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g&&g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+  return DB.bids.filter(b=>{
+    if(parseInt(b.memberId)===parseInt(m.id))return true;
+    if(m.type==='PM'&&gcIds.has(parseInt(b.gcId))){
+      const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+      return bm&&bm.type==='EST';
+    }
+    return false;
+  });
+}
 function reRenderBidsTab(memberId){
   const mid=memberId!=null?memberId:NAV.memberId;
   const m=mid?DB.members.find(x=>parseInt(x.id)===parseInt(mid)):null;
-  const myBids=m?DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)):DB.bids;
   const container=document.querySelector('.tab-content-bids');
-  if(container)container.innerHTML=renderBidsTab(myBids,m);
+  if(container)container.innerHTML=renderBidsTab(getViewerBids(m),m);
 }
 
 function renderClientsTab(gcClients,m){
@@ -1798,11 +1809,27 @@ function onPMSelChange(){
 function populateBidGCSelect(memberId,selectedGcId){
   const sel=document.getElementById('b-gc');
   const m=DB.members.find(x=>parseInt(x.id)===parseInt(memberId));
-  const myGCs=m?DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))):[];
-  const otherGCs=DB.gcs.filter(g=>!myGCs.find(mg=>mg.id===g.id));
-  sel.innerHTML='<option value="">— select GC —</option>';
-  if(myGCs.length)sel.innerHTML+=`<optgroup label="My GCs">${myGCs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('')}</optgroup>`;
-  if(otherGCs.length)sel.innerHTML+=`<optgroup label="Other GCs">${otherGCs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('')}</optgroup>`;
+  // Check if current rep is an estimator and a PM has been selected
+  const repId=parseInt(document.getElementById('b-rep').value)||null;
+  const repMember=DB.members.find(x=>parseInt(x.id)===repId);
+  const isEstimatorMode=repMember&&repMember.type==='EST';
+  if(isEstimatorMode){
+    // When estimator is creating a bid, only show the selected PM's GCs
+    const pmSel=document.getElementById('b-pm-sel');
+    const pmId=pmSel?parseInt(pmSel.value)||null:null;
+    const pm=pmId?DB.members.find(x=>parseInt(x.id)===pmId):null;
+    const pmGCs=pm?DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(pm.id))):[];
+    sel.innerHTML='<option value="">— select GC —</option>';
+    if(pmGCs.length)sel.innerHTML+=pmGCs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+    else sel.innerHTML+='<option value="" disabled>No GCs for this PM yet</option>';
+  } else {
+    // PM or no estimator mode — show their own GCs + others
+    const myGCs=m?DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))):[];
+    const otherGCs=DB.gcs.filter(g=>!myGCs.find(mg=>mg.id===g.id));
+    sel.innerHTML='<option value="">— select GC —</option>';
+    if(myGCs.length)sel.innerHTML+=`<optgroup label="My GCs">${myGCs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('')}</optgroup>`;
+    if(otherGCs.length)sel.innerHTML+=`<optgroup label="Other GCs">${otherGCs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('')}</optgroup>`;
+  }
   if(selectedGcId)sel.value=selectedGcId;
 }
 function onGCChange(){populateBidContactSelect(parseInt(document.getElementById('b-gc').value));}
@@ -1838,7 +1865,16 @@ function autoSaveBid(){
       DB.bids[EDIT.bidIdx]=mapBid(row);
       showSaved('✓ Saved');
       const container=document.querySelector('.tab-content-bids');
-      if(container){const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));const myBids=m?DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)):DB.bids;container.innerHTML=renderBidsTab(myBids,m);}
+      if(container){
+        const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
+        const gcIds=m&&m.type==='PM'?new Set(DB.gcs.filter(g=>g&&g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+        const myBids=m?DB.bids.filter(b2=>{
+          if(parseInt(b2.memberId)===parseInt(m.id))return true;
+          if(m.type==='PM'&&gcIds.has(parseInt(b2.gcId))){const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b2.memberId));return bm&&bm.type==='EST';}
+          return false;
+        }):DB.bids;
+        container.innerHTML=renderBidsTab(myBids,m);
+      }
     }catch(e){showErr(e);}
   },600);
 }
@@ -2278,9 +2314,24 @@ async function updateBidStatusInline(bidIdx,newStatus){
   if(!b)return;
   const oldStatus=b.status;
   b.status=newStatus;
-  // Update row highlight
+  // Re-render using same expanded bid list as renderMember (includes estimator bids for PMs)
+  function getViewerBids(m){
+    if(!m)return DB.bids;
+    const gcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g&&g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+    return DB.bids.filter(b2=>{
+      if(parseInt(b2.memberId)===parseInt(m.id))return true;
+      if(m.type==='PM'&&gcIds.has(parseInt(b2.gcId))){
+        const bm=DB.members.find(x=>parseInt(x.id)===parseInt(b2.memberId));
+        return bm&&bm.type==='EST';
+      }
+      return false;
+    });
+  }
   const container=document.querySelector('.tab-content-bids');
-  if(container){const m=DB.members.find(x=>x.id===NAV.memberId);const myBids=m?DB.bids.filter(b2=>b2.memberId===m.id):DB.bids;container.innerHTML=renderBidsTab(myBids,m);}
+  if(container){
+    const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
+    container.innerHTML=renderBidsTab(getViewerBids(m),m);
+  }
   try{
     await sbPatch('bids',b.id,{
       num:b.num,member_id:b.memberId,gc_id:b.gcId,gc_name:b.gcName,
@@ -2291,7 +2342,10 @@ async function updateBidStatusInline(bidIdx,newStatus){
   }catch(e){
     b.status=oldStatus;showErr(e);
     const container2=document.querySelector('.tab-content-bids');
-    if(container2){const m=DB.members.find(x=>x.id===NAV.memberId);const myBids=m?DB.bids.filter(b2=>b2.memberId===m.id):DB.bids;container2.innerHTML=renderBidsTab(myBids,m);}
+    if(container2){
+      const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
+      container2.innerHTML=renderBidsTab(getViewerBids(m),m);
+    }
   }
 }
 
