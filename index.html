@@ -955,7 +955,7 @@ function renderBidsTab(bids,m){
     const mb=DB.members.find(x=>x.id===b.memberId)||{};
     return[b.num,b.job,b.gcName,gc.name,gc.office,b.notes,ct.first,ct.last,mb.first,mb.last].join(' ').toLowerCase().includes(tf);
   });
-  filtered.sort((a,b2)=>b2.id-a.id);
+  filtered.sort((a,b2)=>{const na=parseInt(a.num)||0;const nb=parseInt(b2.num)||0;return na-nb;});
   const memberId=m?m.id:null;
   const memberOpts=DB.members.map(x=>`<option value="${x.id}">${x.first} ${x.last}</option>`).join('');
   const gcSet=new Map();
@@ -986,7 +986,7 @@ function renderBidsTab(bids,m){
     <th style="width:80px;text-align:right;">Value</th>
     <th style="width:108px;">Status</th>
     <th style="width:80px;">Follow-up</th>
-    <th style="width:44px;text-align:center;">Docs</th>
+    <th style="width:70px;text-align:center;">Docs</th>
     <th>Notes</th>
   </tr></thead><tbody>${filtered.map(b=>{
     const gi=DB.bids.indexOf(b);const fu=fuState(b);
@@ -1017,7 +1017,7 @@ function renderBidsTab(bids,m){
       <td onclick="openBidEdit(${gi})"><span class="fu ${fu.cls}"><span class="fu-dot"></span>${fu.label}</span></td>
       <td onclick="event.stopPropagation();" style="text-align:center;">${docs.length===0?'—':docs.length===1?`<a href="${docs[0].dataUrl}" download="${docs[0].name}" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;" onclick="event.stopPropagation();">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
         <button onclick="event.stopPropagation();togglePDFMenu(this,${gi})" style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;">📄${docs.length} ▾</button>
-        <div class="pdf-menu" id="pdf-menu-${gi}" style="display:none;position:absolute;right:0;top:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:200px;z-index:50;padding:4px 0;">
+        <div class="pdf-menu" id="pdf-menu-${gi}" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:220px;z-index:500;padding:4px 0;">
           ${docs.map((p,pi)=>{const revNum=docs.length-1-pi;const revLbl=revNum===0?'Latest':`REV ${revNum}`;return`<a href="${p.dataUrl}" download="${p.name}" onclick="event.stopPropagation();closePDFMenus();" style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" class="pdf-menu-item"><span style="font-size:14px;">📄</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span style="font-size:10px;font-weight:700;color:${revNum===0?'var(--green)':'var(--text3)'};">${revLbl}</span></a>`;}).join('')}
         </div>
       </div>`}</td>
@@ -1026,7 +1026,8 @@ function renderBidsTab(bids,m){
   }).join('')}</tbody></table></div>`;
 }
 function reRenderBidsTab(memberId){
-  const m=memberId?DB.members.find(x=>x.id===memberId):null;
+  const mid=memberId!=null?memberId:NAV.memberId;
+  const m=mid?DB.members.find(x=>parseInt(x.id)===parseInt(mid)):null;
   const myBids=m?DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id)):DB.bids;
   const container=document.querySelector('.tab-content-bids');
   if(container)container.innerHTML=renderBidsTab(myBids,m);
@@ -1119,8 +1120,9 @@ function renderFollowUpsTab(bids){
     const isCompleted=['Awarded','Awarded to GC'].includes(b.status);
     if(b.decision){addEvent(b.decision,{type:'decision',bid:b,gi,label:b.job||'Bid',isDecision:true,isCompleted,isOverdue:false,status:b.status,gc:gc?gc.name:b.gcName||'—',value:b.value});}
     const baseStr=b.decision||b.date;
-    if(baseStr){
-      const fuDate=new Date(baseStr);fuDate.setDate(fuDate.getDate()+7);
+    if(baseStr&&parseInt(b.followDays)!==0){
+      const days=parseInt(b.followDays)||7;
+      const fuDate=new Date(baseStr);fuDate.setDate(fuDate.getDate()+days);
       const fuStr=fuDate.toISOString().split('T')[0];
       const isOverdue=fuDate<today&&isActive;
       addEvent(fuStr,{type:'followup',bid:b,gi,label:b.job||'Bid',isDecision:false,isCompleted,isOverdue,status:b.status,gc:gc?gc.name:b.gcName||'—',value:b.value});
@@ -1141,7 +1143,7 @@ function renderFollowUpsTab(bids){
     const evHtml=dayEvents.slice(0,3).map(ev=>{
       const cls=calEventClass(ev,today);
       const prefix=ev.isDecision?'📅 ':'🔔 ';
-      return`<div class="cal-event ${cls}" onclick="event.stopPropagation();" title="${ev.label}">${prefix}${ev.label}</div>`;
+      return`<div class="cal-event ${cls}" onclick="event.stopPropagation();openBidEdit(${ev.gi});" title="${ev.label} — click to open" style="cursor:pointer;">${prefix}${ev.label}</div>`;
     }).join('');
     const moreHtml=dayEvents.length>3?`<div style="font-size:9px;color:var(--text3);margin-top:1px;">+${dayEvents.length-3} more</div>`:'';
     cells+=`<div class="cal-day${otherMonth?' other-month':''}${isToday?' today':''}${dayEvents.length?' has-items':''}" onclick="openDayPopup('${dateStr}','${evData}')">${dayNumHtml}${evHtml}${moreHtml}</div>`;
@@ -1150,8 +1152,9 @@ function renderFollowUpsTab(bids){
   const upcoming=[];
   bids.forEach(b=>{
     const baseStr=b.decision||b.date;
-    if(baseStr){
-      const fuDate=new Date(baseStr);fuDate.setDate(fuDate.getDate()+7);
+    if(baseStr&&parseInt(b.followDays)!==0){
+      const days=parseInt(b.followDays)||7;
+      const fuDate=new Date(baseStr);fuDate.setDate(fuDate.getDate()+days);
       const diff=Math.round((fuDate-today)/86400000);
       if(diff>=-1&&diff<=14)upcoming.push({b,diff,gi:DB.bids.indexOf(b)});
     }
@@ -1227,8 +1230,7 @@ function renderGCScreen(){
 
 function renderGCContacts(gc,contacts,teams){
   if(!contacts.length)return`<div class="empty"><div class="empty-icon">👤</div><div class="empty-text">No contacts yet</div>Use "+ Contact" to build the directory.</div>`;
-  const grouped={};const ungrouped=[];
-  contacts.forEach(c=>{if(c.team){if(!grouped[c.team])grouped[c.team]=[];grouped[c.team].push(c);}else ungrouped.push(c);});
+  const ROLE_ORDER=['Project Executive','Project Manager','Asst. Project Manager','Project Engineer','Estimator','Intern','Other'];
   const renderC=c=>{
     const rc=ROLE_COLORS[c.role]||{bg:'var(--bg3)',txt:'var(--text2)'};
     const ci=DB.contacts.indexOf(c);
@@ -1236,7 +1238,7 @@ function renderGCContacts(gc,contacts,teams){
       ${c.photo?`<img src="${c.photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="${c.first} ${c.last}">`:`<div class="contact-avatar" style="background:${rc.bg};color:${rc.txt};">${initials(c.first,c.last)}</div>`}
       <div style="flex:1;min-width:0;">
         <div class="contact-name">${c.first} ${c.last}</div>
-        <div style="margin-bottom:5px;"><span class="badge" style="background:${rc.bg};color:${rc.txt};font-size:10px;">${c.role}</span></div>
+        <div style="margin-bottom:4px;"><span class="badge" style="background:${rc.bg};color:${rc.txt};font-size:10px;">${c.role}</span></div>
         <div class="contact-detail">
           ${c.email?`<div class="contact-email">${c.email}</div>`:''}
           ${c.phone?`<div>${c.phone}</div>`:''}
@@ -1247,48 +1249,77 @@ function renderGCContacts(gc,contacts,teams){
       <button class="btn-sm" onclick="openContactEdit(${ci})" style="align-self:flex-start;flex-shrink:0;">Edit</button>
     </div>`;
   };
+  // Group by role
+  const byRole={};
+  contacts.forEach(c=>{
+    const role=ROLE_ORDER.includes(c.role)?c.role:'Other';
+    if(!byRole[role])byRole[role]=[];
+    byRole[role].push(c);
+  });
   let html='';
-  Object.entries(grouped).forEach(([teamName,tContacts])=>{
-    const ti=DB.teams.findIndex(t=>t.gcId===gc.id&&t.name===teamName);
+  ROLE_ORDER.forEach(role=>{
+    if(!byRole[role]||!byRole[role].length)return;
+    const grp=byRole[role];
     html+=`<div class="team-section">
-      <div class="team-header">
-        <div><span class="team-name-lbl">${teamName}</span><span class="team-sub-lbl">${tContacts.length} member${tContacts.length!==1?'s':''}</span></div>
-        <div class="team-actions">
-          <button class="btn-sm" onclick="openTeamEdit(${ti})">Edit team</button>
+      <div class="team-header" style="margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="team-name-lbl">${role}</span>
+          <span class="team-sub-lbl">${grp.length} person${grp.length!==1?'s':''}</span>
         </div>
       </div>
-      <div class="contact-grid">${tContacts.map(renderC).join('')}</div>
+      <div class="contact-grid">${grp.map(renderC).join('')}</div>
     </div>`;
   });
-  if(ungrouped.length){
-    if(Object.keys(grouped).length){html+=`<div class="section-divider"><div class="sdl">Unassigned</div><div class="sdline"></div></div>`;}
-    html+=`<div class="contact-grid">${ungrouped.map(renderC).join('')}</div>`;
-  }
   return html;
 }
 
 function renderGCBids(gc,bids){
   if(!bids.length)return`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No bids for this GC</div></div>`;
-  const sorted=[...bids].sort((a,b)=>b.id-a.id);
-  return`<div class="tw"><table><thead><tr>
-    <th style="width:95px;">Bid #</th><th>Job name</th><th style="width:95px;text-align:right;">Value</th>
-    <th style="width:130px;">Contact</th><th style="width:130px;">Rep</th>
-    <th style="width:110px;">Status</th><th style="width:100px;">Follow-up</th><th style="width:55px;">Docs</th><th style="width:55px;"></th>
+  const sorted=[...bids].sort((a,b)=>parseInt(a.num||0)-parseInt(b.num||0));
+  return`<div class="tw" style="overflow-x:auto;"><table style="min-width:900px;table-layout:fixed;width:100%;"><thead><tr>
+    <th style="width:72px;">Bid #</th>
+    <th style="width:82px;">Bid Date</th>
+    <th style="width:160px;">Job name</th>
+    <th style="width:80px;text-align:right;">Value</th>
+    <th style="width:115px;">Contact</th>
+    <th style="width:100px;">Rep</th>
+    <th style="width:108px;">Status</th>
+    <th style="width:80px;">Follow-up</th>
+    <th style="width:55px;text-align:center;">Docs</th>
   </tr></thead><tbody>${sorted.map(b=>{
     const gi=DB.bids.indexOf(b);const fu=fuState(b);
     const ct=DB.contacts.find(c=>c.id===b.contactId);
     const mb=DB.members.find(x=>x.id===b.memberId);
-    const docs=(b.pdfs||[]).length;
-    return`<tr>
-      <td><span class="bid-num">${b.num||'—'}</span></td>
-      <td>${b.job||'—'}</td>
-      <td style="text-align:right;font-weight:600;">${fmtVal(b.value)}</td>
-      <td>${ct?ct.first+' '+ct.last:b.contactName||'—'}</td>
-      <td>${mb?mb.first+' '+mb.last:'—'}</td>
-      <td><span class="badge badge-${b.status.toLowerCase().replace(/[^a-z]/g,'')}">${b.status}</span></td>
-      <td><span class="fu ${fu.cls}"><span class="fu-dot"></span>${fu.label}</span></td>
-      <td>${docs?`<span style="font-size:11px;color:var(--blue);font-weight:600;">📎${docs}</span>`:'—'}</td>
-      <td><button class="btn-sm" onclick="openBidEdit(${gi})">Edit</button></td>
+    const docs=b.pdfs||[];
+    const statusKey=b.status.toLowerCase().replace(/[^a-z]/g,'');
+    const rcls=rowClass(b);
+    return`<tr class="${rcls}" style="cursor:pointer;">
+      <td onclick="openBidEdit(${gi})"><span class="bid-num">${b.num||'—'}</span></td>
+      <td onclick="openBidEdit(${gi})" style="font-size:12px;color:var(--text2);">${fmtDate(b.date)}</td>
+      <td onclick="openBidEdit(${gi})" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${b.job||'—'}</td>
+      <td onclick="openBidEdit(${gi})" style="text-align:right;font-weight:600;">${fmtVal(b.value)}</td>
+      <td onclick="event.stopPropagation();" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${ct?`<span style="color:var(--blue);cursor:pointer;font-size:12px;text-decoration:underline;text-underline-offset:2px;" onclick="showContactPopup(${DB.contacts.indexOf(ct)})">${ct.first} ${ct.last}</span>`:b.contactName||'—'}
+      </td>
+      <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mb?mb.first+' '+mb.last:'—'}</td>
+      <td onclick="event.stopPropagation();">
+        <select class="inline-status-sel status-${statusKey}" onchange="updateBidStatusInline(${gi},this.value)">
+          <option ${b.status==='Submitted'?'selected':''}>Submitted</option>
+          <option ${b.status==='Awarded to GC'?'selected':''}>Awarded to GC</option>
+          <option ${b.status==='Awarded'?'selected':''}>Awarded</option>
+          <option ${b.status==='Lost'?'selected':''}>Lost</option>
+          <option ${b.status==='No-go'?'selected':''}>No-go</option>
+        </select>
+      </td>
+      <td onclick="openBidEdit(${gi})"><span class="fu ${fu.cls}"><span class="fu-dot"></span>${fu.label}</span></td>
+      <td onclick="event.stopPropagation();" style="text-align:center;">
+        ${docs.length===0?'—':docs.length===1?`<a href="${docs[0].dataUrl}" download="${docs[0].name}" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;" onclick="event.stopPropagation();">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
+          <button onclick="event.stopPropagation();togglePDFMenu(this,${gi})" style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;">📄${docs.length} ▾</button>
+          <div class="pdf-menu" id="pdf-menu-gc-${gi}" style="display:none;position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:220px;z-index:500;padding:4px 0;">
+            ${docs.map((p,pi)=>{const rn=docs.length-1-pi;const rl=rn===0?'Latest':`REV ${rn}`;return`<a href="${p.dataUrl}" download="${p.name}" onclick="event.stopPropagation();closePDFMenus();" style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text);text-decoration:none;" class="pdf-menu-item"><span>📄</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span style="font-size:10px;font-weight:700;color:${rn===0?'var(--green)':'var(--text3)'};">${rl}</span></a>`;}).join('')}
+          </div>
+        </div>`}
+      </td>
     </tr>`;
   }).join('')}</tbody></table></div>`;
 }
@@ -1299,10 +1330,12 @@ function fmtVal(v){if(!v)return'—';if(v>=1000000)return'$'+(v/1000000).toFixed
 function fmtDate(d){if(!d)return'—';try{const p=d.split('-');if(p.length!==3)return d;return p[1]+'/'+p[2]+'/'+p[0].slice(2);}catch(e){return d;}}
 function fuState(bid){
   if(['Awarded to GC','Awarded','Lost','No-go'].includes(bid.status))return{cls:'fu-none',label:'—',urgency:99};
-  // Follow-up = decision date + 7 days; fall back to bid date + 7 days
+  // followDays=0 means no follow-up
+  if(parseInt(bid.followDays)===0)return{cls:'fu-none',label:'No follow-up',urgency:99};
   const baseStr=bid.decision||bid.date;
   if(!baseStr)return{cls:'fu-none',label:'No date',urgency:98};
-  const due=new Date(baseStr);due.setDate(due.getDate()+7);
+  const days=parseInt(bid.followDays)||7;
+  const due=new Date(baseStr);due.setDate(due.getDate()+days);
   const diff=Math.round((due-new Date())/86400000);
   if(diff<0)return{cls:'fu-urgent',label:Math.abs(diff)+'d overdue',urgency:0};
   if(diff===0)return{cls:'fu-urgent',label:'Today',urgency:0};
@@ -2047,7 +2080,7 @@ async function parseBidPDF(file){
     if(jobName)document.getElementById('b-job').value=jobName;
     if(value)document.getElementById('b-val').value=value;
     if(date)document.getElementById('b-date').value=date;
-    if(notes)document.getElementById('b-notes').value=notes;
+    // notes intentionally not auto-filled from PDF
     // Match GC
     if(gcName){
       const gcSel=document.getElementById('b-gc');
@@ -2125,8 +2158,14 @@ async function updateBidStatusInline(bidIdx,newStatus){
 
 function togglePDFMenu(btn,gi){
   closePDFMenus();
-  const menu=document.getElementById('pdf-menu-'+gi);
-  if(menu)menu.style.display=menu.style.display==='none'?'block':'none';
+  const menuId='pdf-menu-'+gi;
+  const menuIdGC='pdf-menu-gc-'+gi;
+  const menu=document.getElementById(menuId)||document.getElementById(menuIdGC);
+  if(!menu)return;
+  const rect=btn.getBoundingClientRect();
+  menu.style.top=(rect.bottom+4)+'px';
+  menu.style.left=Math.max(4,rect.right-220)+'px';
+  menu.style.display='block';
 }
 function closePDFMenus(){
   document.querySelectorAll('.pdf-menu').forEach(m=>m.style.display='none');
