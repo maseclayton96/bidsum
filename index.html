@@ -426,6 +426,24 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .pdf-parse-sub{font-size:11px;color:var(--text3);margin-top:2px;}
 .parse-spinner{display:none;font-size:12px;color:var(--text2);margin-top:8px;}
 .parse-spinner.show{display:block;}
+
+/* Inline status dropdown */
+.inline-status-sel{outline:none;appearance:none;-webkit-appearance:none;text-align:center;}
+.status-submitted{background:var(--blue-bg);color:var(--blue);}
+.status-awardedtogc{background:#FFFDE7;color:#7A6200;}
+.status-awarded{background:var(--green-bg);color:var(--green);}
+.status-lost{background:var(--bg4);color:var(--text2);}
+.status-nogo{background:var(--red-bg);color:var(--red);}
+
+.pdf-menu-item:hover{background:var(--bg3);}
+.pdf-menu-item:last-child{border-bottom:none!important;}
+
+/* Drag and drop ordering */
+.draggable{cursor:grab;user-select:none;}
+.draggable:active{cursor:grabbing;}
+.drag-over-target{border:2px dashed var(--blue)!important;background:var(--blue-bg)!important;}
+.drag-handle{color:var(--text3);font-size:14px;cursor:grab;padding:0 4px;flex-shrink:0;}
+.drag-handle:hover{color:var(--text2);}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -478,7 +496,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="form-hint" id="series-hint"></div>
       </div>
       <div class="fg"><label>Email</label><input id="m-email" type="email" placeholder="name@company.com"></div>
-      <div class="fg"><label>Phone</label><input id="m-phone" placeholder="(555) 000-0000"></div>
+      <div class="fg"><label>Phone</label><input id="m-phone" placeholder="(555) 000-0000" oninput="fmtPhone(this)"></div>
     </div>
     <div class="modal-foot">
       <button class="btn-danger" id="btn-delete-member" style="display:none;" onclick="deleteMember()">Delete</button>
@@ -505,7 +523,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="fg"><label>Street address</label><input id="gc-street" placeholder="1234 Commerce Blvd"></div>
         <div class="fg"><label>City, State ZIP</label><input id="gc-city" placeholder="Los Angeles, CA 90001"></div>
       </div>
-      <div class="fg"><label>Phone</label><input id="gc-phone" placeholder="(213) 555-0100"></div>
+      <div class="fg"><label>Phone</label><input id="gc-phone" placeholder="(213) 555-0100" oninput="fmtPhone(this)"></div>
     </div>
     <div class="modal-foot">
       <button class="btn-danger" id="btn-delete-gc" style="display:none;" onclick="deleteGC()">Delete GC</button>
@@ -562,8 +580,8 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       </div>
       <div class="fg"><label>Email</label><input id="ct-email" type="email" placeholder="james@gcco.com"></div>
       <div class="frow">
-        <div class="fg"><label>Phone</label><input id="ct-phone" placeholder="(213) 555-0101"></div>
-        <div class="fg"><label>Cell</label><input id="ct-cell" placeholder="(213) 555-0102"></div>
+        <div class="fg"><label>Phone</label><input id="ct-phone" placeholder="(213) 555-0101" oninput="fmtPhone(this)"></div>
+        <div class="fg"><label>Cell</label><input id="ct-cell" placeholder="(213) 555-0102" oninput="fmtPhone(this)"></div>
       </div>
       <div class="fg"><label>LinkedIn URL <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
         <input id="ct-linkedin" placeholder="https://linkedin.com/in/name"></div>
@@ -623,7 +641,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       </div>
       <input type="file" id="bid-pdf-parse-input" accept=".pdf" style="display:none;" onchange="onBidPDFSelect(event)">
       <div class="frow">
-        <div class="fg"><label>Bid #</label><input id="b-num" oninput="autoSaveBid()" placeholder="e.g. 1001"></div>
+        <div class="fg"><label>Bid #</label><input id="b-num" oninput="autoSaveBid()" placeholder="" onfocus="if(this.value===this.defaultValue||this.placeholder)this.select()"></div>
         <div class="fg"><label>Assigned rep</label><select id="b-rep" onchange="onRepChange();autoSaveBid()"></select></div>
       </div>
       <div class="fg"><label>General contractor</label>
@@ -636,7 +654,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       </div>
       <div class="fg"><label>Job name</label><input id="b-job" oninput="autoSaveBid()" placeholder="Downtown Office Tower — Electrical"></div>
       <div class="frow">
-        <div class="fg"><label>Job value ($)</label><input id="b-val" type="number" oninput="autoSaveBid()" placeholder="0"></div>
+        <div class="fg"><label>Job value ($)</label><input id="b-val" type="text" oninput="autoSaveBid()" placeholder="$0" onfocus="if(this.value==='0'||this.value==='$0'||this.value==='')this.value=''" onblur="formatBidValue(this)"></div>
         <div class="fg"><label>Status</label>
           <select id="b-status" onchange="autoSaveBid()">
             <option>Submitted</option><option>Awarded to GC</option><option>Awarded</option><option>Lost</option><option>No-go</option>
@@ -775,6 +793,7 @@ function render(){
   if(NAV.screen==='home')renderHome();
   else if(NAV.screen==='member')renderMember();
   else if(NAV.screen==='gc')renderGCScreen();
+  setTimeout(initAllDraggables,50);
 }
 
 function renderNav(){
@@ -986,9 +1005,22 @@ function renderBidsTab(bids,m){
       <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gcLabel}</td>
       <td onclick="event.stopPropagation();" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ct?`<span style="color:var(--blue);cursor:pointer;font-size:12px;text-decoration:underline;text-underline-offset:2px;" onclick="showContactPopup(${DB.contacts.indexOf(ct)})">${ct.first} ${ct.last}</span>`:b.contactName||'—'}</td>
       <td onclick="openBidEdit(${gi})" style="text-align:right;font-weight:600;">${fmtVal(b.value)}</td>
-      <td onclick="openBidEdit(${gi})"><span class="badge badge-${statusKey}">${b.status}</span></td>
+      <td onclick="event.stopPropagation();">
+        <select class="inline-status-sel status-${statusKey}" onchange="updateBidStatusInline(${gi},this.value)" style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 8px;border:none;cursor:pointer;font-family:var(--font);">
+          <option ${b.status==='Submitted'?'selected':''}>Submitted</option>
+          <option ${b.status==='Awarded to GC'?'selected':''}>Awarded to GC</option>
+          <option ${b.status==='Awarded'?'selected':''}>Awarded</option>
+          <option ${b.status==='Lost'?'selected':''}>Lost</option>
+          <option ${b.status==='No-go'?'selected':''}>No-go</option>
+        </select>
+      </td>
       <td onclick="openBidEdit(${gi})"><span class="fu ${fu.cls}"><span class="fu-dot"></span>${fu.label}</span></td>
-      <td onclick="event.stopPropagation();" style="text-align:center;">${docs.length?docs.map(p=>`<a href="${p.dataUrl}" download="${p.name}" title="${p.name}" style="display:inline-block;font-size:14px;margin:1px;" onclick="event.stopPropagation();">📄</a>`).join(''):'—'}</td>
+      <td onclick="event.stopPropagation();" style="text-align:center;">${docs.length===0?'—':docs.length===1?`<a href="${docs[0].dataUrl}" download="${docs[0].name}" title="${docs[0].name}" style="font-size:13px;color:var(--blue);text-decoration:none;" onclick="event.stopPropagation();">📄</a>`:`<div style="position:relative;display:inline-block;" onclick="event.stopPropagation();">
+        <button onclick="event.stopPropagation();togglePDFMenu(this,${gi})" style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;">📄${docs.length} ▾</button>
+        <div class="pdf-menu" id="pdf-menu-${gi}" style="display:none;position:absolute;right:0;top:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:200px;z-index:50;padding:4px 0;">
+          ${docs.map((p,pi)=>{const revNum=docs.length-1-pi;const revLbl=revNum===0?'Latest':`REV ${revNum}`;return`<a href="${p.dataUrl}" download="${p.name}" onclick="event.stopPropagation();closePDFMenus();" style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" class="pdf-menu-item"><span style="font-size:14px;">📄</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span><span style="font-size:10px;font-weight:700;color:${revNum===0?'var(--green)':'var(--text3)'};">${revLbl}</span></a>`;}).join('')}
+        </div>
+      </div>`}</td>
       <td onclick="openBidEdit(${gi})" style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b.notes?b.notes.replace(/"/g,"'"):''}">${b.notes||''}</td>
     </tr>`;
   }).join('')}</tbody></table></div>`;
@@ -1010,7 +1042,7 @@ function renderClientsTab(gcClients,m){
       const cts=DB.contacts.filter(c=>c.gcId===gc.id);
       const bids=DB.bids.filter(b=>b.gcId===gc.id&&parseInt(b.memberId)===parseInt(m.id));
       const ini=gc.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-      return`<div class="gc-card" onclick="goGC(${gc.id},${m.id})">
+      return`<div class="gc-card draggable" data-gcid="${gc.id}" onclick="goGC(${gc.id},${m.id})" title="Drag to reorder">
         <div class="gc-logo">${gc.logo?`<img src="${gc.logo}" alt="${gc.name}" onerror="this.parentNode.textContent='${ini}'">`:`${ini}`}</div>
         <div class="gc-info">
           <div class="gc-name">${gc.name}</div>
@@ -1200,7 +1232,7 @@ function renderGCContacts(gc,contacts,teams){
   const renderC=c=>{
     const rc=ROLE_COLORS[c.role]||{bg:'var(--bg3)',txt:'var(--text2)'};
     const ci=DB.contacts.indexOf(c);
-    return`<div class="contact-card">
+    return`<div class="contact-card draggable" data-contactid="${c.id}" title="Drag to reorder">
       ${c.photo?`<img src="${c.photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="${c.first} ${c.last}">`:`<div class="contact-avatar" style="background:${rc.bg};color:${rc.txt};">${initials(c.first,c.last)}</div>`}
       <div style="flex:1;min-width:0;">
         <div class="contact-name">${c.first} ${c.last}</div>
@@ -1690,14 +1722,21 @@ function renderPDFList(){
   const allPDFs=[...pendingPDFs,...currentBidPDFs];
   const el=document.getElementById('pdf-list');
   if(!allPDFs.length){el.innerHTML='';return;}
-  el.innerHTML=allPDFs.map((p,i)=>`<div class="pdf-item">
-    <div class="pdf-icon">📄</div>
-    <div class="pdf-name" title="${p.name}">${p.name}</div>
-    <div class="pdf-date">${p.date}</div>
-    <span class="pdf-rev">Rev ${allPDFs.length-i}</span>
-    <a class="pdf-dl" href="${p.dataUrl}" download="${p.name}">Download</a>
-    <button class="pdf-rm" onclick="removePDF(${i})" title="Remove">✕</button>
-  </div>`).join('');
+  const total=allPDFs.length;
+  el.innerHTML=allPDFs.map((p,i)=>{
+    // First upload (newest, i=0 when only 1 doc) = no REV label
+    // Each subsequent older version gets REV label
+    const revNum=total-1-i; // 0=latest(no label),1=REV1,2=REV2
+    const revLabel=revNum===0?'<span class="pdf-rev" style="background:var(--green-bg);color:var(--green);">Latest</span>':`<span class="pdf-rev">REV ${revNum}</span>`;
+    return`<div class="pdf-item">
+      <div class="pdf-icon">📄</div>
+      <div class="pdf-name" title="${p.name}">${p.name}</div>
+      <div class="pdf-date">${p.date}</div>
+      ${revLabel}
+      <a class="pdf-dl" href="${p.dataUrl}" download="${p.name}">View</a>
+      <button class="pdf-rm" onclick="removePDF(${i})" title="Remove">✕</button>
+    </div>`;
+  }).join('');
 }
 function removePDF(idx){
   const allPDFs=[...pendingPDFs,...currentBidPDFs];
@@ -1823,30 +1862,48 @@ async function parseSignatureBlock(){
   btn.textContent='⟳ Parsing...';btn.disabled=true;
   status.style.display='block';status.style.color='var(--text3)';status.textContent='Reading signature...';
   try{
-    const response=await fetch('/api/parse',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({type:'signature',data:text})
+    const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    // Email
+    const emailLine=lines.find(l=>/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(l));
+    const email=emailLine?(emailLine.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)||[''])[0]:'';
+    // Phone numbers
+    const phoneLines=lines.filter(l=>/[\d]{3}.*[\d]{3}.*[\d]{4}/.test(l));
+    const phone=phoneLines[0]?(phoneLines[0].match(/[\d()+\-.\s]{10,}/)||[''])[0].trim():'';
+    const cell=phoneLines[1]?(phoneLines[1].match(/[\d()+\-.\s]{10,}/)||[''])[0].trim():'';
+    // LinkedIn
+    const liLine=lines.find(l=>l.toLowerCase().includes('linkedin'));
+    const linkedin=liLine?(liLine.match(/https?:\/\/[^\s]+/)||[''])[0]:'';
+    // Name - first line that looks like a name (2 words, starts with capital, not a title/company)
+    const titleWords=['project','senior','vice','president','manager','director','engineer','estimator','executive','assistant','coordinator','intern','principal'];
+    const nameLine=lines.find(l=>{
+      const words=l.split(' ');
+      return words.length>=2&&words.length<=4&&
+        /^[A-Z]/.test(l)&&
+        !titleWords.some(t=>l.toLowerCase().startsWith(t))&&
+        !l.includes('@')&&!/\d{3}/.test(l)&&!l.includes('http');
     });
-    const result=await response.json();
-    if(!result.ok)throw new Error(result.error||'Parse failed');
-    const p=result.data;
-    if(p.first)document.getElementById('ct-first').value=p.first;
-    if(p.last)document.getElementById('ct-last').value=p.last;
-    if(p.email)document.getElementById('ct-email').value=p.email;
-    if(p.phone)document.getElementById('ct-phone').value=p.phone;
-    if(p.cell)document.getElementById('ct-cell').value=p.cell;
-    if(p.linkedin)document.getElementById('ct-linkedin').value=p.linkedin;
-    if(p.title){
+    let first='',last='';
+    if(nameLine){const p=nameLine.split(' ');first=p[0];last=p.slice(1).join(' ');}
+    // Title - line containing role keywords
+    const titleLine=lines.find(l=>titleWords.some(t=>l.toLowerCase().includes(t))&&!l.includes('@')&&!/\d{5}/.test(l));
+    const title=titleLine||'';
+    // Fill form
+    if(first)document.getElementById('ct-first').value=first;
+    if(last)document.getElementById('ct-last').value=last;
+    if(email)document.getElementById('ct-email').value=email;
+    if(phone)document.getElementById('ct-phone').value=phone;
+    if(cell&&cell!==phone)document.getElementById('ct-cell').value=cell;
+    if(linkedin)document.getElementById('ct-linkedin').value=linkedin;
+    if(title){
       const roles=['Project Executive','Project Manager','Asst. Project Manager','Project Engineer','Estimator','Intern'];
-      const match=roles.find(r=>p.title.toLowerCase().includes(r.toLowerCase().split(' ')[0]));
+      const match=roles.find(r=>title.toLowerCase().includes(r.toLowerCase().split(' ')[0]));
       if(match)document.getElementById('ct-role').value=match;
     }
     document.getElementById('sig-block-input').value='';
     status.style.color='var(--green)';status.textContent='✓ Contact filled — review and save';
     setTimeout(()=>{status.style.display='none';},3000);
   }catch(e){
-    status.style.color='var(--red)';status.textContent='⚠ Parse failed: '+e.message;
+    status.style.color='var(--red)';status.textContent='⚠ Could not parse: '+e.message;
   }finally{
     btn.textContent='🤖 Parse signature with AI';btn.disabled=false;
   }
@@ -1867,61 +1924,251 @@ async function parseBidPDF(file){
   const spinner=document.getElementById('parse-spinner');
   const zone=document.getElementById('pdf-parse-zone');
   spinner.className='parse-spinner show';
-  spinner.textContent='⟳ Reading PDF with AI...';
+  spinner.textContent='⟳ Reading PDF...';
   zone.style.pointerEvents='none';
   try{
-    const b64=await new Promise((res,rej)=>{
-      const reader=new FileReader();
-      reader.onload=ev=>res(ev.target.result.split(',')[1]);
-      reader.onerror=rej;
-      reader.readAsDataURL(file);
-    });
-    const response=await fetch('/api/parse',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({type:'pdf',data:b64,filename:file.name})
-    });
-    const result=await response.json();
-    if(!result.ok)throw new Error(result.error||'Parse failed');
-    const parsed=result.data;
-    if(parsed.bidNum)document.getElementById('b-num').value=parsed.bidNum;
-    if(parsed.jobName)document.getElementById('b-job').value=parsed.jobName;
-    if(parsed.value)document.getElementById('b-val').value=parsed.value;
-    if(parsed.date)document.getElementById('b-date').value=parsed.date;
-    if(parsed.notes)document.getElementById('b-notes').value=parsed.notes;
+    if(!window.pdfjsLib){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';res();};
+        s.onerror=rej;document.head.appendChild(s);
+      });
+    }
+    const buf=await file.arrayBuffer();
+    const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+    // Extract text with position info to preserve layout
+    let allItems=[];
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      allItems=allItems.concat(tc.items.map(i=>i.str.trim()).filter(Boolean));
+    }
+    const txt=allItems.join(' ');
+    const fullText=txt.toUpperCase();
+    // Helper: get value after a label
+    const after=(label,stopAt)=>{
+      const idx=txt.indexOf(label);
+      if(idx<0)return'';
+      let rest=txt.slice(idx+label.length).trim();
+      if(stopAt){const si=rest.search(stopAt);if(si>0)rest=rest.slice(0,si);}
+      return rest.trim();
+    };
+    // BID NUMBER
+    let bidNum='';
+    const bidIdx=allItems.findIndex(i=>/^BID\s*#/i.test(i)||i.toUpperCase()==='BID#'||i.toUpperCase()==='BID #');
+    if(bidIdx>=0){
+      // Look at next few items for the number
+      for(let k=1;k<=4;k++){
+        const candidate=(allItems[bidIdx+k]||'').replace(/[^0-9]/g,'');
+        if(candidate&&candidate.length>=3){bidNum=candidate;break;}
+      }
+    }
+    if(!bidNum){const m=txt.match(/BID\s*#\s*:?\s*(\d{3,6})/i);if(m)bidNum=m[1];}
+    // DATE
+    let date='';
+    const dateIdx=allItems.findIndex(i=>/^DATE\s*:?$/i.test(i));
+    if(dateIdx>=0){
+      const raw=(allItems[dateIdx+1]||'').trim();
+      // Try DD-Mon-YY e.g. "1-May-26" or "18-May-26"
+      const m=raw.match(/(\d{1,2})[-\/]([A-Za-z]+)[-\/](\d{2,4})/);
+      if(m){
+        const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+        const mo=months[(m[2]||'').toLowerCase().slice(0,3)];
+        let yr=parseInt(m[3]);if(yr<100)yr+=2000;
+        if(mo!==undefined)date=`${yr}-${String(mo+1).padStart(2,'0')}-${String(parseInt(m[1])).padStart(2,'0')}`;
+      }
+      if(!date){const d=new Date(raw);if(!isNaN(d))date=d.toISOString().split('T')[0];}
+    }
+    // CUSTOMER / GC NAME
+    let gcName='';
+    const custIdx=allItems.findIndex(i=>/^CUSTOMER\s*:?$/i.test(i));
+    if(custIdx>=0){
+      // Next item should be company name
+      for(let k=1;k<=3;k++){
+        const v=(allItems[custIdx+k]||'').trim();
+        if(v&&!/^\d/.test(v)&&v.length>3&&!/^(BID|DATE|ATTN|PHONE|FAX|PROJECT)/i.test(v)){
+          gcName=v;break;
+        }
+      }
+    }
+    // ATTN - contact
+    let contactFirst='',contactLast='';
+    const attnIdx=allItems.findIndex(i=>/^ATTN\s*:?$/i.test(i));
+    if(attnIdx>=0){
+      for(let k=1;k<=3;k++){
+        const v=(allItems[attnIdx+k]||'').trim();
+        if(v&&!/^(PHONE|FAX|PROJECT|BID|\d)/i.test(v)&&v.length>2&&/[A-Za-z]/.test(v)){
+          const parts=v.split(' ');
+          contactFirst=parts[0]||'';
+          contactLast=parts.slice(1).join(' ');
+          break;
+        }
+      }
+    }
+    // PROJECT NAME
+    let jobName='';
+    const projIdx=allItems.findIndex(i=>/^PROJECT\s*:?$/i.test(i));
+    if(projIdx>=0){
+      const parts=[];
+      for(let k=1;k<=6;k++){
+        const v=(allItems[projIdx+k]||'').trim();
+        if(!v||/^(JOBSITE|PAGES|CUSTOMER|BID|DATE|ATTN)/i.test(v))break;
+        // Stop at address-like content
+        if(/^\d{3,}/.test(v)||/^[A-Z]{2}\s+\d{5}/.test(v))break;
+        parts.push(v);
+      }
+      jobName=parts.join(' ').trim();
+    }
+    // BASE BID VALUE
+    let value=0;
+    const baseBidIdx=allItems.findIndex(i=>/BASE\s*BID/i.test(i));
+    if(baseBidIdx>=0){
+      for(let k=1;k<=4;k++){
+        const v=(allItems[baseBidIdx+k]||'').replace(/[$,]/g,'');
+        if(/^\d+$/.test(v)&&parseInt(v)>100){value=parseInt(v);break;}
+      }
+    }
+    if(!value){const m=txt.match(/BASE\s+BID[\s:$]*\$?([\d,]+)/i);if(m)value=parseInt(m[1].replace(/,/g,''));}
+    // NOTES from exclusions
+    let notes='';
+    const exclIdx=allItems.findIndex(i=>/^Exclusions\s*:?$/i.test(i));
+    if(exclIdx>=0){
+      const excParts=[];
+      for(let k=1;k<=20;k++){
+        const v=(allItems[exclIdx+k]||'').trim();
+        if(!v||/^(Qualifications|Alternates|We\s+shall)/i.test(v))break;
+        excParts.push(v);
+      }
+      notes=excParts.join(' ').slice(0,250);
+    }
+    // Fill form
+    if(bidNum)document.getElementById('b-num').value=bidNum;
+    if(jobName)document.getElementById('b-job').value=jobName;
+    if(value)document.getElementById('b-val').value=value;
+    if(date)document.getElementById('b-date').value=date;
+    if(notes)document.getElementById('b-notes').value=notes;
     // Match GC
-    if(parsed.gcName){
+    if(gcName){
       const gcSel=document.getElementById('b-gc');
       const opts=Array.from(gcSel.options);
-      const match=opts.find(o=>o.text.toLowerCase().includes(parsed.gcName.toLowerCase().split(' ')[0].toLowerCase()));
+      const kw=gcName.toLowerCase().split(/\s+/)[0];
+      const match=opts.find(o=>o.text.toLowerCase().includes(kw));
       if(match){gcSel.value=match.value;onGCChange();}
-      // Match contact after GC loads
-      if(parsed.contactFirst||parsed.contactLast){
+      if(contactLast){
         setTimeout(()=>{
           const ctSel=document.getElementById('b-contact');
           const ctOpts=Array.from(ctSel.options);
-          const searchName=(parsed.contactLast||parsed.contactFirst||'').toLowerCase();
-          const ctMatch=ctOpts.find(o=>o.text.toLowerCase().includes(searchName));
+          const ctMatch=ctOpts.find(o=>o.text.toLowerCase().includes(contactLast.toLowerCase()));
           if(ctMatch)ctSel.value=ctMatch.value;
         },400);
       }
     }
-    // Attach PDF to bid
-    pendingPDFs.unshift({name:file.name,size:file.size,date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),dataUrl:'data:application/pdf;base64,'+b64});
+    // Attach PDF
+    const b64=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);});
+    pendingPDFs.unshift({name:file.name,size:file.size,date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),dataUrl:b64});
     renderPDFList();
-    spinner.textContent='✓ Fields filled from PDF — review and adjust';
+    const found=[bidNum&&'Bid #'+bidNum,gcName&&gcName.split(' ')[0],value&&'$'+value.toLocaleString(),date].filter(Boolean);
+    spinner.textContent='✓ '+(found.length?found.join(' · '):'Review fields');
     spinner.style.color='var(--green)';
-    setTimeout(()=>{spinner.className='parse-spinner';spinner.style.color='';},5000);
+    setTimeout(()=>{spinner.className='parse-spinner';spinner.style.color='';},6000);
   }catch(e){
-    console.error('PDF parse error:',e);
-    spinner.textContent='⚠ Could not parse PDF: '+e.message;
+    console.error('PDF parse:',e);
+    spinner.textContent='⚠ '+e.message;
     spinner.style.color='var(--red)';
     setTimeout(()=>{spinner.className='parse-spinner';spinner.style.color='';},4000);
-  }finally{
-    zone.style.pointerEvents='';
+  }finally{zone.style.pointerEvents='';}
+}
+
+
+// ── Phone formatter ──
+function fmtPhone(input){
+  let v=input.value.replace(/\D/g,'').slice(0,10);
+  if(v.length>=10)v='('+v.slice(0,3)+') '+v.slice(3,6)+'-'+v.slice(6);
+  else if(v.length>6)v='('+v.slice(0,3)+') '+v.slice(3,6)+'-'+v.slice(6);
+  else if(v.length>3)v='('+v.slice(0,3)+') '+v.slice(3);
+  else if(v.length>0)v='('+v;
+  input.value=v;
+}
+// ── Bid value formatter ──
+function formatBidValue(input){
+  const raw=input.value.replace(/[^0-9.]/g,'');
+  const num=parseFloat(raw);
+  if(!isNaN(num)&&num>0){
+    input.value=Math.round(num).toString();
+  } else {
+    input.value='0';
+  }
+}
+// ── Inline status update ──
+async function updateBidStatusInline(bidIdx,newStatus){
+  const b=DB.bids[bidIdx];
+  if(!b)return;
+  const oldStatus=b.status;
+  b.status=newStatus;
+  // Update row highlight
+  const container=document.querySelector('.tab-content-bids');
+  if(container){const m=DB.members.find(x=>x.id===NAV.memberId);const myBids=m?DB.bids.filter(b2=>b2.memberId===m.id):DB.bids;container.innerHTML=renderBidsTab(myBids,m);}
+  try{
+    await sbPatch('bids',b.id,{
+      num:b.num,member_id:b.memberId,gc_id:b.gcId,gc_name:b.gcName,
+      contact_id:b.contactId,contact_name:b.contactName,job:b.job,
+      value:b.value,date:b.date,follow_days:b.followDays,
+      decision:b.decision||null,status:newStatus,notes:b.notes,pdfs:b.pdfs||[]
+    });
+  }catch(e){
+    b.status=oldStatus;showErr(e);
+    const container2=document.querySelector('.tab-content-bids');
+    if(container2){const m=DB.members.find(x=>x.id===NAV.memberId);const myBids=m?DB.bids.filter(b2=>b2.memberId===m.id):DB.bids;container2.innerHTML=renderBidsTab(myBids,m);}
   }
 }
 
+function togglePDFMenu(btn,gi){
+  closePDFMenus();
+  const menu=document.getElementById('pdf-menu-'+gi);
+  if(menu)menu.style.display=menu.style.display==='none'?'block':'none';
+}
+function closePDFMenus(){
+  document.querySelectorAll('.pdf-menu').forEach(m=>m.style.display='none');
+}
+document.addEventListener('click',()=>closePDFMenus());
+
+// ── Drag & drop ordering ──
+let _dragSrc=null,_dragType=null;
+function initDrag(el,type){
+  el.setAttribute('draggable','true');
+  el.addEventListener('dragstart',e=>{
+    _dragSrc=el;_dragType=type;
+    setTimeout(()=>el.classList.add('dragging'),0);
+    e.dataTransfer.effectAllowed='move';
+  });
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');document.querySelectorAll('.drag-over-target').forEach(x=>x.classList.remove('drag-over-target'));});
+  el.addEventListener('dragover',e=>{e.preventDefault();if(_dragSrc!==el&&_dragType===type)el.classList.add('drag-over-target');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over-target'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault();el.classList.remove('drag-over-target');
+    if(!_dragSrc||_dragSrc===el||_dragType!==type)return;
+    if(type==='gc'){
+      const fromId=parseInt(_dragSrc.dataset.gcid);
+      const toId=parseInt(el.dataset.gcid);
+      const fi=DB.gcs.findIndex(g=>g.id===fromId);
+      const ti=DB.gcs.findIndex(g=>g.id===toId);
+      if(fi>=0&&ti>=0){const [item]=DB.gcs.splice(fi,1);DB.gcs.splice(ti,0,item);}
+      render();
+    } else if(type==='contact'){
+      const fromId=parseInt(_dragSrc.dataset.contactid);
+      const toId=parseInt(el.dataset.contactid);
+      const fi=DB.contacts.findIndex(c=>c.id===fromId);
+      const ti=DB.contacts.findIndex(c=>c.id===toId);
+      if(fi>=0&&ti>=0){const [item]=DB.contacts.splice(fi,1);DB.contacts.splice(ti,0,item);}
+      render();
+    }
+  });
+}
+function initAllDraggables(){
+  document.querySelectorAll('[data-gcid]').forEach(el=>initDrag(el,'gc'));
+  document.querySelectorAll('[data-contactid]').forEach(el=>initDrag(el,'contact'));
+}
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
 </script>
