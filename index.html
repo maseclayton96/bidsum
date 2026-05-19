@@ -783,6 +783,7 @@ let DB={members:[],gcs:[],contacts:[],teams:[],bids:[]};
 let NAV={screen:'home',memberId:null,gcId:null,memberTab:'bids',gcTab:'contacts'};
 let EDIT={memberIdx:null,gcIdx:null,contactIdx:null,bidIdx:null,teamIdx:null,memberForGC:null};
 let pendingPDFs=[];   // files staged in modal before save
+let CUSTOM_YEARS=[];  // user-added years that persist
 let currentBidPDFs=[];// already-saved PDFs for bid being edited
 
 // ═══════════════════════════════════════ NEON API ════════════════════════════════════
@@ -1087,8 +1088,18 @@ function renderBidsTab(bids,m){
   const gcSet=new Map();
   bids.forEach(b=>{const g=DB.gcs.find(x=>parseInt(x.id)===parseInt(b.gcId));if(g&&!gcSet.has(g.id))gcSet.set(g.id,g);});
   const gcOpts=[...gcSet.values()].map(g=>`<option value="${g.id}" ${cf===String(g.id)?'selected':''}>${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+  // Build year options — from bids + custom + always current±1
+  const thisYear=new Date().getFullYear();
+  const bidYears=new Set(bids.map(b=>b.date?b.date.slice(0,4):'').filter(y=>y&&y.length===4));
+  [thisYear-1,thisYear,thisYear+1].forEach(y=>bidYears.add(String(y)));
+  CUSTOM_YEARS.forEach(y=>bidYears.add(y));
+  const sortedYears=[...bidYears].sort((a,b2)=>parseInt(b2)-parseInt(a));
+  const defYear=String(thisYear);
+  const curYf=document.getElementById('bid-yf')?document.getElementById('bid-yf').value:(yf||defYear);
+  const yearOpts='<option value="">All years</option>'+sortedYears.map(y=>`<option value="${y}" ${(curYf||defYear)===y?'selected':''}>${y}</option>`).join('')+'<option value="__add__">+ Add year…</option>';
   const filterBar=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
     <input id="bid-tf" autocomplete="off" type="text" value="${tf.replace(/"/g,'&quot;')}" placeholder="Search bid #, job, GC…" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:13px;font-family:var(--font);color:var(--text);width:200px;outline:none;" oninput="reRenderBidsTab(${memberId})">
+    <select id="bid-yf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;font-weight:600;" onchange="onYearFilterChange(this,${memberId})">${yearOpts}</select>
     <select id="bid-sf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
       <option value="" ${!sf?'selected':''}>All statuses</option>
       <option ${sf==='Submitted'?'selected':''}>Submitted</option>
@@ -1107,18 +1118,6 @@ function renderBidsTab(bids,m){
       <option value="">ACI + Bonas</option>
       <option value="ACI" ${document.getElementById('bid-cmpf')&&document.getElementById('bid-cmpf').value==='ACI'?'selected':''}>ACI</option>
       <option value="Bonas" ${document.getElementById('bid-cmpf')&&document.getElementById('bid-cmpf').value==='Bonas'?'selected':''}>Bonas</option>
-    </select>
-    <select id="bid-yf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
-      ${(()=>{
-        const thisYear=new Date().getFullYear();
-        // Auto-detect years from existing bids
-        const bidYears=new Set(bids.map(b=>b.date?b.date.slice(0,4):'').filter(y=>y&&y.length===4));
-        // Always include last year, current year, next year
-        [thisYear-1,thisYear,thisYear+1].forEach(y=>bidYears.add(String(y)));
-        const sortedYears=[...bidYears].sort((a,b2)=>parseInt(b2)-parseInt(a));
-        const curYf=document.getElementById('bid-yf')?document.getElementById('bid-yf').value:'';
-        const defYear=String(thisYear);return'<option value="" '+(!curYf?'selected':'')+'>All years</option>'+sortedYears.map(y=>`<option value="${y}" ${(curYf||defYear)===y?'selected':''}>${y}</option>`).join('');
-      })()}
     </select>
     <span style="font-size:12px;color:var(--text3);">${filtered.length} bid${filtered.length!==1?'s':''}</span>
   </div>`;
@@ -2578,6 +2577,28 @@ function updateCardPreview(){
   if(grad){preview.style.background=grad;preview.style.color=txt||'#fff';}
   else if(bg){preview.style.background=bg;preview.style.color=txt||'#1B3F6E';}
   else{preview.style.background='var(--bg3)';preview.style.color='var(--text2)';}
+}
+
+function onYearFilterChange(sel,memberId){
+  if(sel.value==='__add__'){
+    const yr=prompt('Enter a year to add (e.g. 2028):');
+    if(yr&&/^\d{4}$/.test(yr.trim())){
+      CUSTOM_YEARS.push(yr.trim());
+      // Set it as the active filter
+      const yfEl=document.getElementById('bid-yf');
+      if(yfEl)yfEl._pendingYear=yr.trim();
+    } else {
+      sel.value=String(new Date().getFullYear());
+    }
+    reRenderBidsTab(memberId);
+    // After rerender, select the new year
+    setTimeout(()=>{
+      const yfEl=document.getElementById('bid-yf');
+      if(yfEl&&yfEl._pendingYear){yfEl.value=yfEl._pendingYear;yfEl._pendingYear=null;reRenderBidsTab(memberId);}
+    },50);
+    return;
+  }
+  reRenderBidsTab(memberId);
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 load();
