@@ -644,6 +644,12 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="fg"><label>Bid #</label><input id="b-num" oninput="autoSaveBid()" placeholder="" onfocus="if(this.value===this.defaultValue||this.placeholder)this.select()"></div>
         <div class="fg"><label>Assigned rep</label><select id="b-rep" onchange="onRepChange();autoSaveBid()"></select></div>
       </div>
+      <div class="fg" id="b-pm-row" style="display:none;">
+        <label>Project Manager <span style="color:var(--text3);font-weight:400;">(select to load GCs)</span></label>
+        <select id="b-pm-sel" onchange="onPMSelChange()">
+          <option value="">— select PM —</option>
+        </select>
+      </div>
       <div class="fg"><label>General contractor</label>
         <select id="b-gc" onchange="onGCChange();autoSaveBid()">
           <option value="">— select GC —</option>
@@ -884,7 +890,18 @@ function renderHome(){
 function memberCard(m){
   const ci=DB.members.indexOf(m);
   const col=MEMBER_COLORS[ci%MEMBER_COLORS.length];
-  const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
+  // For PMs: also include estimator bids done on their GCs
+  // For Estimators: show all bids they personally submitted
+  const pmGcIds=m.type==='PM'?new Set(DB.gcs.filter(g=>g.memberIds&&g.memberIds.map(Number).includes(parseInt(m.id))).map(g=>g.id)):new Set();
+  const myBids=DB.bids.filter(b=>{
+    if(parseInt(b.memberId)===parseInt(m.id))return true;
+    // PM sees estimator bids on their GCs
+    if(m.type==='PM'&&pmGcIds.has(parseInt(b.gcId))){
+      const bidMember=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+      return bidMember&&bidMember.type==='EST';
+    }
+    return false;
+  });
   const awarded=myBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC');
   const overdue=myBids.filter(b=>fuState(b).urgency===0).length;
   return`<div class="member-card" onclick="goMember(${m.id})">
@@ -950,28 +967,42 @@ function renderBidsTab(bids,m){
   if(mf)filtered=filtered.filter(b=>parseInt(b.memberId)===parseInt(mf));
   if(cf)filtered=filtered.filter(b=>parseInt(b.gcId)===parseInt(cf));
   if(tf)filtered=filtered.filter(b=>{
-    const gc=DB.gcs.find(g=>g.id===b.gcId)||{};
-    const ct=DB.contacts.find(c=>c.id===b.contactId)||{};
-    const mb=DB.members.find(x=>x.id===b.memberId)||{};
-    return[b.num,b.job,b.gcName,gc.name,gc.office,b.notes,ct.first,ct.last,mb.first,mb.last].join(' ').toLowerCase().includes(tf);
+    const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId))||{};
+    const ct=DB.contacts.find(c=>parseInt(c.id)===parseInt(b.contactId))||{};
+    const mb=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId))||{};
+    const bidNum=(b.num||'').toLowerCase();
+    const jobName=(b.job||'').toLowerCase();
+    const gcName=(gc.name||b.gcName||'').toLowerCase();
+    const gcOffice=(gc.office||'').toLowerCase();
+    const ctName=((ct.first||'')+' '+(ct.last||'')).toLowerCase();
+    const mbName=((mb.first||'')+' '+(mb.last||'')).toLowerCase();
+    const notes=(b.notes||'').toLowerCase();
+    // Bid number: starts-with match (310 matches 3100, 3101...)
+    if(bidNum.startsWith(tf))return true;
+    // Everything else: contains match
+    return[jobName,gcName,gcOffice,ctName,mbName,notes].some(s=>s.includes(tf));
   });
   filtered.sort((a,b2)=>{const na=parseInt(a.num)||0;const nb=parseInt(b2.num)||0;return na-nb;});
   const memberId=m?m.id:null;
-  const memberOpts=DB.members.map(x=>`<option value="${x.id}">${x.first} ${x.last}</option>`).join('');
+  const memberOpts=DB.members.map(x=>`<option value="${x.id}" ${mf===String(x.id)?'selected':''}>${x.first} ${x.last}</option>`).join('');
   const gcSet=new Map();
-  bids.forEach(b=>{const g=DB.gcs.find(x=>x.id===b.gcId);if(g&&!gcSet.has(g.id))gcSet.set(g.id,g);});
-  const gcOpts=[...gcSet.values()].map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+  bids.forEach(b=>{const g=DB.gcs.find(x=>parseInt(x.id)===parseInt(b.gcId));if(g&&!gcSet.has(g.id))gcSet.set(g.id,g);});
+  const gcOpts=[...gcSet.values()].map(g=>`<option value="${g.id}" ${cf===String(g.id)?'selected':''}>${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
   const filterBar=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
-    <input id="bid-tf" type="text" placeholder="Search…" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:13px;font-family:var(--font);color:var(--text);width:170px;outline:none;" oninput="reRenderBidsTab(${memberId})">
+    <input id="bid-tf" type="text" value="${tf.replace(/"/g,'&quot;')}" placeholder="Search bid #, job, GC…" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:13px;font-family:var(--font);color:var(--text);width:200px;outline:none;" oninput="reRenderBidsTab(${memberId})">
     <select id="bid-sf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
-      <option value="">All statuses</option>
-      <option>Submitted</option><option>Awarded to GC</option><option>Awarded</option><option>Lost</option><option>No-go</option>
+      <option value="" ${!sf?'selected':''}>All statuses</option>
+      <option ${sf==='Submitted'?'selected':''}>Submitted</option>
+      <option ${sf==='Awarded to GC'?'selected':''}>Awarded to GC</option>
+      <option ${sf==='Awarded'?'selected':''}>Awarded</option>
+      <option ${sf==='Lost'?'selected':''}>Lost</option>
+      <option ${sf==='No-go'?'selected':''}>No-go</option>
     </select>
     <select id="bid-mf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
-      <option value="">All Est / PM</option>${memberOpts}
+      <option value="" ${!mf?'selected':''}>All Est / PM</option>${memberOpts}
     </select>
     <select id="bid-cf" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="reRenderBidsTab(${memberId})">
-      <option value="">All Clients</option>${gcOpts}
+      <option value="" ${!cf?'selected':''}>All Clients</option>${gcOpts}
     </select>
     <span style="font-size:12px;color:var(--text3);">${filtered.length} bid${filtered.length!==1?'s':''}</span>
   </div>`;
@@ -1000,7 +1031,21 @@ function renderBidsTab(bids,m){
     return`<tr class="${rcls}" style="cursor:pointer;">
       <td onclick="openBidEdit(${gi})" style="font-size:12px;color:var(--text2);white-space:nowrap;">${fmtDate(b.date)}</td>
       <td onclick="openBidEdit(${gi})"><span class="bid-num">${b.num||'—'}</span></td>
-      <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mb?mb.first+' '+mb.last:'—'}</td>
+      <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(()=>{
+        if(!mb)return'—';
+        // If viewing a PM page and bid rep is an estimator, show estimator name
+        // If viewing an estimator page, find the PM via GC
+        const viewer=m?m:null;
+        if(viewer&&viewer.type==='PM'&&mb.type==='EST'){
+          return'<span title="Estimator">✏️ '+mb.first+' '+mb.last+'</span>';
+        } else if(viewer&&viewer.type==='EST'){
+          const bidGC=b.gcId?DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId)):null;
+          const pmId=bidGC&&bidGC.memberIds&&bidGC.memberIds.length?bidGC.memberIds[0]:null;
+          const pm=pmId?DB.members.find(x=>parseInt(x.id)===parseInt(pmId)):null;
+          if(pm&&parseInt(pm.id)!==parseInt(mb.id))return'<span title="PM">👤 '+pm.first+' '+pm.last+'</span>';
+        }
+        return mb.first+' '+mb.last;
+      })()}</td>
       <td onclick="openBidEdit(${gi})" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${b.job||'—'}</td>
       <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gcLabel}</td>
       <td onclick="event.stopPropagation();" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ct?`<span style="color:var(--blue);cursor:pointer;font-size:12px;text-decoration:underline;text-underline-offset:2px;" onclick="showContactPopup(${DB.contacts.indexOf(ct)})">${ct.first} ${ct.last}</span>`:b.contactName||'—'}</td>
@@ -1301,7 +1346,21 @@ function renderGCBids(gc,bids){
       <td onclick="event.stopPropagation();" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
         ${ct?`<span style="color:var(--blue);cursor:pointer;font-size:12px;text-decoration:underline;text-underline-offset:2px;" onclick="showContactPopup(${DB.contacts.indexOf(ct)})">${ct.first} ${ct.last}</span>`:b.contactName||'—'}
       </td>
-      <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mb?mb.first+' '+mb.last:'—'}</td>
+      <td onclick="openBidEdit(${gi})" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(()=>{
+        if(!mb)return'—';
+        // If viewing a PM page and bid rep is an estimator, show estimator name
+        // If viewing an estimator page, find the PM via GC
+        const viewer=m?m:null;
+        if(viewer&&viewer.type==='PM'&&mb.type==='EST'){
+          return'<span title="Estimator">✏️ '+mb.first+' '+mb.last+'</span>';
+        } else if(viewer&&viewer.type==='EST'){
+          const bidGC=b.gcId?DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId)):null;
+          const pmId=bidGC&&bidGC.memberIds&&bidGC.memberIds.length?bidGC.memberIds[0]:null;
+          const pm=pmId?DB.members.find(x=>parseInt(x.id)===parseInt(pmId)):null;
+          if(pm&&parseInt(pm.id)!==parseInt(mb.id))return'<span title="PM">👤 '+pm.first+' '+pm.last+'</span>';
+        }
+        return mb.first+' '+mb.last;
+      })()}</td>
       <td onclick="event.stopPropagation();">
         <select class="inline-status-sel status-${statusKey}" onchange="updateBidStatusInline(${gi},this.value)">
           <option ${b.status==='Submitted'?'selected':''}>Submitted</option>
@@ -1618,7 +1677,18 @@ function openBidModal(){
   document.getElementById('b-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('b-followdays').value='7';
   document.getElementById('b-status').value='Submitted';
+  document.getElementById('b-pm-row').style.display='none';
+  document.getElementById('b-pm-sel').value='';
   populateBidRepSelect(NAV.memberId);
+  // If current member is estimator, auto-show PM selector
+  const curMember=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
+  if(curMember&&curMember.type==='EST'){
+    const pmRow=document.getElementById('b-pm-row');
+    const pmSel=document.getElementById('b-pm-sel');
+    pmRow.style.display='block';
+    const pms=DB.members.filter(x=>x.type==='PM');
+    pmSel.innerHTML='<option value="">— select PM —</option>'+pms.map(p=>`<option value="${p.id}">${p.first} ${p.last}</option>`).join('');
+  }
   renderPDFList();
   openModal('bid');
 }
@@ -1629,6 +1699,22 @@ function openBidEdit(idx){
   document.getElementById('btn-delete-bid').style.display='block';
   document.getElementById('b-num').value=b.num||'';
   document.getElementById('b-job').value=b.job||'';
+  // Restore PM selector if this is an estimator bid
+  const bidMember=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
+  const pmRowEl=document.getElementById('b-pm-row');
+  if(bidMember&&bidMember.type==='EST'){
+    pmRowEl.style.display='block';
+    const pms=DB.members.filter(x=>x.type==='PM');
+    const pmSel=document.getElementById('b-pm-sel');
+    pmSel.innerHTML='<option value="">— select PM —</option>'+pms.map(p=>`<option value="${p.id}">${p.first} ${p.last}</option>`).join('');
+    // Find PM via GC association
+    if(b.gcId){
+      const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId));
+      if(gc&&gc.memberIds&&gc.memberIds.length){pmSel.value=gc.memberIds[0];}
+    }
+  } else {
+    pmRowEl.style.display='none';
+  }
   document.getElementById('b-val').value=b.value||'';
   document.getElementById('b-date').value=b.date||'';
   document.getElementById('b-followdays').value=b.followDays||7;
@@ -1653,7 +1739,26 @@ function populateBidRepSelect(selectedId){
 function onRepChange(){
   const repId=parseInt(document.getElementById('b-rep').value);
   document.getElementById('b-num').value=nextBidNum(repId);
-  populateBidGCSelect(repId);
+  const m=DB.members.find(x=>parseInt(x.id)===repId);
+  const pmRow=document.getElementById('b-pm-row');
+  const pmSel=document.getElementById('b-pm-sel');
+  if(m&&m.type==='EST'){
+    // Show PM selector — estimator needs to pick a PM to see that PM's GCs
+    pmRow.style.display='block';
+    const pms=DB.members.filter(x=>x.type==='PM');
+    pmSel.innerHTML='<option value="">— select PM —</option>'+pms.map(p=>`<option value="${p.id}">${p.first} ${p.last}</option>`).join('');
+    pmSel.value='';
+    document.getElementById('b-gc').innerHTML='<option value="">— select PM first —</option>';
+  } else {
+    pmRow.style.display='none';
+    populateBidGCSelect(repId);
+  }
+  document.getElementById('b-contact').innerHTML='<option value="">— select GC first —</option>';
+}
+function onPMSelChange(){
+  const pmId=parseInt(document.getElementById('b-pm-sel').value);
+  if(pmId)populateBidGCSelect(pmId);
+  else document.getElementById('b-gc').innerHTML='<option value="">— select PM first —</option>';
   document.getElementById('b-contact').innerHTML='<option value="">— select GC first —</option>';
 }
 function populateBidGCSelect(memberId,selectedGcId){
