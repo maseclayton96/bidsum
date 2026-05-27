@@ -449,6 +449,46 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;display:flex;align-items:center;justify-content:center;font-size:12px;}
 .color-swatch:hover{transform:scale(1.15);}
 .color-swatch.selected{border-color:var(--text)!important;transform:scale(1.1);}
+
+/* ── AUTH ── */
+.auth-overlay{position:fixed;inset:0;background:var(--text);z-index:1000;display:flex;align-items:center;justify-content:center;}
+.auth-box{background:var(--bg2);border-radius:var(--rxl);padding:40px;width:380px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.auth-logo{font-size:28px;font-weight:800;color:var(--text);letter-spacing:-1px;margin-bottom:4px;}
+.auth-logo span{color:var(--text3);}
+.auth-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
+.auth-label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px;}
+.auth-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;margin-bottom:14px;transition:border-color .15s;letter-spacing:.15em;}
+.auth-input:focus{border-color:var(--border2);}
+.auth-btn{width:100%;background:var(--text);border:none;color:#fff;padding:12px;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:4px;transition:opacity .15s;}
+.auth-btn:hover{opacity:.85;}
+.auth-error{background:var(--red-bg);border:1px solid #F3BFBF;color:var(--red);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+.auth-remember{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text2);cursor:pointer;}
+.auth-remember input{cursor:pointer;accent-color:var(--text);}
+.auth-user-select{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto;}
+.auth-user-btn{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s;text-align:left;}
+.auth-user-btn:hover{background:var(--bg3);border-color:var(--border2);}
+.auth-user-btn.inactive{opacity:.45;cursor:not-allowed;}
+.auth-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.auth-user-name{font-size:13px;font-weight:600;}
+.auth-user-role{font-size:11px;color:var(--text3);}
+.auth-back{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font);margin-top:10px;padding:0;}
+.auth-back:hover{color:var(--text);}
+/* Manager panel */
+.mgr-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow);}
+.mgr-panel-title{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.mgr-user-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.mgr-user-row:last-child{border-bottom:none;}
+.mgr-user-info{flex:1;}
+.mgr-user-name{font-size:13px;font-weight:600;}
+.mgr-user-meta{font-size:11px;color:var(--text3);}
+.mgr-actions{display:flex;gap:6px;flex-shrink:0;}
+.badge-manager{background:#1B3F6E18;color:#1B3F6E;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.badge-employee{background:var(--bg3);color:var(--text3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.badge-inactive{background:var(--red-bg);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+/* PIN change modal */
+.pin-dots{display:flex;gap:8px;justify-content:center;margin:16px 0;}
+.pin-dot{width:12px;height:12px;border-radius:50%;background:var(--border2);transition:background .15s;}
+.pin-dot.filled{background:var(--text);}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -462,6 +502,68 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 </nav>
 
 <div class="page" id="app"></div>
+
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay" class="auth-overlay">
+  <div class="auth-box">
+    <!-- Step 1: Select user -->
+    <div id="auth-step-select">
+      <div class="auth-logo">Bid<span>Sum</span></div>
+      <div class="auth-sub">Select your profile to continue</div>
+      <div class="auth-user-select" id="auth-user-list">
+        <div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">Loading...</div>
+      </div>
+    </div>
+    <!-- Step 2: Enter PIN -->
+    <div id="auth-step-pin" style="display:none;">
+      <div class="auth-logo">Bid<span>Sum</span></div>
+      <div class="auth-sub" id="auth-pin-sub">Enter your PIN</div>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <input id="auth-pin-input" class="auth-input" type="password" maxlength="6" placeholder="Enter PIN" autocomplete="off" oninput="onPinInput()" onkeydown="if(event.key==='Enter')submitPin()">
+      <label class="auth-remember"><input type="checkbox" id="auth-remember" checked> Remember me for 30 days</label>
+      <button class="auth-btn" onclick="submitPin()">Sign in</button>
+      <div style="text-align:center;"><button class="auth-back" onclick="backToSelect()">← Back</button></div>
+    </div>
+    <!-- Step 3: First time setup (no PIN set) -->
+    <div id="auth-step-setup" style="display:none;">
+      <div class="auth-logo">Bid<span>Sum</span></div>
+      <div class="auth-sub">Set up your PIN (first time)</div>
+      <div class="auth-error" id="auth-setup-error"></div>
+      <input id="auth-new-pin" class="auth-input" type="password" maxlength="6" placeholder="Choose a 4-6 digit PIN" autocomplete="new-password" oninput="syncPinDots('auth-new-pin','setup-dots')">
+      <div class="pin-dots" id="setup-dots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
+      <input id="auth-confirm-pin" class="auth-input" type="password" maxlength="6" placeholder="Confirm PIN" autocomplete="new-password" style="margin-top:8px;">
+      <label class="auth-remember"><input type="checkbox" id="auth-remember-setup" checked> Remember me for 30 days</label>
+      <button class="auth-btn" onclick="submitSetupPin()">Set PIN & Sign in</button>
+      <div style="text-align:center;"><button class="auth-back" onclick="backToSelect()">← Back</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- PIN CHANGE MODAL -->
+<div class="modal-overlay" id="modal-pin">
+  <div class="modal" style="width:380px;">
+    <div class="modal-head">
+      <div class="modal-title" id="pin-modal-title">Change PIN</div>
+      <div class="modal-close" onclick="closeModal('pin')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="pin-current-row" class="fg"><label>Current PIN</label><input id="pin-current" type="password" maxlength="6" class="auth-input" placeholder="Current PIN" autocomplete="off"></div>
+      <div class="fg"><label>New PIN (4-6 digits)</label><input id="pin-new" type="password" maxlength="6" class="auth-input" placeholder="New PIN" autocomplete="new-password"></div>
+      <div class="fg"><label>Confirm new PIN</label><input id="pin-confirm" type="password" maxlength="6" class="auth-input" placeholder="Confirm PIN" autocomplete="new-password"></div>
+      <div id="pin-error" style="color:var(--red);font-size:12px;display:none;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('pin')">Cancel</button>
+      <button class="btn-primary" onclick="savePinChange()">Save PIN</button>
+    </div>
+  </div>
+</div>
 
 <!-- MEMBER MODAL -->
 <div class="modal-overlay" id="modal-member" autocomplete="off">
@@ -802,7 +904,7 @@ function showLoader(msg){
 function hideLoader(){const el=document.getElementById('sb-loader');if(el)el.style.display='none';}
 
 // map Supabase snake_case to our camelCase DB shape
-function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||''};}
+function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||'',pinHash:r.pin_hash||'',pinToken:r.pin_token||'',role:r.role||'employee',active:r.active!==false,lastLogin:r.last_login||''};}
 function mapGC(r){return{id:parseInt(r.id),name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:(r.member_ids||[]).map(Number)};}
 function mapTeam(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),name:r.name};}
 function mapContact(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
@@ -846,14 +948,18 @@ function render(){
   if(NAV.screen==='home')renderHome();
   else if(NAV.screen==='member')renderMember();
   else if(NAV.screen==='gc')renderGCScreen();
+  else if(NAV.screen==='manager')renderManagerScreen();
   setTimeout(initAllDraggables,50);
+  renderCurrentUserNav();
 }
 
 function renderNav(){
   const bc=document.getElementById('breadcrumb');
   const na=document.getElementById('nav-actions');
   bc.innerHTML='';na.innerHTML='';
-  if(NAV.screen==='home'){
+  if(NAV.screen==='manager'){
+    bc.innerHTML=`<span class="bc-item" onclick="goHome()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Admin Panel</span>`;
+  } else if(NAV.screen==='home'){
     na.innerHTML=`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>`;
   } else if(NAV.screen==='member'){
     const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
@@ -2616,8 +2722,348 @@ function memberAvatarStyle(m){
   if(grad)return`background:${grad};color:#fff;`;
   return`background:${bg};color:${txt};`;
 }
+
+// ═══════════════════════════════════════ AUTH ════════════════════════════════════════
+let SESSION={user:null}; // {id, first, last, type, role, initials, ...}
+let AUTH_SELECTED=null;  // member selected on login screen
+
+// Simple hash (not cryptographic — for PIN obfuscation only)
+async function hashPin(pin){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('bidsum-salt-'+pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function getRememberToken(){
+  try{return localStorage.getItem('bidsum-token');}catch(e){return null;}
+}
+function setRememberToken(memberId,token){
+  try{
+    localStorage.setItem('bidsum-token',token);
+    localStorage.setItem('bidsum-token-id',String(memberId));
+    localStorage.setItem('bidsum-token-exp',String(Date.now()+30*24*60*60*1000));
+  }catch(e){}
+}
+function clearRememberToken(){
+  try{localStorage.removeItem('bidsum-token');localStorage.removeItem('bidsum-token-id');localStorage.removeItem('bidsum-token-exp');}catch(e){}
+}
+function getStoredTokenUser(){
+  try{
+    const exp=parseInt(localStorage.getItem('bidsum-token-exp')||'0');
+    if(Date.now()>exp)return null;
+    const id=localStorage.getItem('bidsum-token-id');
+    const tok=localStorage.getItem('bidsum-token');
+    return id&&tok?{id:parseInt(id),token:tok}:null;
+  }catch(e){return null;}
+}
+
+async function initAuth(){
+  // Check remember me token first
+  const stored=getStoredTokenUser();
+  if(stored){
+    // Verify token against DB
+    await loadMembersForAuth();
+    const m=DB.members.find(x=>parseInt(x.id)===stored.id);
+    if(m&&m.active!==false&&m.pinToken===stored.token){
+      SESSION.user=m;
+      document.getElementById('auth-overlay').style.display='none';
+      finishLoad();
+      return;
+    }
+    clearRememberToken();
+  }
+  // Show login screen
+  await loadMembersForAuth();
+  renderAuthUserList();
+}
+
+async function loadMembersForAuth(){
+  try{
+    const rows=await sbGet('members');
+    DB.members=rows.map(mapMember);
+  }catch(e){console.error('Auth load error:',e);}
+}
+
+function renderAuthUserList(){
+  const list=document.getElementById('auth-user-list');
+  const activeMembers=DB.members.filter(m=>m.active!==false);
+  if(!activeMembers.length){
+    list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">No users set up yet.<br>Contact your manager.</div>';
+    return;
+  }
+  list.innerHTML=activeMembers.map(m=>{
+    const style=memberAvatarStyle(m);
+    const ini=m.initials||(m.first[0]+m.last[0]).toUpperCase();
+    const roleLabel=m.role==='manager'?'Manager':m.type==='PM'?'Project Manager':'Estimator';
+    return`<button class="auth-user-btn" onclick="selectAuthUser(${m.id})">
+      <div class="auth-avatar" style="${style}">${ini}</div>
+      <div><div class="auth-user-name">${m.first} ${m.last}</div><div class="auth-user-role">${roleLabel}</div></div>
+    </button>`;
+  }).join('');
+}
+
+function selectAuthUser(id){
+  AUTH_SELECTED=DB.members.find(x=>parseInt(x.id)===id);
+  if(!AUTH_SELECTED)return;
+  document.getElementById('auth-step-select').style.display='none';
+  // First time — no PIN set
+  if(!AUTH_SELECTED.pinHash){
+    document.getElementById('auth-step-setup').style.display='block';
+    document.getElementById('auth-new-pin').value='';
+    document.getElementById('auth-confirm-pin').value='';
+    document.getElementById('auth-setup-error').style.display='none';
+    setTimeout(()=>document.getElementById('auth-new-pin').focus(),50);
+    return;
+  }
+  document.getElementById('auth-step-pin').style.display='block';
+  document.getElementById('auth-pin-sub').textContent='Hi '+AUTH_SELECTED.first+'! Enter your PIN';
+  document.getElementById('auth-pin-input').value='';
+  document.getElementById('auth-error').style.display='none';
+  syncPinDots('auth-pin-input','pin-dots');
+  setTimeout(()=>document.getElementById('auth-pin-input').focus(),50);
+}
+
+function backToSelect(){
+  AUTH_SELECTED=null;
+  document.getElementById('auth-step-pin').style.display='none';
+  document.getElementById('auth-step-setup').style.display='none';
+  document.getElementById('auth-step-select').style.display='block';
+}
+
+function onPinInput(){
+  syncPinDots('auth-pin-input','pin-dots');
+  if(document.getElementById('auth-pin-input').value.length>=4)submitPin();
+}
+function syncPinDots(inputId,dotsId){
+  const val=document.getElementById(inputId).value;
+  const dots=document.getElementById(dotsId);
+  if(!dots)return;
+  dots.querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<val.length));
+}
+
+async function submitPin(){
+  const pin=document.getElementById('auth-pin-input').value;
+  if(pin.length<4){showAuthError('PIN must be at least 4 digits');return;}
+  const hashed=await hashPin(pin);
+  if(hashed!==AUTH_SELECTED.pinHash){
+    showAuthError('Incorrect PIN. Try again.');
+    document.getElementById('auth-pin-input').value='';
+    syncPinDots('auth-pin-input','pin-dots');
+    return;
+  }
+  await completeLogin(document.getElementById('auth-remember').checked);
+}
+
+async function submitSetupPin(){
+  const pin=document.getElementById('auth-new-pin').value;
+  const confirm=document.getElementById('auth-confirm-pin').value;
+  const err=document.getElementById('auth-setup-error');
+  if(pin.length<4){err.textContent='PIN must be at least 4 digits';err.style.display='block';return;}
+  if(pin!==confirm){err.textContent='PINs do not match';err.style.display='block';return;}
+  const hashed=await hashPin(pin);
+  // Save PIN to DB
+  try{
+    const token=crypto.randomUUID();
+    await sbPatch('members',AUTH_SELECTED.id,{
+      ...memberToBody(AUTH_SELECTED),
+      pin_hash:hashed,
+      pin_token:token,
+      last_login:new Date().toISOString()
+    });
+    AUTH_SELECTED.pinHash=hashed;
+    AUTH_SELECTED.pinToken=token;
+    if(document.getElementById('auth-remember-setup').checked)setRememberToken(AUTH_SELECTED.id,token);
+    SESSION.user=AUTH_SELECTED;
+    document.getElementById('auth-overlay').style.display='none';
+    finishLoad();
+  }catch(e){err.textContent='Error saving PIN: '+e.message;err.style.display='block';}
+}
+
+async function completeLogin(remember){
+  const token=crypto.randomUUID();
+  try{
+    await sbPatch('members',AUTH_SELECTED.id,{
+      ...memberToBody(AUTH_SELECTED),
+      pin_token:token,
+      last_login:new Date().toISOString()
+    });
+    AUTH_SELECTED.pinToken=token;
+  }catch(e){console.error('Token save error:',e);}
+  if(remember)setRememberToken(AUTH_SELECTED.id,token);
+  SESSION.user=AUTH_SELECTED;
+  document.getElementById('auth-overlay').style.display='none';
+  finishLoad();
+}
+
+function memberToBody(m){
+  return{
+    first:m.first,last:m.last,type:m.type,title:m.title||'',
+    series:m.series||'',email:m.email||'',phone:m.phone||'',
+    initials:m.initials||'',card_bg:m.cardBg||'',
+    card_txt:m.cardTxt||'',card_gradient:m.cardGradient||'',
+    role:m.role||'employee',active:m.active!==false
+  };
+}
+
+function showAuthError(msg){
+  const el=document.getElementById('auth-error');
+  el.textContent=msg;el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+async function finishLoad(){
+  // Load full DB then render
+  showLoader();
+  try{
+    const[members,gcs,teams,contacts,bids]=await Promise.all([
+      sbGet('members'),sbGet('gcs'),sbGet('teams'),sbGet('contacts'),sbGet('bids'),
+    ]);
+    DB.members=members.map(mapMember);
+    DB.gcs=gcs.map(mapGC);DB.teams=teams.map(mapTeam);
+    DB.contacts=contacts.map(mapContact);DB.bids=bids.map(mapBid);
+    // Re-sync SESSION.user with fresh data
+    SESSION.user=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id))||SESSION.user;
+  }catch(e){console.error('Load error',e);}
+  finally{hideLoader();}
+  render();
+  renderCurrentUserNav();
+}
+
+function renderCurrentUserNav(){
+  // Add current user + logout to nav
+  const na=document.getElementById('nav-actions');
+  if(!na||!SESSION.user)return;
+  const u=SESSION.user;
+  const isManager=u.role==='manager';
+  const existing=document.getElementById('nav-user-pill');
+  if(existing)existing.remove();
+  const pill=document.createElement('div');
+  pill.id='nav-user-pill';
+  pill.style.cssText='display:flex;align-items:center;gap:8px;margin-left:8px;';
+  pill.innerHTML=`
+    <div style="${memberAvatarStyle(u)}width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${u.initials||(u.first[0]+u.last[0]).toUpperCase()}</div>
+    <span style="color:rgba(255,255,255,.7);font-size:12px;">${u.first}</span>
+    ${isManager?`<button class="btn-nav" onclick="openManagerPanel()" style="font-size:11px;">⚙ Admin</button>`:''}
+    <button class="btn-nav" onclick="openChangePinModal()" style="font-size:11px;">🔑 PIN</button>
+    <button class="btn-nav" onclick="logout()" style="font-size:11px;">Sign out</button>
+  `;
+  na.appendChild(pill);
+}
+
+function logout(){
+  clearRememberToken();
+  SESSION.user=null;
+  document.getElementById('auth-overlay').style.display='flex';
+  document.getElementById('auth-step-pin').style.display='none';
+  document.getElementById('auth-step-setup').style.display='none';
+  document.getElementById('auth-step-select').style.display='block';
+  renderAuthUserList();
+  const pill=document.getElementById('nav-user-pill');
+  if(pill)pill.remove();
+}
+
+// ── PIN change ──
+function openChangePinModal(){
+  document.getElementById('pin-current-row').style.display=SESSION.user.pinHash?'block':'none';
+  document.getElementById('pin-modal-title').textContent='Change my PIN';
+  ['pin-current','pin-new','pin-confirm'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pin-error').style.display='none';
+  openModal('pin');
+}
+async function savePinChange(){
+  const cur=document.getElementById('pin-current').value;
+  const nw=document.getElementById('pin-new').value;
+  const conf=document.getElementById('pin-confirm').value;
+  const errEl=document.getElementById('pin-error');
+  if(SESSION.user.pinHash){
+    const curHash=await hashPin(cur);
+    if(curHash!==SESSION.user.pinHash){errEl.textContent='Current PIN is incorrect';errEl.style.display='block';return;}
+  }
+  if(nw.length<4){errEl.textContent='New PIN must be at least 4 digits';errEl.style.display='block';return;}
+  if(nw!==conf){errEl.textContent='PINs do not match';errEl.style.display='block';return;}
+  const hashed=await hashPin(nw);
+  try{
+    await sbPatch('members',SESSION.user.id,{...memberToBody(SESSION.user),pin_hash:hashed});
+    SESSION.user.pinHash=hashed;
+    const m=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id));
+    if(m)m.pinHash=hashed;
+    closeModal('pin');
+    showSaved('✓ PIN updated');
+  }catch(e){errEl.textContent='Error: '+e.message;errEl.style.display='block';}
+}
+
+// ── Manager panel ──
+function openManagerPanel(){
+  if(!SESSION.user||SESSION.user.role!=='manager'){alert('Manager access only.');return;}
+  NAV.screen='manager';render();
+}
+
+function renderManagerScreen(){
+  document.getElementById('app').innerHTML=`
+    <div class="mgr-panel">
+      <div class="mgr-panel-title">⚙️ Team Access Management</div>
+      <div id="mgr-user-list">${renderMgrUserList()}</div>
+    </div>`;
+}
+
+function renderMgrUserList(){
+  return DB.members.map(m=>{
+    const style=memberAvatarStyle(m);
+    const ini=m.initials||(m.first[0]+m.last[0]).toUpperCase();
+    const isActive=m.active!==false;
+    const roleLabel=m.role==='manager'?'<span class="badge-manager">Manager</span>':'<span class="badge-employee">Employee</span>';
+    const statusLabel=!isActive?'<span class="badge-inactive">Inactive</span>':'';
+    const lastLogin=m.lastLogin?new Date(m.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+    const isSelf=parseInt(m.id)===parseInt(SESSION.user.id);
+    return`<div class="mgr-user-row">
+      <div class="auth-avatar" style="${style}">${ini}</div>
+      <div class="mgr-user-info">
+        <div class="mgr-user-name">${m.first} ${m.last} ${roleLabel} ${statusLabel}</div>
+        <div class="mgr-user-meta">${m.email||'No email'} · Last login: ${lastLogin}</div>
+      </div>
+      <div class="mgr-actions">
+        ${!isSelf?`<button class="btn-sm" onclick="mgrToggleRole(${m.id})">${m.role==='manager'?'→ Employee':'→ Manager'}</button>`:''}
+        <button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>
+        ${!isSelf?`<button class="btn-sm" style="${!isActive?'background:var(--green-bg);color:var(--green);':''}" onclick="mgrToggleActive(${m.id})">${isActive?'Deactivate':'Reactivate'}</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function mgrToggleRole(id){
+  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
+  const newRole=m.role==='manager'?'employee':'manager';
+  if(!confirm(`Change ${m.first} ${m.last} to ${newRole}?`))return;
+  try{
+    await sbPatch('members',id,{...memberToBody(m),role:newRole});
+    m.role=newRole;
+    document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
+  }catch(e){alert('Error: '+e.message);}
+}
+
+async function mgrResetPin(id){
+  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
+  if(!confirm(`Reset PIN for ${m.first} ${m.last}? They will set a new PIN on next login.`))return;
+  try{
+    await sbPatch('members',id,{...memberToBody(m),pin_hash:null,pin_token:null});
+    m.pinHash='';m.pinToken='';
+    alert(`PIN reset for ${m.first} ${m.last}. They will set a new PIN on next login.`);
+    document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
+  }catch(e){alert('Error: '+e.message);}
+}
+
+async function mgrToggleActive(id){
+  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
+  const newActive=m.active===false;
+  const action=newActive?'reactivate':'deactivate';
+  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} ${m.first} ${m.last}? ${!newActive?'They will not be able to log in.':''}`))return;
+  try{
+    await sbPatch('members',id,{...memberToBody(m),active:newActive});
+    m.active=newActive;
+    document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
+  }catch(e){alert('Error: '+e.message);}
+}
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
-load();
+initAuth();
 </script>
 </body>
 </html>
