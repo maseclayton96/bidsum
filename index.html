@@ -530,6 +530,27 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <button class="auth-btn" onclick="submitPin()">Sign in</button>
       <div style="text-align:center;"><button class="auth-back" onclick="backToSelect()">← Back</button></div>
     </div>
+    <!-- Step 4: First user bootstrap -->
+    <div id="auth-step-first" style="display:none;">
+      <div class="auth-logo">Bid<span>Sum</span></div>
+      <div class="auth-sub">Create your account</div>
+      <div class="auth-error" id="auth-first-error"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="flex:1;"><label class="auth-label">First name</label><input id="first-fname" class="auth-input" placeholder="First" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
+        <div style="flex:1;"><label class="auth-label">Last name</label><input id="first-lname" class="auth-input" placeholder="Last" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
+      </div>
+      <div style="margin-bottom:14px;"><label class="auth-label">Role</label>
+        <select id="first-type" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;">
+          <option value="PM">Project Manager</option>
+          <option value="EST">Estimator</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;"><label class="auth-label">Email</label><input id="first-email" class="auth-input" type="email" placeholder="you@company.com" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
+      <div style="margin-bottom:14px;"><label class="auth-label">PIN (4-6 digits)</label><input id="first-pin" class="auth-input" type="password" maxlength="6" placeholder="Choose a PIN" autocomplete="new-password" style="margin-bottom:0;"></div>
+      <div style="margin-bottom:14px;"><label class="auth-label">Confirm PIN</label><input id="first-pin2" class="auth-input" type="password" maxlength="6" placeholder="Confirm PIN" autocomplete="new-password" style="margin-bottom:0;"></div>
+      <label class="auth-remember" style="margin-bottom:16px;"><input type="checkbox" id="first-remember" checked> Remember me for 30 days</label>
+      <button class="auth-btn" onclick="submitFirstUser()">Create Account & Sign In</button>
+    </div>
     <!-- Step 3: First time setup (no PIN set) -->
     <div id="auth-step-setup" style="display:none;">
       <div class="auth-logo">Bid<span>Sum</span></div>
@@ -2787,7 +2808,12 @@ function renderAuthUserList(){
   const list=document.getElementById('auth-user-list');
   const activeMembers=DB.members.filter(m=>m.active!==false);
   if(!activeMembers.length){
-    list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">No users set up yet.<br>Contact your manager.</div>';
+    list.innerHTML=`<div style="text-align:center;padding:24px 16px;">
+      <div style="font-size:32px;margin-bottom:10px;">👋</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Welcome to BidSum</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">No accounts exist yet. Create the first account to get started.</div>
+      <button class="auth-btn" onclick="showFirstUserSetup()" style="width:auto;padding:10px 24px;">Create First Account</button>
+    </div>`;
     return;
   }
   list.innerHTML=activeMembers.map(m=>{
