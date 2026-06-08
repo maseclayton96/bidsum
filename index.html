@@ -3088,6 +3088,44 @@ async function mgrToggleActive(id){
     document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
   }catch(e){alert('Error: '+e.message);}
 }
+
+function showFirstUserSetup(){
+  document.getElementById('auth-step-select').style.display='none';
+  document.getElementById('auth-step-first').style.display='block';
+  setTimeout(()=>document.getElementById('first-fname').focus(),50);
+}
+
+async function submitFirstUser(){
+  const first=document.getElementById('first-fname').value.trim();
+  const last=document.getElementById('first-lname').value.trim();
+  const type=document.getElementById('first-type').value;
+  const email=document.getElementById('first-email').value.trim();
+  const pin=document.getElementById('first-pin').value;
+  const pin2=document.getElementById('first-pin2').value;
+  const err=document.getElementById('auth-first-error');
+  err.style.display='none';
+  if(!first||!last){err.textContent='First and last name required';err.style.display='block';return;}
+  if(pin.length<4){err.textContent='PIN must be at least 4 digits';err.style.display='block';return;}
+  if(pin!==pin2){err.textContent='PINs do not match';err.style.display='block';return;}
+  const hashed=await hashPin(pin);
+  const token=crypto.randomUUID();
+  const initials_val=(first[0]+last[0]).toUpperCase();
+  try{
+    const row=await sbPost('members',{
+      first,last,type,title:'',series:'',email,phone:'',
+      initials:initials_val,card_bg:'',card_txt:'',card_gradient:'',
+      role:'manager',active:true,
+      pin_hash:hashed,pin_token:token,
+      last_login:new Date().toISOString()
+    });
+    const newMember=mapMember(row);
+    DB.members.push(newMember);
+    if(document.getElementById('first-remember').checked)setRememberToken(newMember.id,token);
+    SESSION.user=newMember;
+    document.getElementById('auth-overlay').style.display='none';
+    finishLoad();
+  }catch(e){err.textContent='Error: '+e.message;err.style.display='block';}
+}
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
 </script>
