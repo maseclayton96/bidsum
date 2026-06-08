@@ -527,6 +527,8 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
   .pl-grid{grid-template-columns:1fr 1fr;}
   .landing-modules{grid-template-columns:repeat(2,1fr);}
 }
+
+.btn-nav-active{background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.3)!important;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -1010,6 +1012,8 @@ function render(){
   else if(NAV.screen==='member')renderMember();
   else if(NAV.screen==='gc')renderGCScreen();
   else if(NAV.screen==='manager')renderManagerScreen();
+  else if(NAV.screen==='jobs')renderJobs();
+  else if(NAV.screen==='reports')renderReports();
   setTimeout(initAllDraggables,50);
   renderCurrentUserNav();
 }
@@ -1019,27 +1023,138 @@ function renderNav(){
   const na=document.getElementById('nav-actions');
   bc.innerHTML='';na.innerHTML='';
   if(NAV.screen==='landing'){
-    na.innerHTML=`<button class="btn-nav" onclick="goHome()">📋 BidSum</button>`;
+    na.innerHTML=`
+      <button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">📋 BidSum</button>
+      <button class="btn-nav ${NAV.screen==='jobs'?'btn-nav-active':''}" onclick="goJobs()">🏗️ Job Tracker</button>
+      <button class="btn-nav ${NAV.screen==='reports'?'btn-nav-active':''}" onclick="goReports()">📊 Reports</button>
+    `;
   } else if(NAV.screen==='manager'){
     bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Admin Panel</span>`;
   } else if(NAV.screen==='home'){
-    na.innerHTML=`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>`;
+    na.innerHTML=`
+      <button class="btn-nav btn-nav-active" onclick="goHome()">📋 BidSum</button>
+      <button class="btn-nav" onclick="goJobs()">🏗️ Jobs</button>
+      <button class="btn-nav" onclick="goReports()">📊 Reports</button>
+      <button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>
+    `;
   } else if(NAV.screen==='member'){
     const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
     bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">${m?m.first+' '+m.last:'Member'}</span>`;
-    na.innerHTML=`<button class="btn-nav" onclick="openMemberEdit()">Edit profile</button><button class="btn-nav-primary" onclick="openBidModal()">+ New bid</button>`;
+    na.innerHTML=`
+      <button class="btn-nav" onclick="goHome()">📋 BidSum</button>
+      <button class="btn-nav" onclick="goJobs()">🏗️ Jobs</button>
+      <button class="btn-nav" onclick="goReports()">📊 Reports</button>
+      <button class="btn-nav" onclick="openMemberEdit()">Edit profile</button>
+      <button class="btn-nav-primary" onclick="openBidModal()">+ New bid</button>
+    `;
+  } else if(NAV.screen==='jobs'){
+    bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Job Tracker</span>`;
+    na.innerHTML=`
+      <button class="btn-nav" onclick="goHome()">📋 BidSum</button>
+      <button class="btn-nav btn-nav-active" onclick="goJobs()">🏗️ Jobs</button>
+      <button class="btn-nav" onclick="goReports()">📊 Reports</button>
+    `;
+  } else if(NAV.screen==='reports'){
+    bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Reports</span>`;
+    na.innerHTML=`
+      <button class="btn-nav" onclick="goHome()">📋 BidSum</button>
+      <button class="btn-nav" onclick="goJobs()">🏗️ Jobs</button>
+      <button class="btn-nav btn-nav-active" onclick="goReports()">📊 Reports</button>
+    `;
   } else if(NAV.screen==='gc'){
     const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
     const gc=DB.gcs.find(x=>parseInt(x.id)===parseInt(NAV.gcId));
     bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span>
       ${m?`<span class="bc-item" onclick="goMember(${NAV.memberId},'clients')">${m.first} ${m.last}</span><span class="bc-sep">›</span>`:''}
       <span class="bc-item cur">${gc?gc.name+(gc.office?' – '+gc.office:''):'GC'}</span>`;
-    na.innerHTML=`<button class="btn-nav" onclick="openGCEdit()">Edit GC</button>
+    na.innerHTML=`
+      <button class="btn-nav" onclick="goHome()">📋 BidSum</button>
+      <button class="btn-nav" onclick="goJobs()">🏗️ Jobs</button>
+      <button class="btn-nav" onclick="goReports()">📊 Reports</button>
+      <button class="btn-nav" onclick="openGCEdit()">Edit GC</button>
       <button class="btn-nav" onclick="openTeamModal()">+ Team</button>
-      <button class="btn-nav-primary" onclick="openContactModal()">+ Contact</button>`;
+      <button class="btn-nav-primary" onclick="openContactModal()">+ Contact</button>
+    `;
   }
 }
 
+
+function goJobs(){NAV.screen='jobs';NAV.memberId=null;NAV.gcId=null;render();}
+function goReports(){NAV.screen='reports';NAV.memberId=null;NAV.gcId=null;render();}
+
+function renderJobs(){
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.5px;">🏗️ Job Tracker</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">Track active jobs, costs, and P&L</div>
+      </div>
+    </div>
+    <div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:60px 24px;">
+      <div class="empty-icon">🏗️</div>
+      <div class="empty-text">Job Tracker coming soon</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:6px;max-width:340px;margin-left:auto;margin-right:auto;text-align:center;">
+        When a bid is marked Awarded, it will automatically appear here as an active job. Track costs, change orders, and P&L per job.
+      </div>
+    </div>
+  `;
+}
+
+function renderReports(){
+  const curYear=new Date().getFullYear().toString();
+  const thisYearBids=DB.bids.filter(b=>b.date&&b.date.startsWith(curYear));
+  const awarded=thisYearBids.filter(b=>b.status==='Awarded');
+  const totalRev=awarded.reduce((s,b)=>s+(b.value||0),0);
+  const closed=thisYearBids.filter(b=>['Awarded','Lost'].includes(b.status));
+  const winRate=closed.length?Math.round(awarded.length/closed.length*100):0;
+  // Per PM breakdown
+  const pmStats=DB.members.filter(m=>m.type==='PM').map(m=>{
+    const mb=thisYearBids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
+    const aw=mb.filter(b=>b.status==='Awarded');
+    const cl=mb.filter(b=>['Awarded','Lost'].includes(b.status));
+    return{m,bids:mb.length,wins:aw.length,rev:aw.reduce((s,b)=>s+(b.value||0),0),wr:cl.length?Math.round(aw.length/cl.length*100):0};
+  }).sort((a,b)=>b.rev-a.rev);
+  document.getElementById('app').innerHTML=`
+    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;">📊 Reports — ${curYear}</div>
+    <div class="pl-grid" style="margin-bottom:24px;">
+      <div class="pl-card">
+        <div class="pl-card-label">Total Revenue ${curYear}</div>
+        <div class="pl-card-val" style="color:var(--green);">${fmtVal(totalRev)}</div>
+        <div class="pl-card-sub">${awarded.length} contracts awarded</div>
+      </div>
+      <div class="pl-card">
+        <div class="pl-card-label">Total Bids</div>
+        <div class="pl-card-val">${thisYearBids.length}</div>
+        <div class="pl-card-sub">${winRate}% win rate</div>
+      </div>
+      <div class="pl-card">
+        <div class="pl-card-label">Pipeline Value</div>
+        <div class="pl-card-val" style="color:var(--blue);">${fmtVal(thisYearBids.filter(b=>['Submitted','Awarded to GC'].includes(b.status)).reduce((s,b)=>s+(b.value||0),0))}</div>
+        <div class="pl-card-sub">${thisYearBids.filter(b=>['Submitted','Awarded to GC'].includes(b.status)).length} active bids</div>
+      </div>
+    </div>
+    <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">PM Performance ${curYear}</div></div>
+    <div class="tw"><table><thead><tr>
+      <th>Project Manager</th>
+      <th style="text-align:center;">Bids</th>
+      <th style="text-align:center;">Won</th>
+      <th style="text-align:right;">Revenue</th>
+      <th style="text-align:center;">Win Rate</th>
+    </tr></thead><tbody>${pmStats.map(r=>{
+      const ini=r.m.initials||(r.m.first[0]+r.m.last[0]).toUpperCase();
+      return`<tr onclick="goMember(${r.m.id})" style="cursor:pointer;">
+        <td><div style="display:flex;align-items:center;gap:8px;">
+          <div style="${memberAvatarStyle(r.m)}width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${ini}</div>
+          <span style="font-weight:600;">${r.m.first} ${r.m.last}</span>
+        </div></td>
+        <td style="text-align:center;">${r.bids}</td>
+        <td style="text-align:center;">${r.wins}</td>
+        <td style="text-align:right;font-weight:700;color:var(--green);">${fmtVal(r.rev)}</td>
+        <td style="text-align:center;"><span class="badge ${r.wr>=50?'badge-awarded':r.wr>=25?'badge-submitted':'badge-lost'}">${r.wr}%</span></td>
+      </tr>`;
+    }).join('')}</tbody></table></div>
+  `;
+}
 // ═══════════════════════════════════════ LANDING ════════════════════════════════════════
 function renderLanding(){
   const now=new Date();
@@ -1065,7 +1180,7 @@ function renderLanding(){
     <!-- HERO -->
     <div class="landing-hero">
       <div class="landing-company">
-        <div class="landing-company-name">Architectural Coatings Inc.</div>
+        <div class="landing-company-name">Bonas Company</div>
         <div class="landing-company-sub">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
       </div>
       <div class="landing-kpis">
@@ -1099,17 +1214,17 @@ function renderLanding(){
         <div class="module-desc">Bid tracking, GC directory, follow-up calendar</div>
         <div class="module-stat" style="color:var(--blue);">${totalBidsYTD} bids this year</div>
       </div>
-      <div class="module-card" style="opacity:.6;cursor:default;">
+      <div class="module-card" onclick="goJobs()">
         <div class="module-icon">🏗️</div>
         <div class="module-name">Job Tracker</div>
         <div class="module-desc">Active jobs, costs, P&L tracking</div>
-        <div class="module-stat" style="color:var(--text3);">Coming soon</div>
+        <div class="module-stat" style="color:var(--blue);">Click to open</div>
       </div>
-      <div class="module-card" style="opacity:.6;cursor:default;">
+      <div class="module-card" onclick="goReports()">
         <div class="module-icon">📊</div>
         <div class="module-name">Reports</div>
         <div class="module-desc">Annual summaries, PM performance, revenue trends</div>
-        <div class="module-stat" style="color:var(--text3);">Coming soon</div>
+        <div class="module-stat" style="color:var(--blue);">Click to open</div>
       </div>
       <div class="module-card" onclick="${SESSION.user&&SESSION.user.role==='manager'?'openManagerPanel()':''}">
         <div class="module-icon">👥</div>
