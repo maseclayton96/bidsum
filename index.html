@@ -1334,7 +1334,7 @@ function render(){
  else if(NAV.screen==='member')renderMember();
  else if(NAV.screen==='gc')renderGCScreen();
  else if(NAV.screen==='manager')renderManagerScreen();
- else if(NAV.screen==='jobs'){renderJobs();}
+ else if(NAV.screen==='jobs'){if(NAV.jobCompany)renderJobs();else renderJobsHome();}
  else if(NAV.screen==='reports')renderReports();
  setTimeout(initAllDraggables,50);
  renderCurrentUserNav();
@@ -1347,7 +1347,7 @@ function renderNav(){
  if(NAV.screen==='landing'){
  na.innerHTML=`
  <button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">BidSum</button>
- <button class="btn-nav ${NAV.screen==='jobs'?'btn-nav-active':''}" onclick="goJobs()">Job Tracker</button>
+ <button class="btn-nav ${NAV.screen==='jobs'?'btn-nav-active':''}" onclick="goJobs()">Jobs</button>
  <button class="btn-nav ${NAV.screen==='reports'?'btn-nav-active':''}" onclick="goReports()">Reports</button>
  `;
  } else if(NAV.screen==='manager'){
@@ -1370,12 +1370,12 @@ function renderNav(){
  <button class="btn-nav-primary" onclick="openBidModal()">+ New bid</button>
  `;
  } else if(NAV.screen==='jobs'){
- bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Job Tracker</span>`;
+ bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item" onclick="goJobs()">Jobs</span>${NAV.jobCompany?`<span class="bc-sep">›</span><span class="bc-item cur">${NAV.jobCompany==='ACI'?'Architectural Coatings Inc.':'Bonas Company'}</span>`:''}`;
  na.innerHTML=`
  <button class="btn-nav" onclick="goHome()">BidSum</button>
  <button class="btn-nav btn-nav-active" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
- <button class="btn-nav-primary" onclick="openNewJobModal()">+ New Job</button>
+ <button class="btn-nav-primary" onclick="openNewJobModal()">+ New ${NAV.jobCompany||''} Job</button>
  `;
  } else if(NAV.screen==='reports'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Reports</span>`;
@@ -1402,7 +1402,8 @@ function renderNav(){
 }
 
 
-function goJobs(){NAV.screen='jobs';NAV.memberId=null;NAV.gcId=null;render();}
+function goJobs(){NAV.screen='jobs';NAV.jobCompany=null;NAV.memberId=null;NAV.gcId=null;render();}
+function goJobsCompany(company){NAV.screen='jobs';NAV.jobCompany=company;render();}
 function goReports(){NAV.screen='reports';NAV.memberId=null;NAV.gcId=null;render();}
 
 
@@ -1523,7 +1524,7 @@ function renderLanding(){
  </div>
  <div class="module-card" onclick="goJobs()">
  <div class="module-icon"></div>
- <div class="module-name">Job Tracker</div>
+ <div class="module-name">Jobs</div>
  <div class="module-desc">Active jobs, costs, P&L tracking</div>
  <div class="module-stat" style="color:var(--blue);">Click to open</div>
  </div>
@@ -1541,32 +1542,7 @@ function renderLanding(){
  </div>
  </div>
 
- <!-- ACTIVE JOBS / AWARDED BIDS -->
- <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">Awarded Jobs</div></div>
- ${activeJobs.length?`<div class="jobs-table-wrap">
- <table style="width:100%;"><thead><tr>
- <th style="width:80px;">Bid #</th>
- <th>Job Name</th>
- <th style="width:160px;">GC</th>
- <th style="width:100px;">PM</th>
- <th style="width:95px;text-align:right;">Value</th>
- <th style="width:90px;">Date</th>
- <th style="width:110px;">Status</th>
- </tr></thead><tbody>${activeJobs.map(b=>{
- const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(b.gcId));
- const mb=DB.members.find(x=>parseInt(x.id)===parseInt(b.memberId));
- const statusCls=b.status==='Awarded'?'job-active':'job-onhold';
- return`<tr style="cursor:pointer;" onclick="goMember(${b.memberId},'bids')">
- <td><span class="bid-num">${b.num||'—'}</span></td>
- <td style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${b.job||'—'}</td>
- <td style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gc?gc.name:b.gcName||'—'}</td>
- <td style="font-size:12px;">${mb?mb.initials||(mb.first[0]+mb.last[0]).toUpperCase():'—'}</td>
- <td style="text-align:right;font-weight:600;">${fmtVal(b.value)}</td>
- <td style="font-size:12px;color:var(--text2);">${fmtDate(b.date)}</td>
- <td><span class="job-status-badge ${statusCls}">${b.status}</span></td>
- </tr>`;
- }).join('')}</tbody></table>
- </div>`:`<div class="empty"><div class="empty-icon"></div><div class="empty-text">No awarded jobs yet</div></div>`}
+
  `;
 }
 
@@ -3700,6 +3676,55 @@ async function submitFirstUser(){
  }catch(e){err.textContent='Error: '+e.message;err.style.display='block';}
 }
 
+
+// ═══════════════════════════════════════ JOBS HOME ════════════════════════════════════════
+function renderJobsHome(){
+  loadJobs();
+  const bonasJobs = JOBS.filter(j=>j.company==='Bonas');
+  const aciJobs = JOBS.filter(j=>j.company==='ACI');
+  const bonasActive = bonasJobs.filter(j=>j.status==='Active').length;
+  const aciActive = aciJobs.filter(j=>j.status==='Active').length;
+  const bonasContract = bonasJobs.reduce((s,j)=>s+jobContract(j),0);
+  const aciContract = aciJobs.reduce((s,j)=>s+jobContract(j),0);
+
+  document.getElementById('app').innerHTML=`
+    <div style="font-size:22px;font-weight:700;margin-bottom:24px;">Jobs</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:800px;">
+
+      <!-- BONAS COMPANY -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;" onclick="goJobsCompany('Bonas')" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='var(--shadow)';this.style.transform=''">
+        <div style="background:#000;padding:28px 28px 20px;display:flex;flex-direction:column;gap:4px;">
+          <div style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;">Bonas Company</div>
+          <div style="color:rgba(255,255,255,.5);font-size:12px;">3197-C Airport Loop Drive · Costa Mesa, CA</div>
+        </div>
+        <div style="padding:20px 28px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div><div style="font-size:20px;font-weight:700;">${bonasJobs.length}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Total Jobs</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:#CC0000;">${bonasActive}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Active</div></div>
+            <div><div style="font-size:20px;font-weight:700;">${fmtVal(bonasContract)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Contract</div></div>
+          </div>
+          <div style="background:#CC0000;color:#fff;border:none;border-radius:var(--r);padding:10px 16px;font-size:13px;font-weight:600;text-align:center;font-family:var(--font);">Open Bonas Jobs →</div>
+        </div>
+      </div>
+
+      <!-- ACI -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;" onclick="goJobsCompany('ACI')" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='var(--shadow)';this.style.transform=''">
+        <div style="background:#1B3F6E;padding:28px 28px 20px;display:flex;flex-direction:column;gap:4px;">
+          <div style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;">Architectural Coatings</div>
+          <div style="color:rgba(255,255,255,.5);font-size:12px;">1965 N. Main Street · Orange, CA</div>
+        </div>
+        <div style="padding:20px 28px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div><div style="font-size:20px;font-weight:700;">${aciJobs.length}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Total Jobs</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:#1B3F6E;">${aciActive}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Active</div></div>
+            <div><div style="font-size:20px;font-weight:700;">${fmtVal(aciContract)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Contract</div></div>
+          </div>
+          <div style="background:#1B3F6E;color:#fff;border:none;border-radius:var(--r);padding:10px 16px;font-size:13px;font-weight:600;text-align:center;font-family:var(--font);">Open ACI Jobs →</div>
+        </div>
+      </div>
+
+    </div>`;
+}
 // ═══════════════════════════════════════ JOB TRACKER ════════════════════════════════════
 // DB.jobs is built from awarded bids + manually created jobs
 // Each job has: id, bidId, name, gcId, gcName, pmId, value, status, start, end, company, notes, costs[], changeOrders[]
@@ -3750,7 +3775,56 @@ function saveJob(){
 
 // Cost entry
 
-// Change orders// ═══════════════════════════════════════ JOB TRACKER ════════════════════════════════════
+// Change orders
+// ═══════════════════════════════════════ JOBS HOME ════════════════════════════════════════
+function renderJobsHome(){
+  loadJobs();
+  const bonasJobs = JOBS.filter(j=>j.company==='Bonas');
+  const aciJobs = JOBS.filter(j=>j.company==='ACI');
+  const bonasActive = bonasJobs.filter(j=>j.status==='Active').length;
+  const aciActive = aciJobs.filter(j=>j.status==='Active').length;
+  const bonasContract = bonasJobs.reduce((s,j)=>s+jobContract(j),0);
+  const aciContract = aciJobs.reduce((s,j)=>s+jobContract(j),0);
+
+  document.getElementById('app').innerHTML=`
+    <div style="font-size:22px;font-weight:700;margin-bottom:24px;">Jobs</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:800px;">
+
+      <!-- BONAS COMPANY -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;" onclick="goJobsCompany('Bonas')" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='var(--shadow)';this.style.transform=''">
+        <div style="background:#000;padding:28px 28px 20px;display:flex;flex-direction:column;gap:4px;">
+          <div style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;">Bonas Company</div>
+          <div style="color:rgba(255,255,255,.5);font-size:12px;">3197-C Airport Loop Drive · Costa Mesa, CA</div>
+        </div>
+        <div style="padding:20px 28px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div><div style="font-size:20px;font-weight:700;">${bonasJobs.length}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Total Jobs</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:#CC0000;">${bonasActive}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Active</div></div>
+            <div><div style="font-size:20px;font-weight:700;">${fmtVal(bonasContract)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Contract</div></div>
+          </div>
+          <div style="background:#CC0000;color:#fff;border:none;border-radius:var(--r);padding:10px 16px;font-size:13px;font-weight:600;text-align:center;font-family:var(--font);">Open Bonas Jobs →</div>
+        </div>
+      </div>
+
+      <!-- ACI -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;" onclick="goJobsCompany('ACI')" onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='var(--shadow)';this.style.transform=''">
+        <div style="background:#1B3F6E;padding:28px 28px 20px;display:flex;flex-direction:column;gap:4px;">
+          <div style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px;">Architectural Coatings</div>
+          <div style="color:rgba(255,255,255,.5);font-size:12px;">1965 N. Main Street · Orange, CA</div>
+        </div>
+        <div style="padding:20px 28px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div><div style="font-size:20px;font-weight:700;">${aciJobs.length}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Total Jobs</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:#1B3F6E;">${aciActive}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Active</div></div>
+            <div><div style="font-size:20px;font-weight:700;">${fmtVal(aciContract)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;">Contract</div></div>
+          </div>
+          <div style="background:#1B3F6E;color:#fff;border:none;border-radius:var(--r);padding:10px 16px;font-size:13px;font-weight:600;text-align:center;font-family:var(--font);">Open ACI Jobs →</div>
+        </div>
+      </div>
+
+    </div>`;
+}
+// ═══════════════════════════════════════ JOB TRACKER ════════════════════════════════════
 // Storage: localStorage (will move to Neon in future session)
 // Job shape: {id, num, company, name, gcId, gcName, contactId, contactName, pmId, superId,
 //             address, city, zip, value, status, start, end, notes,
@@ -3777,25 +3851,8 @@ function loadJobs(){
   autoCreateFromBids();
 }
 function autoCreateFromBids(){
-  const awarded = DB.bids.filter(b => b.status === 'Awarded');
-  const existingBidIds = new Set(JOBS.filter(j=>j.bidId).map(j=>j.bidId));
-  awarded.forEach(b => {
-    if(existingBidIds.has(b.id)) return;
-    const company = b.company || 'Bonas';
-    JOBS.push({
-      id: 'bid-' + b.id, bidId: b.id,
-      num: nextJobNum(company),
-      company, name: b.job || 'Untitled',
-      gcId: b.gcId, gcName: b.gcName,
-      contactId: b.contactId, contactName: b.contactName,
-      pmId: b.memberId, superId: null,
-      address: '', city: '', zip: '',
-      value: b.value || 0, status: 'Active',
-      start: b.date || '', end: '', notes: '',
-      costs: [], submittalPaint: [], submittalWC: [], cors: []
-    });
-  });
-  saveJobs();
+  // Auto-create disabled — jobs are manually created only
+  // This function kept as no-op for future use
 }
 
 // ── Calculations ──
@@ -3812,21 +3869,22 @@ function jobContract(job){
 function renderJobs(){
   loadJobs();
   const sf = (document.getElementById('jf-status')||{}).value || '';
-  const cf = (document.getElementById('jf-company')||{}).value || '';
   const tf = ((document.getElementById('jf-search')||{}).value || '').toLowerCase().trim();
-  let list = [...JOBS];
+  // Always filter by selected company
+  let list = [...JOBS].filter(j=>j.company===NAV.jobCompany);
   if(sf) list = list.filter(j=>j.status===sf);
-  if(cf) list = list.filter(j=>j.company===cf);
   if(tf) list = list.filter(j=>[j.num,j.name,j.gcName,j.city,j.contactName].join(' ').toLowerCase().includes(tf));
   list.sort((a,b)=>parseInt(a.num||0)-parseInt(b.num||0));
 
-  const totalContract = JOBS.reduce((s,j)=>s+jobContract(j),0);
-  const totalCosts = JOBS.reduce((s,j)=>s+jobTotalCosts(j),0);
+  const companyJobs = JOBS.filter(j=>j.company===NAV.jobCompany);
+  const totalContract = companyJobs.reduce((s,j)=>s+jobContract(j),0);
+  const totalCosts = companyJobs.reduce((s,j)=>s+jobTotalCosts(j),0);
   const totalGP = totalContract - totalCosts;
-  const activeCount = JOBS.filter(j=>j.status==='Active').length;
+  const activeCount = companyJobs.filter(j=>j.status==='Active').length;
+  const companyLabel = NAV.jobCompany==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
 
   document.getElementById('app').innerHTML = `
-    <div style="font-size:22px;font-weight:700;margin-bottom:16px;">Job Tracker</div>
+    <div style="font-size:22px;font-weight:700;margin-bottom:16px;">Jobs</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
       <div class="pl-card"><div class="pl-card-label">Total Contract</div><div class="pl-card-val">${fmtVal(totalContract)}</div></div>
       <div class="pl-card"><div class="pl-card-label">Total Costs</div><div class="pl-card-val" style="color:#CC0000;">${fmtVal(totalCosts)}</div></div>
@@ -3838,9 +3896,7 @@ function renderJobs(){
       <select id="jf-status" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;" onchange="renderJobs()">
         <option value="">All statuses</option><option>Active</option><option>On Hold</option><option>Complete</option>
       </select>
-      <select id="jf-company" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;" onchange="renderJobs()">
-        <option value="">Bonas + ACI</option><option value="Bonas">Bonas Company</option><option value="ACI">ACI</option>
-      </select>
+
       <span style="font-size:12px;color:var(--text3);">${list.length} job${list.length!==1?'s':''}</span>
     </div>
     <div class="job-list-table">
@@ -4360,7 +4416,7 @@ function openNewJobModal(){
   ['j-name','j-address','j-city','j-zip','j-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('j-value').value='0';
   document.getElementById('j-status').value='Active';
-  document.getElementById('j-company').value='Bonas';
+  document.getElementById('j-company').value=NAV.jobCompany||'Bonas';
   document.getElementById('j-start').value=new Date().toISOString().split('T')[0];
   document.getElementById('j-end').value='';
   document.getElementById('j-num').value=nextJobNum('Bonas');
@@ -4441,7 +4497,8 @@ function saveJob(){
   else JOBS.push(job);
   saveJobs(); closeModal('job');
   if(CUR_JOB_ID===EDIT_JOB_ID) openJobDetail(EDIT_JOB_ID);
-  else renderJobs();
+  else if(NAV.jobCompany) renderJobs();
+  else renderJobsHome();
 }
 function deleteJob(){
   if(!confirm('Delete this job?')) return;
