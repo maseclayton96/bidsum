@@ -25,7 +25,7 @@
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
 
 /* NAV */
-.nav{background:#000000;height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
+.nav{background:#2C2C2C;height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
 .nav-logo{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px;cursor:pointer;white-space:nowrap;}
 .nav-logo span{color:rgba(255,255,255,.4);font-weight:300;}
 .nav-breadcrumb{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;}
@@ -529,6 +529,30 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 }
 
 .btn-nav-active{background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.3)!important;}
+
+/* ══ JOB TRACKER ══ */
+.job-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;margin-bottom:10px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+.job-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);}
+.job-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.job-card-title{font-size:15px;font-weight:700;letter-spacing:-.2px;}
+.job-card-meta{font-size:12px;color:var(--text3);margin-top:2px;}
+.job-card-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding-top:10px;border-top:1px solid var(--border);}
+.jcs-val{font-size:16px;font-weight:700;}
+.jcs-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:1px;}
+.job-filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+.job-status-active{background:#F0F0F0;color:#111;}
+.job-status-complete{background:#D9EFE3;color:#1E5C3A;}
+.job-status-onhold{background:#FFF0F0;color:#CC0000;}
+/* Job detail */
+.job-detail-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;margin-bottom:18px;box-shadow:var(--shadow);}
+.job-detail-title{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px;}
+.cost-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.cost-row:last-child{border-bottom:none;}
+.cost-category{font-size:13px;font-weight:600;flex:1;}
+.cost-amount{font-size:14px;font-weight:700;color:var(--text);min-width:100px;text-align:right;}
+.cost-note{font-size:11px;color:var(--text3);flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-positive{color:#1E5C3A;}
+.pl-negative{color:#CC0000;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -768,6 +792,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  <div class="fg"><label>Role</label>
  <select id="ct-role">
  <option>Project Executive</option>
+ <option>Sr. Project Manager</option>
  <option>Project Manager</option>
  <option>Asst. Project Manager</option>
  <option>Project Engineer</option>
@@ -905,6 +930,115 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 
 
 
+
+<!-- JOB MODAL -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal" style="width:580px;">
+    <div class="modal-head">
+      <div class="modal-title" id="job-modal-title">New Job</div>
+      <div class="modal-close" onclick="closeModal('job')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="fg"><label>Job name</label><input id="j-name" autocomplete="off" placeholder="Pacific Life - 840 NCD 2nd & 3rd Fl"></div>
+      <div class="frow">
+        <div class="fg"><label>GC / Client</label>
+          <select id="j-gc">
+            <option value="">— select GC —</option>
+          </select>
+        </div>
+        <div class="fg"><label>Project Manager</label>
+          <select id="j-pm">
+            <option value="">— select PM —</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Contract value ($)</label><input id="j-value" type="text" autocomplete="off" placeholder="0" onfocus="if(this.value==='0')this.value=''" onblur="formatBidValue(this)"></div>
+        <div class="fg"><label>Status</label>
+          <select id="j-status">
+            <option value="Active">Active</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Complete">Complete</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Start date</label><input id="j-start" type="date" autocomplete="off"></div>
+        <div class="fg"><label>End date</label><input id="j-end" type="date" autocomplete="off"></div>
+      </div>
+      <div class="fg"><label>Company</label>
+        <select id="j-company">
+          <option value="ACI">ACI</option>
+          <option value="Bonas">Bonas</option>
+        </select>
+      </div>
+      <div class="fg"><label>Notes</label><textarea id="j-notes" placeholder="Key notes, scope summary..." style="min-height:60px;"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger" id="btn-delete-job" style="display:none;" onclick="deleteJob()">Delete Job</button>
+      <button class="btn" onclick="closeModal('job')">Cancel</button>
+      <button class="btn-primary" onclick="saveJob()">Save Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- COST ENTRY MODAL -->
+<div class="modal-overlay" id="modal-cost">
+  <div class="modal" style="width:440px;">
+    <div class="modal-head">
+      <div class="modal-title">Add Cost Entry</div>
+      <div class="modal-close" onclick="closeModal('cost')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="fg"><label>Category</label>
+        <select id="c-category">
+          <option>Labor</option>
+          <option>Materials</option>
+          <option>Supplies</option>
+          <option>Subcontractors</option>
+          <option>Equipment Rental</option>
+          <option>Overhead</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="fg"><label>Amount ($)</label><input id="c-amount" type="text" autocomplete="off" placeholder="0" onfocus="if(this.value==='0')this.value=''"></div>
+      <div class="fg"><label>Date</label><input id="c-date" type="date" autocomplete="off"></div>
+      <div class="fg"><label>Notes</label><input id="c-notes" autocomplete="off" placeholder="Brief description..."></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('cost')">Cancel</button>
+      <button class="btn-primary" onclick="saveCost()">Add Cost</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE ORDER MODAL -->
+<div class="modal-overlay" id="modal-co">
+  <div class="modal" style="width:440px;">
+    <div class="modal-head">
+      <div class="modal-title">Change Order</div>
+      <div class="modal-close" onclick="closeModal('co')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="fg"><label>Description</label><input id="co-desc" autocomplete="off" placeholder="Add scope description..."></div>
+      <div class="frow">
+        <div class="fg"><label>Type</label>
+          <select id="co-type">
+            <option value="add">Addition (+)</option>
+            <option value="deduct">Deduction (-)</option>
+          </select>
+        </div>
+        <div class="fg"><label>Amount ($)</label><input id="co-amount" type="text" autocomplete="off" placeholder="0"></div>
+      </div>
+      <div class="fg"><label>Date</label><input id="co-date" type="date" autocomplete="off"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('co')">Cancel</button>
+      <button class="btn-primary" onclick="saveChangeOrder()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- DAY POPUP -->
 <div class="day-popup-overlay" id="day-popup-overlay" onclick="if(event.target===this)closeDayPopup()">
  <div class="day-popup">
@@ -1012,7 +1146,7 @@ function render(){
  else if(NAV.screen==='member')renderMember();
  else if(NAV.screen==='gc')renderGCScreen();
  else if(NAV.screen==='manager')renderManagerScreen();
- else if(NAV.screen==='jobs')renderJobs();
+ else if(NAV.screen==='jobs'){loadJobs();renderJobs();}
  else if(NAV.screen==='reports')renderReports();
  setTimeout(initAllDraggables,50);
  renderCurrentUserNav();
@@ -1796,7 +1930,7 @@ function renderGCScreen(){
 
 function renderGCContacts(gc,contacts,teams){
  if(!contacts.length)return`<div class="empty"><div class="empty-icon"></div><div class="empty-text">No contacts yet</div>Use "+ Contact" to build the directory.</div>`;
- const ROLE_ORDER=['Project Executive','Project Manager','Asst. Project Manager','Project Engineer','Estimator','Intern','Other'];
+ const ROLE_ORDER=['Project Executive','Sr. Project Manager','Project Manager','Asst. Project Manager','Project Engineer','Estimator','Intern','Other'];
  const renderC=c=>{
  const rc=ROLE_COLORS[c.role]||{bg:'var(--bg3)',txt:'var(--text2)'};
  const ci=DB.contacts.indexOf(c);
@@ -2458,7 +2592,7 @@ function removePDF(idx){
 // ═══════════════════════════════════════ MODAL UTILS ═════════════════════════════════
 function openModal(id){document.getElementById('modal-'+id).classList.add('open');}
 function closeModal(id){document.getElementById('modal-'+id).classList.remove('open');}
-document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});});
+// Click outside modal intentionally disabled — prevents accidental form closure
 document.addEventListener('keydown',function(e){
  if(e.key==='Escape'){
  document.querySelectorAll('.modal-overlay.open').forEach(function(m){m.classList.remove('open');});
@@ -3397,6 +3531,313 @@ async function submitFirstUser(){
  document.getElementById('auth-overlay').style.display='none';
  finishLoad();
  }catch(e){err.textContent='Error: '+e.message;err.style.display='block';}
+}
+
+// ═══════════════════════════════════════ JOB TRACKER ════════════════════════════════════
+// DB.jobs is built from awarded bids + manually created jobs
+// Each job has: id, bidId, name, gcId, gcName, pmId, value, status, start, end, company, notes, costs[], changeOrders[]
+let JOBS = []; // live job list
+let EDIT_JOB = null; // job being edited
+let EDIT_JOB_IDX = null;
+
+function buildJobsFromBids(){
+  // Auto-create jobs from awarded bids
+  const awardedBids = DB.bids.filter(b=>b.status==='Awarded');
+  const existingBidIds = new Set(JOBS.filter(j=>j.bidId).map(j=>j.bidId));
+  awardedBids.forEach(b=>{
+    if(!existingBidIds.has(b.id)){
+      JOBS.push({
+        id:'bid-'+b.id,
+        bidId:b.id,
+        name:b.job||'Untitled Job',
+        gcId:b.gcId,gcName:b.gcName,
+        pmId:b.memberId,
+        value:b.value||0,
+        status:'Active',
+        start:b.date||'',
+        end:'',
+        company:b.company||'ACI',
+        notes:'',
+        costs:[],
+        changeOrders:[]
+      });
+    }
+  });
+  // Save to localStorage for persistence between sessions
+  try{localStorage.setItem('bidsum-jobs',JSON.stringify(JOBS));}catch(e){}
+}
+
+function loadJobs(){
+  try{
+    const saved=localStorage.getItem('bidsum-jobs');
+    if(saved)JOBS=JSON.parse(saved);
+  }catch(e){JOBS=[];}
+  buildJobsFromBids();
+}
+
+function saveJobs(){
+  try{localStorage.setItem('bidsum-jobs',JSON.stringify(JOBS));}catch(e){}
+}
+
+function jobContractTotal(job){
+  const cos=job.changeOrders||[];
+  const coTotal=cos.reduce((s,co)=>s+(co.type==='add'?co.amount:-co.amount),0);
+  return (job.value||0)+coTotal;
+}
+
+function jobTotalCosts(job){
+  return (job.costs||[]).reduce((s,c)=>s+(c.amount||0),0);
+}
+
+function renderJobs(){
+  loadJobs();
+  const statusFilter=document.getElementById('j-status-filter')?document.getElementById('j-status-filter').value:'';
+  let filtered=[...JOBS];
+  if(statusFilter)filtered=filtered.filter(j=>j.status===statusFilter);
+  filtered.sort((a,b)=>a.name.localeCompare(b.name));
+  const totalContract=JOBS.reduce((s,j)=>s+jobContractTotal(j),0);
+  const totalCosts=JOBS.reduce((s,j)=>s+jobTotalCosts(j),0);
+  const totalGP=totalContract-totalCosts;
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;">Job Tracker</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${JOBS.length} total jobs</div>
+      </div>
+    </div>
+    <!-- Summary KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+      <div class="pl-card"><div class="pl-card-label">Total Contract</div><div class="pl-card-val">${fmtVal(totalContract)}</div></div>
+      <div class="pl-card"><div class="pl-card-label">Total Costs</div><div class="pl-card-val" style="color:var(--red);">${fmtVal(totalCosts)}</div></div>
+      <div class="pl-card"><div class="pl-card-label">Gross Profit</div><div class="pl-card-val" class="${totalGP>=0?'pl-positive':'pl-negative'}" style="color:${totalGP>=0?'var(--green)':'var(--red)'};">${fmtVal(Math.abs(totalGP))}</div><div class="pl-card-sub">${totalContract?Math.round(totalGP/totalContract*100):0}% margin</div></div>
+      <div class="pl-card"><div class="pl-card-label">Active Jobs</div><div class="pl-card-val">${JOBS.filter(j=>j.status==='Active').length}</div></div>
+    </div>
+    <!-- Filters -->
+    <div class="job-filters">
+      <select id="j-status-filter" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="renderJobs()">
+        <option value="">All statuses</option>
+        <option value="Active">Active</option>
+        <option value="On Hold">On Hold</option>
+        <option value="Complete">Complete</option>
+      </select>
+      <input type="text" id="j-search" autocomplete="off" placeholder="Search jobs..." style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:13px;font-family:var(--font);color:var(--text);width:200px;outline:none;" oninput="renderJobs()">
+      <span style="font-size:12px;color:var(--text3);">${filtered.length} job${filtered.length!==1?'s':''}</span>
+    </div>
+    <!-- Job cards -->
+    ${filtered.length?filtered.map((job,idx)=>{
+      const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+      const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+      const contract=jobContractTotal(job);
+      const costs=jobTotalCosts(job);
+      const gp=contract-costs;
+      const margin=contract?Math.round(gp/contract*100):0;
+      const statusCls=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
+      return`<div class="job-card" onclick="openJobDetail('${job.id}')">
+        <div class="job-card-header">
+          <div>
+            <div class="job-card-title">${job.name}</div>
+            <div class="job-card-meta">${gc?gc.name:job.gcName||'—'} · ${pm?pm.first+' '+pm.last:'—'} · ${job.company||'ACI'}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span class="job-status-badge ${statusCls}">${job.status}</span>
+            <button class="btn-sm" onclick="event.stopPropagation();openEditJob('${job.id}')">Edit</button>
+          </div>
+        </div>
+        <div class="job-card-stats">
+          <div><div class="jcs-val">${fmtVal(contract)}</div><div class="jcs-lbl">Contract</div></div>
+          <div><div class="jcs-val" style="color:var(--red);">${fmtVal(costs)}</div><div class="jcs-lbl">Costs</div></div>
+          <div><div class="jcs-val" style="color:${gp>=0?'var(--green)':'var(--red)'};">${fmtVal(Math.abs(gp))}</div><div class="jcs-lbl">${gp>=0?'Gross Profit':'Loss'}</div></div>
+          <div><div class="jcs-val" style="color:${margin>=0?'var(--green)':'var(--red)'};">${margin}%</div><div class="jcs-lbl">Margin</div></div>
+        </div>
+      </div>`;
+    }).join(''):`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:60px 24px;"><div class="empty-text">No jobs match your filters</div></div>`}
+  `;
+}
+
+function openJobDetail(jobId){
+  const job=JOBS.find(j=>j.id===jobId);
+  if(!job)return;
+  const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const contract=jobContractTotal(job);
+  const costs=jobTotalCosts(job);
+  const gp=contract-costs;
+  const margin=contract?Math.round(gp/contract*100):0;
+  document.getElementById('app').innerHTML=`
+    <div class="job-detail-hero">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div>
+          <div class="job-detail-title">${job.name}</div>
+          <div style="font-size:13px;color:var(--text3);">${gc?gc.name:job.gcName||'—'} · ${pm?pm.first+' '+pm.last:'—'}</div>
+          ${job.start||job.end?`<div style="font-size:12px;color:var(--text3);margin-top:3px;">${job.start?fmtDate(job.start):'—'} → ${job.end?fmtDate(job.end):'TBD'}</div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit Job</button>
+          <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Add Cost</button>
+          <button class="btn-sm" onclick="openAddCO('${job.id}')">+ Change Order</button>
+        </div>
+      </div>
+      <!-- P&L Summary -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+        <div><div style="font-size:18px;font-weight:700;">${fmtVal(job.value)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Base Contract</div></div>
+        <div><div style="font-size:18px;font-weight:700;">${fmtVal(contract)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Adjusted Contract</div></div>
+        <div><div style="font-size:18px;font-weight:700;color:var(--red);">${fmtVal(costs)}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Total Costs</div></div>
+        <div><div style="font-size:18px;font-weight:700;color:${gp>=0?'var(--green)':'var(--red)'};">${fmtVal(Math.abs(gp))}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">${gp>=0?'Gross Profit':'Loss'}</div></div>
+        <div><div style="font-size:18px;font-weight:700;color:${margin>=0?'var(--green)':'var(--red)'};">${margin}%</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Margin</div></div>
+      </div>
+    </div>
+    <!-- Change Orders -->
+    ${(job.changeOrders||[]).length?`
+    <div style="margin-bottom:16px;">
+      <div class="section-hd" style="margin-bottom:10px;"><div class="section-title">Change Orders</div></div>
+      <div class="tw"><table><thead><tr><th>Description</th><th>Type</th><th style="text-align:right;">Amount</th><th>Date</th><th style="width:50px;"></th></tr></thead><tbody>
+        ${job.changeOrders.map((co,i)=>`<tr>
+          <td>${co.desc}</td>
+          <td><span class="badge ${co.type==='add'?'badge-awarded':'badge-lost'}">${co.type==='add'?'Addition':'Deduction'}</span></td>
+          <td style="text-align:right;font-weight:600;color:${co.type==='add'?'var(--green)':'var(--red)'};">${co.type==='add'?'+':'-'}${fmtVal(co.amount)}</td>
+          <td style="font-size:12px;color:var(--text2);">${fmtDate(co.date)}</td>
+          <td><button class="btn-sm" onclick="deleteCO('${job.id}',${i})">×</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>`:''}
+    <!-- Costs -->
+    <div class="section-hd" style="margin-bottom:10px;"><div class="section-title">Cost Entries</div></div>
+    ${(job.costs||[]).length?`<div class="tw"><table><thead><tr><th>Category</th><th>Notes</th><th style="text-align:right;">Amount</th><th>Date</th><th style="width:50px;"></th></tr></thead><tbody>
+      ${job.costs.map((c,i)=>`<tr>
+        <td style="font-weight:600;">${c.category}</td>
+        <td style="font-size:12px;color:var(--text2);">${c.notes||'—'}</td>
+        <td style="text-align:right;font-weight:600;">${fmtVal(c.amount)}</td>
+        <td style="font-size:12px;color:var(--text2);">${fmtDate(c.date)}</td>
+        <td><button class="btn-sm" onclick="deleteCost('${job.id}',${i})">×</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`:`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:28px;"><div class="empty-text" style="font-size:13px;">No costs entered yet</div></div>`}
+  `;
+}
+
+// Job CRUD
+function openNewJobModal(){
+  EDIT_JOB=null;EDIT_JOB_IDX=null;
+  document.getElementById('job-modal-title').textContent='New Job';
+  document.getElementById('btn-delete-job').style.display='none';
+  ['j-name','j-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('j-value').value='0';
+  document.getElementById('j-status').value='Active';
+  document.getElementById('j-start').value=new Date().toISOString().split('T')[0];
+  document.getElementById('j-end').value='';
+  document.getElementById('j-company').value='ACI';
+  // Populate GC and PM dropdowns
+  document.getElementById('j-gc').innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+  document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  openModal('job');
+}
+
+function openEditJob(jobId){
+  const job=JOBS.find(j=>j.id===jobId);
+  if(!job)return;
+  EDIT_JOB=job;EDIT_JOB_IDX=JOBS.indexOf(job);
+  document.getElementById('job-modal-title').textContent='Edit Job';
+  document.getElementById('btn-delete-job').style.display='block';
+  document.getElementById('j-name').value=job.name||'';
+  document.getElementById('j-value').value=job.value||'0';
+  document.getElementById('j-status').value=job.status||'Active';
+  document.getElementById('j-start').value=job.start||'';
+  document.getElementById('j-end').value=job.end||'';
+  document.getElementById('j-company').value=job.company||'ACI';
+  document.getElementById('j-notes').value=job.notes||'';
+  document.getElementById('j-gc').innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+  document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  document.getElementById('j-gc').value=job.gcId||'';
+  document.getElementById('j-pm').value=job.pmId||'';
+  openModal('job');
+}
+
+function saveJob(){
+  const name=document.getElementById('j-name').value.trim();
+  if(!name){alert('Job name required.');return;}
+  const gcId=parseInt(document.getElementById('j-gc').value)||null;
+  const gc=gcId?DB.gcs.find(g=>parseInt(g.id)===gcId):null;
+  const pmId=parseInt(document.getElementById('j-pm').value)||null;
+  const job={
+    id:EDIT_JOB?EDIT_JOB.id:'job-'+Date.now(),
+    bidId:EDIT_JOB?EDIT_JOB.bidId:null,
+    name,gcId,gcName:gc?gc.name:'',pmId,
+    value:parseFloat(document.getElementById('j-value').value)||0,
+    status:document.getElementById('j-status').value,
+    start:document.getElementById('j-start').value,
+    end:document.getElementById('j-end').value,
+    company:document.getElementById('j-company').value,
+    notes:document.getElementById('j-notes').value.trim(),
+    costs:EDIT_JOB?EDIT_JOB.costs:[],
+    changeOrders:EDIT_JOB?EDIT_JOB.changeOrders:[]
+  };
+  if(EDIT_JOB_IDX!==null)JOBS[EDIT_JOB_IDX]=job;
+  else JOBS.push(job);
+  saveJobs();closeModal('job');renderJobs();
+}
+
+function deleteJob(){
+  if(!EDIT_JOB)return;
+  if(!confirm('Delete this job? This cannot be undone.'))return;
+  JOBS=JOBS.filter(j=>j.id!==EDIT_JOB.id);
+  saveJobs();closeModal('job');renderJobs();
+}
+
+// Cost entry
+let CURRENT_JOB_ID=null;
+function openAddCost(jobId){
+  CURRENT_JOB_ID=jobId;
+  ['c-amount','c-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('c-category').value='Labor';
+  document.getElementById('c-date').value=new Date().toISOString().split('T')[0];
+  openModal('cost');
+}
+function saveCost(){
+  const amount=parseFloat(document.getElementById('c-amount').value)||0;
+  if(!amount){alert('Enter an amount.');return;}
+  const job=JOBS.find(j=>j.id===CURRENT_JOB_ID);
+  if(!job)return;
+  if(!job.costs)job.costs=[];
+  job.costs.push({
+    category:document.getElementById('c-category').value,
+    amount,
+    date:document.getElementById('c-date').value,
+    notes:document.getElementById('c-notes').value.trim()
+  });
+  saveJobs();closeModal('cost');openJobDetail(CURRENT_JOB_ID);
+}
+function deleteCost(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);
+  if(!job)return;
+  job.costs.splice(idx,1);
+  saveJobs();openJobDetail(jobId);
+}
+
+// Change orders
+function openAddCO(jobId){
+  CURRENT_JOB_ID=jobId;
+  ['co-desc','co-amount'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('co-type').value='add';
+  document.getElementById('co-date').value=new Date().toISOString().split('T')[0];
+  openModal('co');
+}
+function saveChangeOrder(){
+  const desc=document.getElementById('co-desc').value.trim();
+  const amount=parseFloat(document.getElementById('co-amount').value)||0;
+  if(!desc||!amount){alert('Description and amount required.');return;}
+  const job=JOBS.find(j=>j.id===CURRENT_JOB_ID);
+  if(!job)return;
+  if(!job.changeOrders)job.changeOrders=[];
+  job.changeOrders.push({
+    desc,type:document.getElementById('co-type').value,
+    amount,date:document.getElementById('co-date').value
+  });
+  saveJobs();closeModal('co');openJobDetail(CURRENT_JOB_ID);
+}
+function deleteCO(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);
+  if(!job)return;
+  job.changeOrders.splice(idx,1);
+  saveJobs();openJobDetail(jobId);
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
