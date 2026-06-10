@@ -25,7 +25,7 @@
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
 
 /* NAV */
-.nav{background:#2C2C2C;height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
+.nav{background:#111111;height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
 .nav-logo{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px;cursor:pointer;white-space:nowrap;}
 .nav-logo span{color:rgba(255,255,255,.4);font-weight:300;}
 .nav-breadcrumb{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;}
@@ -631,8 +631,8 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 
 <nav class="nav">
  <div class="nav-logo" onclick="goLanding()">Bid<span>Sum</span></div>
- <div class="nav-breadcrumb" id="breadcrumb"></div>
- <div class="nav-actions" id="nav-actions"></div>
+ <div id="nav-module-btns" style="display:flex;align-items:center;gap:4px;margin-left:16px;flex:1;overflow:hidden;"></div>
+ <div class="nav-actions" id="nav-actions" style="flex-shrink:0;margin-left:8px;"></div>
 </nav>
 
 <div class="page" id="app"></div>
@@ -1351,24 +1351,11 @@ function renderNav(){
  const na=document.getElementById('nav-actions');
  bc.innerHTML='';na.innerHTML='';
  if(NAV.screen==='landing'){
- na.innerHTML=`
- <button class="btn-nav" onclick="goHome()">BidSum</button>
- <button class="btn-nav" onclick="goJobs()">Jobs</button>
- <button class="btn-nav" onclick="goReports()">Reports</button>
- <button class="btn-nav" onclick="goAccounting()">Accounting</button>
- <button class="btn-nav" onclick="goTeam()">Team</button>
- <button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>
- `;
+
  } else if(NAV.screen==='manager'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Admin Panel</span>`;
  } else if(NAV.screen==='home'){
- na.innerHTML=`
- <button class="btn-nav btn-nav-active" onclick="goHome()">BidSum</button>
- <button class="btn-nav" onclick="goJobs()">Jobs</button>
- <button class="btn-nav" onclick="goReports()">Reports</button>
- <button class="btn-nav" onclick="goAccounting()">Accounting</button>
- <button class="btn-nav" onclick="goTeam()">Team</button>
- `;
+
  } else if(NAV.screen==='member'){
  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">${m?m.first+' '+m.last:'Member'}</span>`;
@@ -1381,7 +1368,6 @@ function renderNav(){
  `;
  } else if(NAV.screen==='jobs'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item" onclick="goJobs()">Jobs</span>${NAV.jobCompany?`<span class="bc-sep">›</span><span class="bc-item cur">${NAV.jobCompany==='ACI'?'Architectural Coatings Inc.':'Bonas Company'}</span>`:''}`;
- if(NAV.jobCompany){na.innerHTML+='<button class="btn-nav-primary" onclick="openNewJobModal()">+ New Job</button>';}
  na.innerHTML=`
  <button class="btn-nav" onclick="goHome()">BidSum</button>
  <button class="btn-nav btn-nav-active" onclick="goJobs()">Jobs</button>
@@ -1390,20 +1376,16 @@ function renderNav(){
  `;
  } else if(NAV.screen==='reports'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Reports</span>`;
- na.innerHTML=`
- <button class="btn-nav" onclick="goHome()">BidSum</button>
- <button class="btn-nav" onclick="goJobs()">Jobs</button>
- <button class="btn-nav btn-nav-active" onclick="goReports()">Reports</button>
- `;
+
  } else if(NAV.screen==='accounting'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Accounting</span>`;
- na.innerHTML=`<button class="btn-nav" onclick="goHome()">BidSum</button><button class="btn-nav" onclick="goJobs()">Jobs</button><button class="btn-nav btn-nav-active" onclick="goAccounting()">Accounting</button>`;
+ 
  } else if(NAV.screen==='team'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Team</span>`;
- na.innerHTML=`<button class="btn-nav" onclick="goHome()">BidSum</button><button class="btn-nav" onclick="goJobs()">Jobs</button><button class="btn-nav" onclick="goReports()">Reports</button><button class="btn-nav" onclick="goAccounting()">Accounting</button>`;
+ 
  } else if(NAV.screen==='myprofile'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">My Profile</span>`;
- na.innerHTML=`<button class="btn-nav" onclick="goHome()">BidSum</button><button class="btn-nav" onclick="goJobs()">Jobs</button><button class="btn-nav" onclick="goReports()">Reports</button>`;
+ 
  } else if(NAV.screen==='gc'){
  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
  const gc=DB.gcs.find(x=>parseInt(x.id)===parseInt(NAV.gcId));
@@ -3606,35 +3588,66 @@ function openManagerPanel(){
 function renderManagerScreen(){
  document.getElementById('app').innerHTML=`
  <div class="mgr-panel">
- <div class="mgr-panel-title">Team Access Management</div>
+ <div class="mgr-panel-title" style="display:flex;align-items:center;justify-content:space-between;">
+   <span>Team Access Management</span>
+   <button class="btn-nav-primary" onclick="openMemberModal()" style="font-size:12px;">+ Add member</button>
+ </div>
  <div id="mgr-user-list">${renderMgrUserList()}</div>
  </div>`;
 }
 
 function renderMgrUserList(){
+ const typeLabels={PM:'Project Manager',EST:'Estimator',SUP:'Superintendent',ACC:'Accounting',ACCMGR:'Accounting Manager'};
  return DB.members.map(m=>{
- const style=memberAvatarStyle(m);
- const ini=m.initials||(m.first[0]+m.last[0]).toUpperCase();
- const isActive=m.active!==false;
- const roleLabel=m.role==='manager'?'<span class="badge-manager">Manager</span>':'<span class="badge-employee">Employee</span>';
- const statusLabel=!isActive?'<span class="badge-inactive">Inactive</span>':'';
- const lastLogin=m.lastLogin?new Date(m.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
- const isSelf=parseInt(m.id)===parseInt(SESSION.user.id);
- return`<div class="mgr-user-row">
- <div class="auth-avatar" style="${style}">${ini}</div>
- <div class="mgr-user-info">
- <div class="mgr-user-name">${m.first} ${m.last} ${roleLabel} ${statusLabel}</div>
- <div class="mgr-user-meta">${m.email||'No email'} · Last login: ${lastLogin}</div>
- </div>
- <div class="mgr-actions">
- ${!isSelf?`<button class="btn-sm" onclick="mgrToggleRole(${m.id})">${m.role==='manager'?'→ Employee':'→ Manager'}</button>`:''}
- <button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>
- ${!isSelf?`<button class="btn-sm" style="${!isActive?'background:var(--green-bg);color:var(--green);':''}" onclick="mgrToggleActive(${m.id})">${isActive?'Deactivate':'Reactivate'}</button>`:''}
- </div>
- </div>`;
+  const style=memberAvatarStyle(m);
+  const ini=m.initials||(m.first[0]+m.last[0]).toUpperCase();
+  const isActive=m.active!==false;
+  const statusLabel=!isActive?'<span class="badge-inactive">Inactive</span>':'';
+  const lastLogin=m.lastLogin?new Date(m.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+  const isSelf=parseInt(m.id)===parseInt(SESSION.user.id);
+  const typeLabel=typeLabels[m.type]||'Member';
+  return`<div class="mgr-user-row">
+   <div class="auth-avatar" style="${style}">${ini}</div>
+   <div class="mgr-user-info">
+     <div class="mgr-user-name">${m.first} ${m.last} ${statusLabel}</div>
+     <div class="mgr-user-meta">${typeLabel} · ${m.email||'No email'} · Last login: ${lastLogin}</div>
+   </div>
+   <div class="mgr-actions" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+     <select onchange="mgrSetRole(${m.id},this.value)" style="font-size:11px;border:1px solid var(--border);border-radius:var(--r);padding:4px 6px;background:var(--bg);font-family:var(--font);color:var(--text);cursor:pointer;" ${isSelf?'disabled':''}>
+       <option value="employee" ${m.role!=='manager'?'selected':''}>Employee</option>
+       <option value="manager" ${m.role==='manager'?'selected':''}>Manager</option>
+     </select>
+     <button class="btn-sm" onclick="openMemberEditById(${m.id})">Edit</button>
+     <button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>
+     ${!isSelf?`<button class="btn-sm" style="${!isActive?'background:var(--green-bg);color:var(--green);':''}" onclick="mgrToggleActive(${m.id})">${isActive?'Deactivate':'Reactivate'}</button>`:''}
+     ${!isSelf?`<button class="btn-sm" style="background:var(--red-bg);color:var(--red);" onclick="mgrDeleteMember(${m.id})">Delete</button>`:''}
+   </div>
+  </div>`;
  }).join('');
 }
 
+
+async function mgrSetRole(id, newRole){
+  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
+  if(m.role===newRole)return;
+  try{
+    await sbPatch('members',id,{...memberToBody(m),role:newRole});
+    m.role=newRole;
+    document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
+    showSaved('✓ Role updated for '+m.first+' '+m.last);
+  }catch(e){alert('Error: '+e.message);}
+}
+
+async function mgrDeleteMember(id){
+  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
+  if(!confirm('Permanently delete '+m.first+' '+m.last+'? This cannot be undone. All their bids will remain but they will be removed from the system.'))return;
+  try{
+    await fetch('/api/data?table=members&id='+id,{method:'DELETE'});
+    DB.members=DB.members.filter(x=>parseInt(x.id)!==id);
+    document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
+    showSaved('✓ '+m.first+' '+m.last+' deleted');
+  }catch(e){alert('Error: '+e.message);}
+}
 async function mgrToggleRole(id){
  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
  const newRole=m.role==='manager'?'employee':'manager';
