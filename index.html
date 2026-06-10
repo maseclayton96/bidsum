@@ -1001,85 +1001,8 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 
 
 
-<!-- JOB MODAL -->
-<div class="modal-overlay" id="modal-job">
-  <div class="modal" style="width:580px;">
-    <div class="modal-head">
-      <div class="modal-title" id="job-modal-title">New Job</div>
-      <div class="modal-close" onclick="closeModal('job')">✕</div>
-    </div>
-    <div class="modal-body">
-      <div class="fg"><label>Job name</label><input id="j-name" autocomplete="off" placeholder="Job Name"></div>
-      <div class="frow">
-        <div class="fg"><label>GC / Client</label>
-          <select id="j-gc">
-            <option value="">— select GC —</option>
-          </select>
-        </div>
-        <div class="fg"><label>Project Manager</label>
-          <select id="j-pm">
-            <option value="">— select PM —</option>
-          </select>
-        </div>
-      </div>
-      <div class="frow">
-        <div class="fg"><label>Contract value ($)</label><input id="j-value" type="text" autocomplete="off" placeholder="0" onfocus="if(this.value==='0')this.value=''" onblur="formatBidValue(this)"></div>
-        <div class="fg"><label>Status</label>
-          <select id="j-status">
-            <option value="Active">Active</option>
-            <option value="On Hold">On Hold</option>
-            <option value="Complete">Complete</option>
-          </select>
-        </div>
-      </div>
-      <div class="frow">
-        <div class="fg"><label>Start date</label><input id="j-start" type="date" autocomplete="off"></div>
-        <div class="fg"><label>End date</label><input id="j-end" type="date" autocomplete="off"></div>
-      </div>
-      <div class="fg"><label>Company</label>
-        <select id="j-company">
-          <option value="ACI">ACI</option>
-          <option value="Bonas">Bonas</option>
-        </select>
-      </div>
-      <div class="fg"><label>Notes</label><textarea id="j-notes" placeholder="Key notes, scope summary..." style="min-height:60px;"></textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-danger" id="btn-delete-job" style="display:none;" onclick="deleteJob()">Delete Job</button>
-      <button class="btn" onclick="closeModal('job')">Cancel</button>
-      <button class="btn-primary" onclick="saveJob()">Save Job</button>
-    </div>
-  </div>
 </div>
 
-<!-- COST ENTRY MODAL -->
-<div class="modal-overlay" id="modal-cost">
-  <div class="modal" style="width:440px;">
-    <div class="modal-head">
-      <div class="modal-title">Add Cost Entry</div>
-      <div class="modal-close" onclick="closeModal('cost')">✕</div>
-    </div>
-    <div class="modal-body">
-      <div class="fg"><label>Category</label>
-        <select id="c-category">
-          <option>Labor</option>
-          <option>Materials</option>
-          <option>Supplies</option>
-          <option>Subcontractors</option>
-          <option>Equipment Rental</option>
-          <option>Overhead</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="fg"><label>Amount ($)</label><input id="c-amount" type="text" autocomplete="off" placeholder="0" onfocus="if(this.value==='0')this.value=''"></div>
-      <div class="fg"><label>Date</label><input id="c-date" type="date" autocomplete="off"></div>
-      <div class="fg"><label>Notes</label><input id="c-notes" autocomplete="off" placeholder="Brief description..."></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('cost')">Cancel</button>
-      <button class="btn-primary" onclick="saveCost()">Add Cost</button>
-    </div>
-  </div>
 </div>
 
 <!-- CHANGE ORDER MODAL -->
@@ -3908,7 +3831,6 @@ function jobContract(job){
 function renderJobs(){
   loadJobs();
   // Always re-read from storage
-  console.log('renderJobs: NAV.jobCompany='+NAV.jobCompany+' JOBS='+JOBS.length+' filtered='+JOBS.filter(j=>j.company===NAV.jobCompany).length);
   const sf = (document.getElementById('jf-status')||{}).value || '';
   const tf = ((document.getElementById('jf-search')||{}).value || '').toLowerCase().trim();
   // Always filter by selected company
@@ -3983,9 +3905,7 @@ function renderJobs(){
 function openJobById(jobId){ openJobDetail(jobId); }
 function openJobDetail(jobId, tab){
   loadJobs(); // Always reload before opening
-  console.log('openJobDetail called with:',jobId,'JOBS count:',JOBS.length);
   const job = JOBS.find(j=>String(j.id)===String(jobId));
-  console.log('Job found:',job?job.name:'NOT FOUND','all ids:',JOBS.map(j=>j.id));
   if(job){
     NAV.jobCompany = job.company||NAV.jobCompany||'Bonas';
     CUR_JOB_ID = job.id;
