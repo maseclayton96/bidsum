@@ -1104,9 +1104,15 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
     <div class="modal-body">
       <div class="fg"><label>Category</label>
         <select id="c-category">
-          <option>Labor</option><option>Materials</option><option>Supplies</option>
-          <option>Subcontractors</option><option>Equipment Rental</option>
-          <option>Overhead</option><option>Other</option>
+          <option>Labor</option>
+          <option>Overtime Labor</option>
+          <option>Fringes</option>
+          <option>Materials</option>
+          <option>Committed Materials</option>
+          <option>Subcontracts</option>
+          <option>Equipment Rental</option>
+          <option>Job Supplies</option>
+          <option>Other Job Costs</option>
         </select>
       </div>
       <div class="frow">
@@ -1332,8 +1338,9 @@ function render(){
  else if(NAV.screen==='gc')renderGCScreen();
  else if(NAV.screen==='manager')renderManagerScreen();
   else if(NAV.screen==='accounting')renderAccounting();
+  else if(NAV.screen==='team')renderTeam();
   else if(NAV.screen==='myprofile')renderMyProfile();
- else if(NAV.screen==='jobs'){if(NAV.jobCompany)renderJobs();else renderJobsHome();}
+ else if(NAV.screen==='jobs'){if(NAV.jobCompany)renderCompanyJobList(NAV.jobCompany);else renderJobsHome();}
  else if(NAV.screen==='reports')renderReports();
  setTimeout(initAllDraggables,50);
  renderCurrentUserNav();
@@ -1349,6 +1356,7 @@ function renderNav(){
  <button class="btn-nav" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
  <button class="btn-nav" onclick="goAccounting()">Accounting</button>
+ <button class="btn-nav" onclick="goTeam()">Team</button>
  <button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>
  `;
  } else if(NAV.screen==='manager'){
@@ -1359,6 +1367,7 @@ function renderNav(){
  <button class="btn-nav" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
  <button class="btn-nav" onclick="goAccounting()">Accounting</button>
+ <button class="btn-nav" onclick="goTeam()">Team</button>
  `;
  } else if(NAV.screen==='member'){
  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
@@ -1372,6 +1381,7 @@ function renderNav(){
  `;
  } else if(NAV.screen==='jobs'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item" onclick="goJobs()">Jobs</span>${NAV.jobCompany?`<span class="bc-sep">›</span><span class="bc-item cur">${NAV.jobCompany==='ACI'?'Architectural Coatings Inc.':'Bonas Company'}</span>`:''}`;
+ if(NAV.jobCompany){na.innerHTML+='<button class="btn-nav-primary" onclick="openNewJobModal()">+ New Job</button>';}
  na.innerHTML=`
  <button class="btn-nav" onclick="goHome()">BidSum</button>
  <button class="btn-nav btn-nav-active" onclick="goJobs()">Jobs</button>
@@ -1388,6 +1398,9 @@ function renderNav(){
  } else if(NAV.screen==='accounting'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Accounting</span>`;
  na.innerHTML=`<button class="btn-nav" onclick="goHome()">BidSum</button><button class="btn-nav" onclick="goJobs()">Jobs</button><button class="btn-nav btn-nav-active" onclick="goAccounting()">Accounting</button>`;
+ } else if(NAV.screen==='team'){
+ bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Team</span>`;
+ na.innerHTML=`<button class="btn-nav" onclick="goHome()">BidSum</button><button class="btn-nav" onclick="goJobs()">Jobs</button><button class="btn-nav" onclick="goReports()">Reports</button><button class="btn-nav" onclick="goAccounting()">Accounting</button>`;
  } else if(NAV.screen==='myprofile'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">My Profile</span>`;
  na.innerHTML=`<button class="btn-nav" onclick="goHome()">BidSum</button><button class="btn-nav" onclick="goJobs()">Jobs</button><button class="btn-nav" onclick="goReports()">Reports</button>`;
@@ -1411,7 +1424,7 @@ function renderNav(){
 
 function goJobs(){NAV.screen='jobs';NAV.jobCompany=null;NAV.memberId=null;NAV.gcId=null;render();}
 function goAccounting(){NAV.screen='accounting';render();}
-function goJobsCompany(company){NAV.screen='jobs';NAV.jobCompany=company;loadJobs();render();}
+function goJobsCompany(company){NAV.screen='jobs';NAV.jobCompany=company;loadJobs();renderCompanyJobList(company);}
 function goReports(){NAV.screen='reports';NAV.memberId=null;NAV.gcId=null;render();}
 
 
@@ -3504,6 +3517,16 @@ async function finishLoad(){
  DB.contacts=contacts.map(mapContact);DB.bids=bids.map(mapBid);
  // Re-sync SESSION.user with fresh data
  SESSION.user=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id))||SESSION.user;
+ // Ensure Clayton Mase has admin/manager role
+ const cm=DB.members.find(m=>m.first==='Clayton'&&m.last==='Mase');
+ if(cm&&cm.role!=='manager'){
+   sbPatch('members',cm.id,{...memberToBody(cm),role:'manager'}).then(row=>{
+     const mapped=mapMember(row);
+     const midx=DB.members.findIndex(x=>parseInt(x.id)===parseInt(cm.id));
+     if(midx>=0)DB.members[midx]=mapped;
+     if(SESSION.user&&parseInt(SESSION.user.id)===parseInt(cm.id))SESSION.user=mapped;
+   }).catch(()=>{});
+ }
  }catch(e){console.error('Load error',e);}
  finally{hideLoader();}
  NAV.screen='landing';
@@ -3952,7 +3975,6 @@ function renderJobDetail(){
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openBulkImport('${job.id}')">Import Payroll</button>
-          <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
         </div>
       </div>
       <div class="job-kpis">
@@ -3994,19 +4016,13 @@ function renderJobOverview(job, pm, sup, gc, contract, costs, gp, margin, ct){
         </div>
       </div>
     </div>
-    ${(job.costs||[]).length?`
     <div style="margin-top:16px;">
-      <div class="section-hd" style="margin-bottom:10px;"><div class="section-title">Cost Entries</div></div>
-      <div class="tw"><table><thead><tr><th>Category</th><th>Notes</th><th style="text-align:right;">Amount</th><th>Date</th><th style="width:40px;"></th></tr></thead><tbody>
-        ${job.costs.map((c,i)=>`<tr>
-          <td style="font-weight:600;">${c.category}</td>
-          <td style="font-size:12px;color:var(--text2);">${c.notes||'—'}</td>
-          <td style="text-align:right;font-weight:600;">${fmtVal(c.amount)}</td>
-          <td style="font-size:12px;">${fmtDate(c.date)}</td>
-          <td><button class="btn-sm" onclick="deleteCostEntry('${job.id}',${i})">×</button></td>
-        </tr>`).join('')}
-      </tbody></table></div>
-    </div>`:''}
+      <div class="section-hd" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-title">Cost Breakdown</div>
+        <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Add cost</button>
+      </div>
+      ${renderCostBreakdown(job)}
+    </div>
     ${job.notes?`<div style="margin-top:16px;"><div class="pl-card"><div class="pl-card-label">Notes</div><div style="font-size:13px;margin-top:6px;line-height:1.6;white-space:pre-wrap;">${job.notes}</div></div></div>`:''}`;
 }
 
@@ -4816,7 +4832,7 @@ function confirmImport(){
     });
     Object.values(byDateClass).forEach(entry=>{
       job.costs.push({
-        category:'Labor',
+        category:entry.isOT?'Overtime Labor':'Labor',
         amount:Math.round(entry.amount*100)/100,
         date:new Date(entry.date).toISOString().split('T')[0]||entry.date,
         notes:`CE Import: ${entry.cls} ${entry.isOT?'OT':'REG'} · ${entry.hours.toFixed(1)}hrs · ${[...entry.emps].join(', ')}`
@@ -4850,6 +4866,229 @@ function isAccManager(user){
 function canEditBids(user){
   if(!user)return false;
   return !isAccounting(user)||user.role==='manager';
+}
+
+
+// ═══════════════════════════════════════ COST BREAKDOWN ══════════════════════════════════
+const COST_CATEGORIES = [
+  'Labor','Overtime Labor','Fringes','Materials','Committed Materials',
+  'Subcontracts','Equipment Rental','Job Supplies','Other Job Costs'
+];
+
+function jobCostByCategory(job, category){
+  return (job.costs||[]).filter(c=>c.category===category).reduce((s,c)=>s+(c.amount||0),0);
+}
+
+function renderCostBreakdown(job){
+  const cats = COST_CATEGORIES;
+  const cors = job.cors||[];
+  const openCORs = cors.filter(c=>!c.void&&!c.custAmount&&c.total>0);
+  const receivedCORs = cors.filter(c=>!c.void&&c.custAmount&&c.custAmount>0);
+  const openCORTotal = openCORs.reduce((s,c)=>s+c.total,0);
+  const receivedCORTotal = receivedCORs.reduce((s,c)=>s+(c.custAmount||0),0);
+  const totalCosts = jobTotalCosts(job);
+  const rows = cats.map(cat=>{
+    const amt = jobCostByCategory(job, cat);
+    const entries = (job.costs||[]).filter(c=>c.category===cat);
+    return{cat,amt,entries};
+  }).filter(r=>r.amt>0||true); // show all categories
+
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;">
+    <table style="width:100%;">
+      <thead><tr style="background:var(--bg3);">
+        <th style="width:200px;">Category</th>
+        <th style="text-align:right;width:120px;">Amount</th>
+        <th style="text-align:right;width:80px;">% of Total</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map((r,i)=>`<tr style="${r.amt>0?'':'opacity:.4;'}">
+          <td style="font-weight:${r.amt>0?'600':'400'};font-size:13px;">${r.cat}</td>
+          <td style="text-align:right;font-weight:${r.amt>0?'700':'400'};font-size:13px;color:${r.amt>0?'#CC0000':'var(--text3)'};">${r.amt>0?fmtVal(r.amt):'—'}</td>
+          <td style="text-align:right;font-size:12px;color:var(--text3);">${totalCosts&&r.amt?Math.round(r.amt/totalCosts*100)+'%':'—'}</td>
+          <td style="text-align:right;">
+            ${r.entries.length?`<button class="btn-sm" onclick="toggleCostDetail('detail-${i}-${job.id.replace(/[^a-z0-9]/gi,'')}')" style="font-size:10px;">▾ ${r.entries.length}</button>`:''}
+          </td>
+        </tr>
+        ${r.entries.length?`<tr id="detail-${i}-${job.id.replace(/[^a-z0-9]/gi,'')}" style="display:none;"><td colspan="4" style="padding:0 0 8px 16px;">
+          <table style="width:100%;font-size:11px;"><tbody>
+            ${r.entries.map((e,ei)=>`<tr><td style="color:var(--text2);padding:3px 8px;">${fmtDate(e.date)}</td><td style="padding:3px 8px;">${e.notes||'—'}</td><td style="text-align:right;padding:3px 8px;font-weight:600;">${fmtVal(e.amount)}</td><td style="padding:3px 8px;"><button class="btn-sm" onclick="deleteCostEntry('${job.id}',${(job.costs||[]).indexOf(e)})">×</button></td></tr>`).join('')}
+          </tbody></table>
+        </td></tr>`:''}
+        `).join('')}
+        <!-- Divider -->
+        <tr><td colspan="4" style="padding:0;"><div style="height:2px;background:var(--border);margin:4px 0;"></div></td></tr>
+        <!-- Change Orders -->
+        <tr style="${openCORTotal?'':'opacity:.4;'}">
+          <td style="font-weight:600;font-size:13px;color:#CC0000;">Change Orders — Open</td>
+          <td style="text-align:right;font-weight:700;font-size:13px;color:#CC0000;">${openCORTotal?fmtVal(openCORTotal):'—'}</td>
+          <td style="text-align:right;font-size:12px;color:var(--text3);">${openCORs.length?openCORs.length+' COR'+( openCORs.length!==1?'s':''):'—'}</td>
+          <td></td>
+        </tr>
+        <tr style="${receivedCORTotal?'':'opacity:.4;'}">
+          <td style="font-weight:600;font-size:13px;color:var(--green);">Change Orders — Received</td>
+          <td style="text-align:right;font-weight:700;font-size:13px;color:var(--green);">${receivedCORTotal?fmtVal(receivedCORTotal):'—'}</td>
+          <td style="text-align:right;font-size:12px;color:var(--text3);">${receivedCORs.length?receivedCORs.length+' COR'+(receivedCORs.length!==1?'s':''):'—'}</td>
+          <td></td>
+        </tr>
+        <!-- Total row -->
+        <tr style="background:var(--bg3);"><td colspan="4" style="padding:0;"></td></tr>
+        <tr style="background:var(--bg3);">
+          <td style="font-weight:700;font-size:13px;padding:10px 12px;">Total Job Costs</td>
+          <td style="text-align:right;font-weight:800;font-size:15px;color:#CC0000;padding:10px 12px;">${fmtVal(totalCosts)}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function toggleCostDetail(id){
+  const el=document.getElementById(id);
+  if(el)el.style.display=el.style.display==='none'?'table-row':'none';
+}
+
+// ═══════════════════════════════════════ COMPANY LANDING ══════════════════════════════════
+function renderCompanyJobList(company){
+  loadJobs();
+  const jobs = JOBS.filter(j=>j.company===company).sort((a,b)=>parseInt(a.num||0)-parseInt(b.num||0));
+  const active = jobs.filter(j=>j.status==='Active');
+  const onHold = jobs.filter(j=>j.status==='On Hold');
+  const complete = jobs.filter(j=>j.status==='Complete');
+  const coHdr = company==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
+  const totalContract = jobs.reduce((s,j)=>s+jobContract(j),0);
+  const totalOpenCORs = jobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s2,c)=>s2+c.total,0)),0);
+
+  const renderSection = (title, sectionJobs, showEmpty) => {
+    if(!sectionJobs.length && !showEmpty) return '';
+    return`<div style="margin-bottom:24px;">
+      <div class="section-hd" style="margin-bottom:10px;">
+        <div class="section-title">${title} <span style="color:var(--text3);font-weight:400;font-size:12px;">${sectionJobs.length} job${sectionJobs.length!==1?'s':''}</span></div>
+      </div>
+      ${sectionJobs.length?`<div class="job-list-table">
+        <table style="width:100%;">
+          <thead><tr>
+            <th style="width:75px;">Job #</th>
+            <th>Job Name</th>
+            <th style="width:160px;">GC / Customer</th>
+            <th style="width:80px;">PM</th>
+            <th style="text-align:right;width:110px;">Contract</th>
+            <th style="text-align:right;width:110px;">Open CORs</th>
+            <th style="width:90px;">Status</th>
+          </tr></thead>
+          <tbody>
+            ${sectionJobs.map(job=>{
+              const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+              const ini=pm?(pm.initials||(pm.first[0]+pm.last[0]).toUpperCase()):'—';
+              const openCOR=(job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s,c)=>s+c.total,0);
+              const sc=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
+              return`<tr style="cursor:pointer;" data-jobid="${job.id}" onclick="NAV.jobCompany='${company}';openJobDetail(this.dataset.jobid)">
+                <td><span class="job-num">${job.num||'—'}</span></td>
+                <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
+                <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.gcName||'—'}</td>
+                <td style="font-size:12px;font-weight:600;">${ini}</td>
+                <td style="text-align:right;font-weight:600;">${fmtVal(jobContract(job))}</td>
+                <td style="text-align:right;font-weight:600;color:${openCOR?'#CC0000':'var(--text3)'};">${openCOR?fmtVal(openCOR):'—'}</td>
+                <td><span class="job-status-badge ${sc}">${job.status}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`:`<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);">No ${title.toLowerCase()} jobs</div>`}
+    </div>`;
+  };
+
+  document.getElementById('app').innerHTML=`
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;">${coHdr}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${jobs.length} total jobs · ${active.length} active</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:18px;font-weight:700;">${fmtVal(totalContract)}</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Total Contract</div>
+        </div>
+        <div style="background:#FFEAEA;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 16px;text-align:center;min-width:90px;">
+          <div style="font-size:18px;font-weight:700;color:#CC0000;">${fmtVal(totalOpenCORs)}</div>
+          <div style="font-size:10px;color:#CC0000;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Open CORs</div>
+        </div>
+      </div>
+    </div>
+    ${renderSection('Active Jobs', active, true)}
+    ${renderSection('On Hold', onHold, false)}
+    ${renderSection('Complete', complete, false)}
+  `;
+}
+
+// ═══════════════════════════════════════ TEAM PAGE ════════════════════════════════════════
+function goTeam(){NAV.screen='team';render();}
+function renderTeam(){
+  const byType = {
+    PM: DB.members.filter(m=>m.type==='PM'&&m.active!==false),
+    EST: DB.members.filter(m=>m.type==='EST'&&m.active!==false),
+    SUP: DB.members.filter(m=>m.type==='SUP'&&m.active!==false),
+    ACC: DB.members.filter(m=>(m.type==='ACC'||m.type==='ACCMGR')&&m.active!==false),
+    inactive: DB.members.filter(m=>m.active===false)
+  };
+  const isAdmin = SESSION.user&&(SESSION.user.role==='manager'||SESSION.user.type==='ACCMGR');
+
+  const renderMemberSection = (title, members) => {
+    if(!members.length) return '';
+    return`<div style="margin-bottom:28px;">
+      <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">${title}</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+        ${members.map(m=>{
+          const typeLabel=m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='SUP'?'Superintendent':m.type==='ACCMGR'?'Accounting Manager':m.type==='ACC'?'Accounting':'Member';
+          const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
+          const awarded=myBids.filter(b=>b.status==='Awarded');
+          const lastLogin=m.lastLogin?new Date(m.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+          return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px;box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+              <div style="${memberAvatarStyle(m)}width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;">${m.first} ${m.last}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:1px;">${m.title||typeLabel}</div>
+                <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">
+                  <span class="${m.role==='manager'?'badge-manager':'badge-employee'}" style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;">${m.role==='manager'?'Manager':'Employee'}</span>
+                  ${m.type==='PM'&&m.series?`<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--bg3);color:var(--text3);">${m.series}s</span>`:''}
+                </div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:14px;">
+              <div><span style="color:var(--text3);">Email: </span>${m.email||'—'}</div>
+              <div><span style="color:var(--text3);">Phone: </span>${m.phone||'—'}</div>
+              ${m.type==='PM'||m.type==='EST'?`<div><span style="color:var(--text3);">Bids: </span>${myBids.length}</div><div><span style="color:var(--text3);">Wins: </span>${awarded.length}</div>`:''}
+              <div style="grid-column:1/-1;"><span style="color:var(--text3);">Last login: </span>${lastLogin}</div>
+            </div>
+            ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn-sm" onclick="openMemberEditById(${m.id})">Edit</button>
+              ${isAdmin?`<button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>`:''}
+              ${isAdmin&&parseInt(m.id)!==parseInt(SESSION.user.id)?`<button class="btn-sm" onclick="mgrToggleRole(${m.id})">${m.role==='manager'?'→ Employee':'→ Manager'}</button>`:''}
+            </div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  };
+
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-size:22px;font-weight:700;">Team</div>
+      ${isAdmin?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>`:''}
+    </div>
+    ${renderMemberSection('Project Managers', byType.PM)}
+    ${renderMemberSection('Estimators', byType.EST)}
+    ${renderMemberSection('Superintendents', byType.SUP)}
+    ${renderMemberSection('Accounting', byType.ACC)}
+    ${byType.inactive.length?renderMemberSection('Inactive', byType.inactive):''}
+  `;
+}
+
+function openMemberEditById(id){
+  NAV.memberId=id;
+  openMemberEdit();
 }
 
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
