@@ -3908,6 +3908,7 @@ function jobContract(job){
 function renderJobs(){
   loadJobs();
   // Always re-read from storage
+  console.log('renderJobs: NAV.jobCompany='+NAV.jobCompany+' JOBS='+JOBS.length+' filtered='+JOBS.filter(j=>j.company===NAV.jobCompany).length);
   const sf = (document.getElementById('jf-status')||{}).value || '';
   const tf = ((document.getElementById('jf-search')||{}).value || '').toLowerCase().trim();
   // Always filter by selected company
@@ -3979,16 +3980,25 @@ function renderJobs(){
 // ══════════════════════════════════════════════════════════════
 // JOB DETAIL — 4 tabs
 // ══════════════════════════════════════════════════════════════
+function openJobById(jobId){ openJobDetail(jobId); }
 function openJobDetail(jobId, tab){
-  if(!NAV.jobCompany){const j=JOBS.find(x=>x.id===jobId);if(j)NAV.jobCompany=j.company||'Bonas';}
-  CUR_JOB_ID = jobId;
+  loadJobs(); // Always reload before opening
+  console.log('openJobDetail called with:',jobId,'JOBS count:',JOBS.length);
+  const job = JOBS.find(j=>String(j.id)===String(jobId));
+  console.log('Job found:',job?job.name:'NOT FOUND','all ids:',JOBS.map(j=>j.id));
+  if(job){
+    NAV.jobCompany = job.company||NAV.jobCompany||'Bonas';
+    CUR_JOB_ID = job.id;
+  } else {
+    CUR_JOB_ID = jobId;
+  }
   CUR_JOB_TAB = tab || 'overview';
   renderJobDetail();
 }
 
 function renderJobDetail(){
-  const job = JOBS.find(j=>j.id===CUR_JOB_ID);
-  if(!job){ renderJobs(); return; }
+  const job = JOBS.find(j=>j.id===CUR_JOB_ID||j.id===String(CUR_JOB_ID));
+  if(!job){ console.error('Job not found:',CUR_JOB_ID,'JOBS:',JOBS.map(j=>j.id)); renderJobs(); return; }
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const sup = DB.members.find(m=>parseInt(m.id)===parseInt(job.superId));
