@@ -623,6 +623,10 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .acc-nav-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
 .acc-nav-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
 .company-job-card:hover{box-shadow:var(--shadow-md)!important;transform:translateY(-3px);transition:all .15s;}
+
+/* ══ SOV ══ */
+.sov-progress{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:4px;}
+.sov-progress-fill{height:100%;background:#CC0000;border-radius:3px;transition:width .3s;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
 </style>
@@ -3597,7 +3601,7 @@ function renderManagerScreen(){
 }
 
 function renderMgrUserList(){
- const typeLabels={PM:'Project Manager',EST:'Estimator',SUP:'Superintendent',ACC:'Accounting',ACCMGR:'Accounting Manager'};
+ const typeLabels={PM:'Project Manager',EST:'Estimator',PC:'Project Coordinator',FOR:'Foreman',SUP:'Superintendent',ACC:'Accounting',ACCMGR:'Accounting Manager'};
  return DB.members.map(m=>{
   const style=memberAvatarStyle(m);
   const ini=m.initials||(m.first[0]+m.last[0]).toUpperCase();
@@ -3964,8 +3968,8 @@ function renderJobDetail(){
   const margin = contract ? Math.round(gp/contract*100) : 0;
   const cors = job.cors||[];
   const ct = jobCORTotals(job);
-  const tabs = ['overview','submittal','status','corlog'];
-  const tabLabels = ['Overview','Submittal','Status','COR Log'];
+  const tabs = ['overview','submittal','status','corlog','sov'];
+  const tabLabels = ['Overview','Submittal','Status','COR Log','SOV'];
   const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
   const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
   const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
@@ -3975,6 +3979,7 @@ function renderJobDetail(){
   else if(CUR_JOB_TAB==='submittal') tabContent = renderSubmittal(job, coHdr, coAddr, coPhone);
   else if(CUR_JOB_TAB==='status') tabContent = renderStatusPage(job, coHdr, coAddr, coPhone);
   else if(CUR_JOB_TAB==='corlog') tabContent = renderCORLog(job, coHdr, coAddr, coPhone, ct);
+  else if(CUR_JOB_TAB==='sov') tabContent = renderSOV(job);
 
   document.getElementById('app').innerHTML = `
     <div class="job-hero">
@@ -4555,7 +4560,7 @@ function renderMyProfile(){
           <div style="${memberAvatarStyle(m)}width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
           <div>
             <div style="font-size:22px;font-weight:700;">${m.first} ${m.last}</div>
-            <div style="font-size:13px;color:var(--text3);margin-top:2px;">${m.title||''} · ${m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='SUP'?'Superintendent':m.type==='ACC'?'Accounting':m.type==='ACCMGR'?'Accounting Manager':'Member'}</div>
+            <div style="font-size:13px;color:var(--text3);margin-top:2px;">${m.title||''} · ${m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='PC'?'Project Coordinator':m.type==='FOR'?'Foreman':m.type==='SUP'?'Superintendent':m.type==='ACC'?'Accounting':m.type==='ACCMGR'?'Accounting Manager':'Member'}</div>
             <div style="margin-top:4px;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;${m.role==='manager'?'background:#FFEAEA;color:#CC0000;':'background:var(--bg3);color:var(--text3);'}">${m.role==='manager'?'Manager':'Employee'}</span></div>
           </div>
         </div>
@@ -4872,6 +4877,10 @@ function isAccounting(user){
   if(!user)return false;
   return user.type==='ACC'||user.type==='ACCMGR';
 }
+function isFieldRole(user){
+  if(!user)return false;
+  return ['SUP','PC','FOR'].includes(user.type);
+}
 function isAccManager(user){
   if(!user)return false;
   return user.type==='ACCMGR'||user.role==='manager';
@@ -4963,6 +4972,13 @@ function toggleCostDetail(id){
 
 // ═══════════════════════════════════════ COMPANY LANDING ══════════════════════════════════
 function renderCompanyJobList(company){
+  // Foreman: only show their assigned jobs
+  if(SESSION.user&&SESSION.user.type==='FOR'){
+    loadJobs();
+    const myJobs=JOBS.filter(j=>j.company===company&&(parseInt(j.pmId)===parseInt(SESSION.user.id)||parseInt(j.superId)===parseInt(SESSION.user.id)));
+    renderFormanJobList(company,myJobs);
+    return;
+  }
   loadJobs();
   const jobs = JOBS.filter(j=>j.company===company).sort((a,b)=>parseInt(a.num||0)-parseInt(b.num||0));
   const active = jobs.filter(j=>j.status==='Active');
@@ -5041,6 +5057,8 @@ function renderTeam(){
   const byType = {
     PM: DB.members.filter(m=>m.type==='PM'&&m.active!==false),
     EST: DB.members.filter(m=>m.type==='EST'&&m.active!==false),
+    PC: DB.members.filter(m=>m.type==='PC'&&m.active!==false),
+    FOR: DB.members.filter(m=>m.type==='FOR'&&m.active!==false),
     SUP: DB.members.filter(m=>m.type==='SUP'&&m.active!==false),
     ACC: DB.members.filter(m=>(m.type==='ACC'||m.type==='ACCMGR')&&m.active!==false),
     inactive: DB.members.filter(m=>m.active===false)
@@ -5093,6 +5111,8 @@ function renderTeam(){
     </div>
     ${renderMemberSection('Project Managers', byType.PM)}
     ${renderMemberSection('Estimators', byType.EST)}
+    ${renderMemberSection('Project Coordinators', byType.PC)}
+    ${renderMemberSection('Foremen', byType.FOR)}
     ${renderMemberSection('Superintendents', byType.SUP)}
     ${renderMemberSection('Accounting', byType.ACC)}
     ${byType.inactive.length?renderMemberSection('Inactive', byType.inactive):''}
@@ -5102,6 +5122,147 @@ function renderTeam(){
 function openMemberEditById(id){
   NAV.memberId=id;
   openMemberEdit();
+}
+
+// ═══════════════════════════════════════ SOV ═════════════════════════════════════════════
+// Schedule of Values — contract line items, % complete, billed to date, balance
+function renderSOV(job){
+  if(!job.sov) job.sov = [];
+  const contract = jobContract(job);
+  const totalSOVValue = job.sov.reduce((s,l)=>s+(l.value||0),0);
+  const totalBilled = job.sov.reduce((s,l)=>s+((l.value||0)*(l.pctComplete||0)/100),0);
+  const totalBalance = totalSOVValue - totalBilled;
+
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-weight:700;font-size:14px;">Schedule of Values</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="addSOVLine('${job.id}')">+ Add line</button>
+        <button class="btn-sm-primary" onclick="saveSOV('${job.id}')">Save</button>
+      </div>
+    </div>
+    <!-- Summary -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract Value</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(contract)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">SOV Total</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:${Math.abs(totalSOVValue-contract)>1?'#CC0000':'inherit'};">${fmtVal(totalSOVValue)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Billed to Date</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:var(--green);">${fmtVal(totalBilled)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Balance</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(totalBalance)}</div></div>
+    </div>
+    ${Math.abs(totalSOVValue-contract)>1?`<div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:8px 14px;font-size:12px;color:#CC0000;margin-bottom:14px;">SOV total (${fmtVal(totalSOVValue)}) does not match contract (${fmtVal(contract)}). Difference: ${fmtVal(Math.abs(totalSOVValue-contract))}</div>`:''}
+    <!-- Table -->
+    <div style="overflow-x:auto;">
+      <table style="width:100%;min-width:700px;">
+        <thead><tr style="background:var(--bg3);">
+          <th style="width:40px;">#</th>
+          <th>Description</th>
+          <th style="width:110px;text-align:right;">Scheduled Value</th>
+          <th style="width:90px;text-align:center;">% Complete</th>
+          <th style="width:110px;text-align:right;">Billed to Date</th>
+          <th style="width:110px;text-align:right;">Balance</th>
+          <th style="width:36px;"></th>
+        </tr></thead>
+        <tbody id="sov-tbody-${job.id.replace(/[^a-z0-9]/gi,'')}">${
+          job.sov.length ? job.sov.map((line,i)=>{
+            const billed = (line.value||0)*(line.pctComplete||0)/100;
+            const bal = (line.value||0)-billed;
+            const pct = line.pctComplete||0;
+            return`<tr>
+              <td style="color:var(--text3);font-size:12px;">${i+1}</td>
+              <td><input class="sub-input" value="${line.desc||''}" placeholder="Line item description" oninput="SOV_TEMP['${job.id}'][${i}].desc=this.value" style="width:100%;font-size:13px;"></td>
+              <td style="text-align:right;"><input class="sub-input" type="number" value="${line.value||''}" placeholder="0" oninput="SOV_TEMP['${job.id}'][${i}].value=parseFloat(this.value)||0;updateSOVRow(this,${i},'${job.id}')" style="text-align:right;width:100%;font-size:13px;font-weight:600;"></td>
+              <td style="text-align:center;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="range" min="0" max="100" value="${pct}" oninput="this.nextElementSibling.textContent=this.value+'%';SOV_TEMP['${job.id}'][${i}].pctComplete=parseInt(this.value);updateSOVRow(this,${i},'${job.id}')" style="flex:1;accent-color:#CC0000;">
+                  <span style="font-size:12px;font-weight:700;min-width:36px;">${pct}%</span>
+                </div>
+              </td>
+              <td style="text-align:right;font-weight:600;color:var(--green);">${fmtVal(billed)}</td>
+              <td style="text-align:right;color:${bal>0?'var(--text)':'var(--green)'};">${fmtVal(bal)}</td>
+              <td><button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})">×</button></td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">No SOV lines yet — click + Add line to build the schedule of values</td></tr>`
+        }</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+let SOV_TEMP = {};
+
+function initSOVTemp(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sov)job.sov=[];
+  SOV_TEMP[jobId]=job.sov.map(l=>({...l}));
+}
+
+function addSOVLine(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sov)job.sov=[];
+  if(!SOV_TEMP[jobId])initSOVTemp(jobId);
+  job.sov.push({desc:'',value:0,pctComplete:0});
+  SOV_TEMP[jobId]=job.sov.map(l=>({...l}));
+  saveJobs();
+  openJobDetail(jobId,'sov');
+}
+
+function removeSOVLine(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job.sov.splice(idx,1);
+  saveJobs();
+  openJobDetail(jobId,'sov');
+}
+
+function updateSOVRow(input,idx,jobId){
+  // Live update the billed/balance cells
+  const row=input.closest('tr');if(!row)return;
+  if(!SOV_TEMP[jobId])return;
+  const line=SOV_TEMP[jobId][idx];if(!line)return;
+  const billed=(line.value||0)*(line.pctComplete||0)/100;
+  const bal=(line.value||0)-billed;
+  const cells=row.querySelectorAll('td');
+  if(cells[4])cells[4].textContent=fmtVal(billed);
+  if(cells[5])cells[5].textContent=fmtVal(bal);
+}
+
+function saveSOV(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(SOV_TEMP[jobId])job.sov=SOV_TEMP[jobId].map(l=>({...l}));
+  // Also read current inputs directly
+  const tbody=document.getElementById('sov-tbody-'+jobId.replace(/[^a-z0-9]/gi,''));
+  if(tbody){
+    job.sov=[];
+    tbody.querySelectorAll('tr').forEach((row,i)=>{
+      const inputs=row.querySelectorAll('input');
+      if(inputs.length<2)return;
+      const desc=inputs[0].value||'';
+      const value=parseFloat(inputs[1].value)||0;
+      const range=row.querySelector('input[type=range]');
+      const pct=range?parseInt(range.value):0;
+      if(desc||value)job.sov.push({desc,value,pctComplete:pct});
+    });
+  }
+  saveJobs();
+  showSaved('✓ SOV saved');
+  openJobDetail(jobId,'sov');
+}
+
+// ═══════════════════════════════════════ FOREMAN VIEW ═══════════════════════════════════
+function renderFormanJobList(company,jobs){
+  const coHdr=company==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
+  if(!jobs.length){
+    document.getElementById('app').innerHTML=`<div style="text-align:center;padding:60px;"><div style="font-size:16px;font-weight:600;margin-bottom:8px;">No assigned jobs</div><div style="color:var(--text3);font-size:13px;">You have no jobs assigned to you for ${coHdr}.</div></div>`;
+    return;
+  }
+  document.getElementById('app').innerHTML=`
+    <div style="font-size:22px;font-weight:700;margin-bottom:20px;">My Jobs — ${coHdr}</div>
+    <div style="display:grid;gap:12px;">
+      ${jobs.map(job=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;" onclick="NAV.jobCompany='${company}';openJobDetail('${job.id}')" onmouseover="this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.boxShadow='var(--shadow)'">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-weight:700;font-size:15px;">${job.name}</div><div style="font-size:12px;color:var(--text3);margin-top:3px;">${coHdr} · Job #${job.num||'—'} · ${job.gcName||'—'}</div></div>
+          <span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span>
+        </div>
+      </div>`).join('')}
+    </div>`;
 }
 
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
