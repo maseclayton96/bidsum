@@ -1256,6 +1256,63 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  </div>
 </div>
 <script>
+
+// ═══ ROLE MATRIX GLOBALS (must be at top — used in renderNav) ════
+const MODULES = [
+  {id:'bidsum', label:'BidSum', desc:'Bid tracking, GC directory, follow-ups'},
+  {id:'jobs',   label:'Jobs',   desc:'Job Tracker, job detail pages'},
+  {id:'accounting', label:'Accounting', desc:'Payroll import, labor rates'},
+  {id:'team',   label:'Team',   desc:'Team directory, member management'},
+  {id:'admin',  label:'Admin',  desc:'User access, role management'},
+  {id:'reports',label:'Reports',desc:'Reports and analytics'},
+];
+const ROLES = [
+  {id:'PM',label:'Project Manager'},{id:'EST',label:'Estimator'},
+  {id:'PC',label:'Project Coordinator'},{id:'FOR',label:'Foreman'},
+  {id:'SUP',label:'Superintendent'},{id:'ACC',label:'Accounting'},
+  {id:'ACCMGR',label:'Accounting Manager'},
+];
+const DEFAULT_ROLE_MATRIX = {
+  PM:     {bidsum:2, jobs:2, accounting:1, team:1, admin:0, reports:2},
+  EST:    {bidsum:2, jobs:1, accounting:0, team:1, admin:0, reports:1},
+  PC:     {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
+  FOR:    {bidsum:0, jobs:1, accounting:0, team:0, admin:0, reports:0},
+  SUP:    {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
+  ACC:    {bidsum:0, jobs:1, accounting:2, team:0, admin:0, reports:1},
+  ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2},
+};
+let ROLE_MATRIX = {};
+function loadRoleMatrix(){
+  try{const s=localStorage.getItem('bidsum-role-matrix');
+    if(s)ROLE_MATRIX=JSON.parse(s);
+    else ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
+  }catch(e){ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));}
+}
+function saveRoleMatrix(){
+  try{localStorage.setItem('bidsum-role-matrix',JSON.stringify(ROLE_MATRIX));}catch(e){}
+}
+function getNavModules(){
+  if(!SESSION.user)return[];
+  if(SESSION.user.role==='manager')return['bidsum','jobs','reports','accounting','team','admin'];
+  loadRoleMatrix();
+  const type=SESSION.user.type||'PM';
+  const perms=ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{};
+  return MODULES.map(m=>m.id).filter(id=>perms[id]>0);
+}
+function canAccess(module){
+  if(!SESSION.user)return false;
+  if(SESSION.user.role==='manager')return true;
+  loadRoleMatrix();
+  const p=(ROLE_MATRIX[SESSION.user.type||'PM']||DEFAULT_ROLE_MATRIX[SESSION.user.type||'PM']||{})[module]||0;
+  return p>0;
+}
+function canEdit(module){
+  if(!SESSION.user)return false;
+  if(SESSION.user.role==='manager')return true;
+  loadRoleMatrix();
+  const p=(ROLE_MATRIX[SESSION.user.type||'PM']||DEFAULT_ROLE_MATRIX[SESSION.user.type||'PM']||{})[module]||0;
+  return p>=2;
+}
 // ═══════════════════════════════════════ STATE ═══════════════════════════════════════
 const MEMBER_COLORS=[
  {bg:'#DDEAF7',txt:'#1B3F6E'},{bg:'#D9EFE3',txt:'#1E5C3A'},
@@ -1351,9 +1408,24 @@ function render(){
 }
 
 function renderNav(){
- const bc=document.getElementById('breadcrumb');
+ const bc=document.getElementById('breadcrumb')||{innerHTML:''};
  const na=document.getElementById('nav-actions');
  bc.innerHTML='';na.innerHTML='';
+ // Always populate persistent module nav buttons
+ const modBtns=document.getElementById('nav-module-btns');
+ if(modBtns&&SESSION.user){
+   const navMods=getNavModules();
+   const isManager=SESSION.user.role==='manager';
+   modBtns.innerHTML=`
+     ${navMods.includes('bidsum')?`<button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">BidSum</button>`:''}
+     ${navMods.includes('jobs')?`<button class="btn-nav ${NAV.screen==='jobs'?'btn-nav-active':''}" onclick="goJobs()">Jobs</button>`:''}
+     ${navMods.includes('reports')?`<button class="btn-nav ${NAV.screen==='reports'?'btn-nav-active':''}" onclick="goReports()">Reports</button>`:''}
+     ${navMods.includes('accounting')?`<button class="btn-nav ${NAV.screen==='accounting'?'btn-nav-active':''}" onclick="goAccounting()">Accounting</button>`:''}
+     ${navMods.includes('team')?`<button class="btn-nav ${NAV.screen==='team'?'btn-nav-active':''}" onclick="goTeam()">Team</button>`:''}
+     ${navMods.includes('admin')?`<button class="btn-nav ${NAV.screen==='manager'?'btn-nav-active':''}" onclick="goAdmin()">Admin</button>`:''}
+     ${isManager?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add</button>`:''}
+   `;
+ }
  if(NAV.screen==='landing'){
 
  } else if(NAV.screen==='manager'){
@@ -5232,68 +5304,9 @@ function renderFormanJobList(company,jobs){
 // Permission levels: 0=None, 1=View, 2=Full
 // Stored as: ROLE_MATRIX[roleType][module] = 0|1|2
 
-const MODULES = [
-  {id:'bidsum', label:'BidSum', desc:'Bid tracking, GC directory, follow-ups'},
-  {id:'jobs',   label:'Jobs',   desc:'Job Tracker, job detail pages'},
-  {id:'accounting', label:'Accounting', desc:'Payroll import, labor rates'},
-  {id:'team',   label:'Team',   desc:'Team directory, member management'},
-  {id:'admin',  label:'Admin',  desc:'User access, role management'},
-  {id:'reports',label:'Reports',desc:'Reports and analytics'},
-];
+// ROLE_MATRIX globals moved to top of script
 
-const ROLES = [
-  {id:'PM',    label:'Project Manager'},
-  {id:'EST',   label:'Estimator'},
-  {id:'PC',    label:'Project Coordinator'},
-  {id:'FOR',   label:'Foreman'},
-  {id:'SUP',   label:'Superintendent'},
-  {id:'ACC',   label:'Accounting'},
-  {id:'ACCMGR',label:'Accounting Manager'},
-];
 
-// Default role matrix
-const DEFAULT_ROLE_MATRIX = {
-  PM:     {bidsum:2, jobs:2, accounting:1, team:1, admin:0, reports:2},
-  EST:    {bidsum:2, jobs:1, accounting:0, team:1, admin:0, reports:1},
-  PC:     {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
-  FOR:    {bidsum:0, jobs:1, accounting:0, team:0, admin:0, reports:0},
-  SUP:    {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
-  ACC:    {bidsum:0, jobs:1, accounting:2, team:0, admin:0, reports:1},
-  ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2},
-};
-
-let ROLE_MATRIX = {};
-
-function loadRoleMatrix(){
-  try{
-    const s=localStorage.getItem('bidsum-role-matrix');
-    if(s) ROLE_MATRIX=JSON.parse(s);
-    else ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
-  }catch(e){ ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX)); }
-}
-
-function saveRoleMatrix(){
-  try{ localStorage.setItem('bidsum-role-matrix',JSON.stringify(ROLE_MATRIX)); }catch(e){}
-}
-
-function canAccess(module){
-  if(!SESSION.user) return false;
-  // Admins (manager role) always have full access
-  if(SESSION.user.role==='manager') return true;
-  loadRoleMatrix();
-  const type=SESSION.user.type||'PM';
-  const perm=(ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{})[module]||0;
-  return perm > 0;
-}
-
-function canEdit(module){
-  if(!SESSION.user) return false;
-  if(SESSION.user.role==='manager') return true;
-  loadRoleMatrix();
-  const type=SESSION.user.type||'PM';
-  const perm=(ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{})[module]||0;
-  return perm >= 2;
-}
 
 function renderRoleMatrix(){
   loadRoleMatrix();
@@ -5379,15 +5392,6 @@ function resetRoleMatrix(){
 }
 
 // Update nav module rendering to use role matrix
-function getNavModules(){
-  if(!SESSION.user) return [];
-  const u=SESSION.user;
-  if(u.role==='manager') return ['bidsum','jobs','reports','accounting','team','admin'];
-  loadRoleMatrix();
-  const type=u.type||'PM';
-  const perms=ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{};
-  return MODULES.map(m=>m.id).filter(id=>perms[id]>0);
-}
 
 // ═══════════════════════════════════════ JOB DASHBOARD ══════════════════════════════════
 // Procore-style overview panel + Documents + Budget tabs
