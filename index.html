@@ -1410,6 +1410,8 @@ function renderNav(){
 
 function goJobs(){NAV.screen='jobs';NAV.jobCompany=null;NAV.memberId=null;NAV.gcId=null;render();}
 function goAccounting(){NAV.screen='accounting';render();}
+function goAdmin(){NAV.screen='manager';ADMIN_TAB='users';render();}
+function goRoleMatrix(){NAV.screen='manager';ADMIN_TAB='roles';render();}
 function goJobsCompany(company){NAV.screen='jobs';NAV.jobCompany=company;loadJobs();renderCompanyJobList(company);}
 function goReports(){NAV.screen='reports';NAV.memberId=null;NAV.gcId=null;render();}
 
@@ -3591,14 +3593,22 @@ function openManagerPanel(){
 
 function renderManagerScreen(){
  document.getElementById('app').innerHTML=`
- <div class="mgr-panel">
- <div class="mgr-panel-title" style="display:flex;align-items:center;justify-content:space-between;">
-   <span>Team Access Management</span>
-   <button class="btn-nav-primary" onclick="openMemberModal()" style="font-size:12px;">+ Add member</button>
- </div>
- <div id="mgr-user-list">${renderMgrUserList()}</div>
- </div>`;
+   <div style="display:flex;gap:8px;margin-bottom:18px;">
+     <button class="btn ${ADMIN_TAB==='users'?'btn-primary':''}" onclick="ADMIN_TAB='users';renderManagerScreen()">Team Access</button>
+     <button class="btn ${ADMIN_TAB==='roles'?'btn-primary':''}" onclick="ADMIN_TAB='roles';renderManagerScreen()">Role Matrix</button>
+   </div>
+   ${ADMIN_TAB==='roles'?`<div id="role-matrix-container"></div>`:`
+   <div class="mgr-panel">
+     <div class="mgr-panel-title" style="display:flex;align-items:center;justify-content:space-between;">
+       <span>Team Access Management</span>
+       <button class="btn-nav-primary" onclick="openMemberModal()" style="font-size:12px;">+ Add member</button>
+     </div>
+     <div id="mgr-user-list">${renderMgrUserList()}</div>
+   </div>`}
+ `;
+ if(ADMIN_TAB==='roles') renderRoleMatrix();
 }
+let ADMIN_TAB='users';
 
 function renderMgrUserList(){
  const typeLabels={PM:'Project Manager',EST:'Estimator',PC:'Project Coordinator',FOR:'Foreman',SUP:'Superintendent',ACC:'Accounting',ACCMGR:'Accounting Manager'};
@@ -3956,60 +3966,8 @@ function openJobDetail(jobId, tab){
   renderJobDetail();
 }
 
-function renderJobDetail(){
-  const job = JOBS.find(j=>j.id===CUR_JOB_ID||j.id===String(CUR_JOB_ID));
-  if(!job){ console.error('Job not found:',CUR_JOB_ID,'JOBS:',JOBS.map(j=>j.id)); renderJobs(); return; }
-  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
-  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
-  const sup = DB.members.find(m=>parseInt(m.id)===parseInt(job.superId));
-  const contract = jobContract(job);
-  const costs = jobTotalCosts(job);
-  const gp = contract - costs;
-  const margin = contract ? Math.round(gp/contract*100) : 0;
-  const cors = job.cors||[];
-  const ct = jobCORTotals(job);
-  const tabs = ['overview','submittal','status','corlog','sov'];
-  const tabLabels = ['Overview','Submittal','Status','COR Log','SOV'];
-  const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
-  const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
-  const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
 
-  let tabContent = '';
-  if(CUR_JOB_TAB==='overview') tabContent = renderJobOverview(job, pm, sup, gc, contract, costs, gp, margin, ct);
-  else if(CUR_JOB_TAB==='submittal') tabContent = renderSubmittal(job, coHdr, coAddr, coPhone);
-  else if(CUR_JOB_TAB==='status') tabContent = renderStatusPage(job, coHdr, coAddr, coPhone);
-  else if(CUR_JOB_TAB==='corlog') tabContent = renderCORLog(job, coHdr, coAddr, coPhone, ct);
-  else if(CUR_JOB_TAB==='sov') tabContent = renderSOV(job);
-
-  document.getElementById('app').innerHTML = `
-    <div class="job-hero">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-        <div>
-          <div class="job-hero-num">${job.company} · JOB #${job.num||'—'}</div>
-          <div class="job-hero-name">${job.name}</div>
-          <div class="job-hero-meta">${gc?gc.name:job.gcName||'—'}${job.contactName?' · ATTN: '+job.contactName:''}${pm?' · PM: '+pm.first+' '+pm.last:''}</div>
-          ${job.address?`<div class="job-hero-meta" style="margin-top:2px;">${job.address}${job.city?', '+job.city:''} ${job.zip||''}</div>`:''}
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
-          <button class="btn-sm" onclick="openBulkImport('${job.id}')">Import Payroll</button>
-        </div>
-      </div>
-      <div class="job-kpis">
-        <div><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
-        <div><div class="jkpi-val">${fmtVal(ct.req)}</div><div class="jkpi-lbl">COR Requested</div></div>
-        <div><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
-        <div><div class="jkpi-val" style="color:#CC0000;">${fmtVal(costs)}</div><div class="jkpi-lbl">Total Costs</div></div>
-        <div><div class="jkpi-val" style="color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</div><div class="jkpi-lbl">${gp>=0?'Gross Profit':'Loss'}</div></div>
-      </div>
-    </div>
-    <div class="job-tab-bar">
-      ${tabs.map((t,i)=>`<div class="job-tab ${CUR_JOB_TAB===t?'active':''}" onclick="openJobDetail('${job.id}','${t}')">${tabLabels[i]}</div>`).join('')}
-    </div>
-    ${tabContent}`;
-}
-
-function renderJobOverview(job, pm, sup, gc, contract, costs, gp, margin, ct){
+function renderJobOverview_OLD(job, pm, sup, gc, contract, costs, gp, margin, ct){
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div class="pl-card">
@@ -4486,6 +4444,8 @@ function saveJob(){
     contactId,contactName:contact?contact.first+' '+contact.last:'',
     pmId:parseInt(document.getElementById('j-pm').value)||null,
     superId:parseInt(document.getElementById('j-super').value)||null,
+    foremanId:parseInt(document.getElementById('j-foreman').value)||null,
+    coordId:parseInt(document.getElementById('j-coord').value)||null,
     address:document.getElementById('j-address').value.trim(),
     city:document.getElementById('j-city').value.trim(),
     zip:document.getElementById('j-zip').value.trim(),
@@ -4630,6 +4590,8 @@ function getRateForClass(cls, isOT){
 
 // ── Accounting Landing ──
 function goAccounting(){NAV.screen='accounting';render();}
+function goAdmin(){NAV.screen='manager';ADMIN_TAB='users';render();}
+function goRoleMatrix(){NAV.screen='manager';ADMIN_TAB='roles';render();}
 function renderAccounting(){
   loadJobs();loadLaborRates();
   const isAccMgr=SESSION.user&&(SESSION.user.type==='ACCMGR'||SESSION.user.role==='manager');
@@ -5263,6 +5225,514 @@ function renderFormanJobList(company,jobs){
         </div>
       </div>`).join('')}
     </div>`;
+}
+
+
+// ═══════════════════════════════════════ ROLE MATRIX ════════════════════════════════════
+// Permission levels: 0=None, 1=View, 2=Full
+// Stored as: ROLE_MATRIX[roleType][module] = 0|1|2
+
+const MODULES = [
+  {id:'bidsum', label:'BidSum', desc:'Bid tracking, GC directory, follow-ups'},
+  {id:'jobs',   label:'Jobs',   desc:'Job Tracker, job detail pages'},
+  {id:'accounting', label:'Accounting', desc:'Payroll import, labor rates'},
+  {id:'team',   label:'Team',   desc:'Team directory, member management'},
+  {id:'admin',  label:'Admin',  desc:'User access, role management'},
+  {id:'reports',label:'Reports',desc:'Reports and analytics'},
+];
+
+const ROLES = [
+  {id:'PM',    label:'Project Manager'},
+  {id:'EST',   label:'Estimator'},
+  {id:'PC',    label:'Project Coordinator'},
+  {id:'FOR',   label:'Foreman'},
+  {id:'SUP',   label:'Superintendent'},
+  {id:'ACC',   label:'Accounting'},
+  {id:'ACCMGR',label:'Accounting Manager'},
+];
+
+// Default role matrix
+const DEFAULT_ROLE_MATRIX = {
+  PM:     {bidsum:2, jobs:2, accounting:1, team:1, admin:0, reports:2},
+  EST:    {bidsum:2, jobs:1, accounting:0, team:1, admin:0, reports:1},
+  PC:     {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
+  FOR:    {bidsum:0, jobs:1, accounting:0, team:0, admin:0, reports:0},
+  SUP:    {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
+  ACC:    {bidsum:0, jobs:1, accounting:2, team:0, admin:0, reports:1},
+  ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2},
+};
+
+let ROLE_MATRIX = {};
+
+function loadRoleMatrix(){
+  try{
+    const s=localStorage.getItem('bidsum-role-matrix');
+    if(s) ROLE_MATRIX=JSON.parse(s);
+    else ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
+  }catch(e){ ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX)); }
+}
+
+function saveRoleMatrix(){
+  try{ localStorage.setItem('bidsum-role-matrix',JSON.stringify(ROLE_MATRIX)); }catch(e){}
+}
+
+function canAccess(module){
+  if(!SESSION.user) return false;
+  // Admins (manager role) always have full access
+  if(SESSION.user.role==='manager') return true;
+  loadRoleMatrix();
+  const type=SESSION.user.type||'PM';
+  const perm=(ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{})[module]||0;
+  return perm > 0;
+}
+
+function canEdit(module){
+  if(!SESSION.user) return false;
+  if(SESSION.user.role==='manager') return true;
+  loadRoleMatrix();
+  const type=SESSION.user.type||'PM';
+  const perm=(ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{})[module]||0;
+  return perm >= 2;
+}
+
+function renderRoleMatrix(){
+  loadRoleMatrix();
+  const PERM_LABELS = ['None','View','Full'];
+  const PERM_COLORS = ['var(--bg3)','#FFF8E0','#E8F7EE'];
+  const PERM_TEXT =   ['var(--text3)','#7A5800','var(--green)'];
+
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-size:22px;font-weight:700;">Role Matrix</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">Define what each role can access. Click a cell to cycle through None → View → Full.</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="resetRoleMatrix()">Reset defaults</button>
+        <button class="btn-primary" onclick="saveRoleMatrix();showSaved('✓ Role matrix saved')">Save Changes</button>
+      </div>
+    </div>
+    <!-- Legend -->
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      ${PERM_LABELS.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+        <div style="width:18px;height:18px;border-radius:4px;background:${PERM_COLORS[i]};border:1px solid var(--border);"></div>
+        <span>${l}</span>
+      </div>`).join('')}
+      <div style="font-size:12px;color:var(--text3);margin-left:8px;">Managers always have full access to everything.</div>
+    </div>
+    <!-- Matrix table -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);">
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg3);">
+              <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);min-width:160px;">Role</th>
+              ${MODULES.map(m=>`<th style="padding:12px 16px;text-align:center;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);border-left:1px solid var(--border);min-width:110px;">
+                <div>${m.label}</div>
+                <div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;">${m.desc}</div>
+              </th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${ROLES.map((role,ri)=>{
+              const perms = ROLE_MATRIX[role.id]||DEFAULT_ROLE_MATRIX[role.id]||{};
+              return`<tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;font-weight:700;font-size:13px;">${role.label}</td>
+                ${MODULES.map(mod=>{
+                  const p=perms[mod.id]||0;
+                  return`<td style="padding:8px;text-align:center;border-left:1px solid var(--border);">
+                    <button onclick="cyclePermission('${role.id}','${mod.id}')" style="background:${PERM_COLORS[p]};color:${PERM_TEXT[p]};border:1px solid var(--border);border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);min-width:70px;transition:all .15s;" id="perm-${role.id}-${mod.id}">
+                      ${PERM_LABELS[p]}
+                    </button>
+                  </td>`;
+                }).join('')}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function cyclePermission(roleId, moduleId){
+  loadRoleMatrix();
+  if(!ROLE_MATRIX[roleId]) ROLE_MATRIX[roleId]={};
+  const cur=ROLE_MATRIX[roleId][moduleId]||0;
+  const next=(cur+1)%3;
+  ROLE_MATRIX[roleId][moduleId]=next;
+  const PERM_LABELS=['None','View','Full'];
+  const PERM_COLORS=['var(--bg3)','#FFF8E0','#E8F7EE'];
+  const PERM_TEXT=['var(--text3)','#7A5800','var(--green)'];
+  const btn=document.getElementById('perm-'+roleId+'-'+moduleId);
+  if(btn){
+    btn.textContent=PERM_LABELS[next];
+    btn.style.background=PERM_COLORS[next];
+    btn.style.color=PERM_TEXT[next];
+  }
+}
+
+function resetRoleMatrix(){
+  if(!confirm('Reset role matrix to defaults?')) return;
+  ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
+  saveRoleMatrix();
+  renderRoleMatrix();
+}
+
+// Update nav module rendering to use role matrix
+function getNavModules(){
+  if(!SESSION.user) return [];
+  const u=SESSION.user;
+  if(u.role==='manager') return ['bidsum','jobs','reports','accounting','team','admin'];
+  loadRoleMatrix();
+  const type=u.type||'PM';
+  const perms=ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{};
+  return MODULES.map(m=>m.id).filter(id=>perms[id]>0);
+}
+
+// ═══════════════════════════════════════ JOB DASHBOARD ══════════════════════════════════
+// Procore-style overview panel + Documents + Budget tabs
+
+// Add Documents and Budget to job tabs
+const JOB_TABS = ['overview','submittal','status','corlog','sov','budget','documents'];
+const JOB_TAB_LABELS = ['Overview','Submittal','Status','COR Log','SOV','Budget','Documents'];
+
+// Override renderJobDetail to use new tab list
+function renderJobDetail(){
+  const job = JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
+  if(!job){ renderJobs(); return; }
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const sup = DB.members.find(m=>parseInt(m.id)===parseInt(job.superId));
+  const contract = jobContract(job);
+  const costs = jobTotalCosts(job);
+  const gp = contract - costs;
+  const margin = contract ? Math.round(gp/contract*100) : 0;
+  const ct = jobCORTotals(job);
+  const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
+  const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
+
+  let tabContent = '';
+  if(CUR_JOB_TAB==='overview') tabContent = renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct);
+  else if(CUR_JOB_TAB==='submittal') tabContent = renderSubmittal(job,coHdr,coAddr,coPhone);
+  else if(CUR_JOB_TAB==='status') tabContent = renderStatusPage(job,coHdr,coAddr,coPhone);
+  else if(CUR_JOB_TAB==='corlog') tabContent = renderCORLog(job,coHdr,coAddr,coPhone,ct);
+  else if(CUR_JOB_TAB==='sov') tabContent = renderSOV(job);
+  else if(CUR_JOB_TAB==='budget') tabContent = renderBudgetTab(job);
+  else if(CUR_JOB_TAB==='documents') tabContent = renderDocumentsTab(job);
+
+  document.getElementById('app').innerHTML = `
+    <!-- Job Hero -->
+    <div class="job-hero" style="margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div>
+          <div class="job-hero-num">${job.company} · JOB #${job.num||'—'}</div>
+          <div class="job-hero-name">${job.name}</div>
+          <div class="job-hero-meta">${gc?gc.name:job.gcName||'—'}${job.contactName?' · ATTN: '+job.contactName:''}${pm?' · PM: '+pm.first+' '+pm.last:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
+          <button class="btn-sm" onclick="openBulkImport('${job.id}')">Import Payroll</button>
+          <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
+        </div>
+      </div>
+      <!-- KPIs -->
+      <div class="job-kpis">
+        <div><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
+        <div><div class="jkpi-val">${fmtVal(ct.req)}</div><div class="jkpi-lbl">CORs Requested</div></div>
+        <div><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
+        <div><div class="jkpi-val" style="color:#CC0000;">${fmtVal(costs)}</div><div class="jkpi-lbl">Total Costs</div></div>
+        <div><div class="jkpi-val" style="color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</div><div class="jkpi-lbl">${gp>=0?'Gross Profit':'Loss'}</div></div>
+      </div>
+    </div>
+    <!-- Tab Bar -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;overflow-x:auto;">
+      <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;white-space:nowrap;">
+        ${JOB_TABS.map((t,i)=>`<div class="job-tab ${CUR_JOB_TAB===t?'active':''}" data-jobid="${job.id}" data-tab="${t}" onclick="openJobDetail(this.dataset.jobid,this.dataset.tab)">${JOB_TAB_LABELS[i]}</div>`).join('')}
+      </div>
+    </div>
+    ${tabContent}`;
+  const _wjob=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));if(_wjob)maybeLoadWeather(_wjob);
+}
+
+// ══ OVERVIEW DASHBOARD — Procore-style panels ══
+function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
+  const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const foreman = DB.members.find(m=>parseInt(m.id)===parseInt(job.foremanId));
+  const coord = DB.members.find(m=>parseInt(m.id)===parseInt(job.coordId));
+  const openCORs = (job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0);
+  const rcvdCORs = (job.cors||[]).filter(c=>!c.void&&c.custAmount>0);
+
+  return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+    <!-- Panel 1: Project Information -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+        Project Information
+        <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
+      </div>
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.7;">
+        <span style="color:var(--text3);font-weight:600;">Job #</span><span style="font-weight:700;color:#CC0000;">${job.num||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Company</span><span style="font-weight:600;">${job.company}</span>
+        <span style="color:var(--text3);font-weight:600;">Customer</span><span>${gc?gc.name:job.gcName||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Contact</span><span>${contact?contact.first+' '+contact.last:job.contactName||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Address</span><span>${[job.address,job.city,job.zip].filter(Boolean).join(', ')||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Status</span><span><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span></span>
+        <span style="color:var(--text3);font-weight:600;">Contract</span><span style="font-weight:700;">${fmtVal(contract)}</span>
+        <span style="color:var(--text3);font-weight:600;">Gross Profit</span><span style="font-weight:700;color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</span>
+      </div>
+    </div>
+
+    <!-- Panel 2: Project Team -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Team</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${[
+          {label:'Project Manager', m:pm},
+          {label:'Superintendent', m:sup},
+          {label:'Foreman', m:foreman},
+          {label:'Coordinator', m:coord},
+        ].map(({label,m})=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;${m?memberAvatarStyle(m):'background:var(--bg4);'}display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">
+            ${m?(m.initials||(m.first[0]+m.last[0]).toUpperCase()):'?'}
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:11px;color:var(--text3);">${label}</div>
+            <div style="font-size:13px;font-weight:600;">${m?m.first+' '+m.last:'Not assigned'}</div>
+          </div>
+          ${m?`<div style="font-size:11px;color:var(--text3);">${m.email||''}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Panel 3: Project Dates & COR Summary -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Dates & Change Orders</div>
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.8;margin-bottom:16px;">
+        <span style="color:var(--text3);font-weight:600;">Start Date</span><span style="font-weight:600;">${fmtDate(job.start)||'Not set'}</span>
+        <span style="color:var(--text3);font-weight:600;">End Date</span><span style="font-weight:600;">${fmtDate(job.end)||'TBD'}</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:#FFF0F0;border:1px solid #FFCCCC;border-radius:var(--r);padding:10px;text-align:center;cursor:pointer;" onclick="openJobDetail('${job.id}','corlog')">
+            <div style="font-size:18px;font-weight:800;color:#CC0000;">${openCORs.length}</div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#CC0000;margin-top:2px;">Open CORs</div>
+            <div style="font-size:12px;font-weight:600;color:#CC0000;margin-top:2px;">${fmtVal(openCORs.reduce((s,c)=>s+c.total,0))}</div>
+          </div>
+          <div style="background:#E8F7EE;border:1px solid #B2DFCA;border-radius:var(--r);padding:10px;text-align:center;cursor:pointer;" onclick="openJobDetail('${job.id}','corlog')">
+            <div style="font-size:18px;font-weight:800;color:var(--green);">${rcvdCORs.length}</div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green);margin-top:2px;">Received CORs</div>
+            <div style="font-size:12px;font-weight:600;color:var(--green);margin-top:2px;">${fmtVal(rcvdCORs.reduce((s,c)=>s+(c.custAmount||0),0))}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 4: Jobsite Instructions + Weather -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+        Jobsite Instructions
+        <button class="btn-sm" onclick="editJobsiteNotes('${job.id}')">Edit</button>
+      </div>
+      ${job.notes?`<div style="font-size:12px;line-height:1.7;color:var(--text2);white-space:pre-wrap;max-height:160px;overflow-y:auto;">${job.notes}</div>`:`<div style="color:var(--text3);font-size:12px;">No instructions added yet. Click Edit to add jobsite notes.</div>`}
+      ${job.address&&job.city?`
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div id="weather-panel-${job.id}" style="font-size:12px;color:var(--text3);">Loading weather...</div>
+      </div>`:''}
+    </div>
+
+  </div>`;
+}
+
+// ══ WEATHER WIDGET ══
+async function loadWeatherForJob(job){
+  if(!job.city) return;
+  const panel = document.getElementById('weather-panel-'+job.id);
+  if(!panel) return;
+  try{
+    // Use open-meteo geocoding + weather (free, no API key)
+    const geoResp = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(job.city)}&count=1&language=en&format=json`);
+    const geoData = await geoResp.json();
+    if(!geoData.results||!geoData.results.length){ panel.textContent='Weather unavailable'; return; }
+    const {latitude,longitude} = geoData.results[0];
+    const wxResp = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1`);
+    const wx = await wxResp.json();
+    const cur = wx.current;
+    const codes = {0:'Clear',1:'Mostly Clear',2:'Partly Cloudy',3:'Overcast',45:'Foggy',48:'Freezing Fog',51:'Light Drizzle',61:'Light Rain',63:'Rain',65:'Heavy Rain',71:'Light Snow',73:'Snow',75:'Heavy Snow',80:'Showers',81:'Rain Showers',82:'Heavy Showers',95:'Thunderstorm'};
+    const desc = codes[cur.weathercode]||'Unknown';
+    panel.innerHTML=`<div style="display:flex;align-items:center;gap:12px;">
+      <div style="font-size:24px;font-weight:800;color:var(--text);">${Math.round(cur.temperature_2m)}°F</div>
+      <div><div style="font-weight:600;font-size:13px;">${desc}</div><div style="color:var(--text3);font-size:11px;">${job.city} · Wind ${Math.round(cur.windspeed_10m)} mph</div></div>
+    </div>`;
+  }catch(e){ if(panel) panel.textContent='Weather unavailable'; }
+}
+
+// Load weather whenever overview is shown
+function maybeLoadWeather(job){
+  if(CUR_JOB_TAB==='overview'&&job&&job.city){
+    setTimeout(()=>loadWeatherForJob(job),100);
+  }
+}
+function editJobsiteNotes(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const notes=prompt('Jobsite Instructions:',job.notes||'');
+  if(notes!==null){job.notes=notes;saveJobs();openJobDetail(jobId,'overview');}
+}
+
+// ══ BUDGET TAB ══
+function renderBudgetTab(job){
+  if(!job.budget) job.budget = {};
+  const BUDGET_CATS = ['Labor','Overtime Labor','Fringes','Materials','Committed Materials','Subcontracts','Equipment Rental','Job Supplies','Other Job Costs'];
+  const totalBudget = BUDGET_CATS.reduce((s,c)=>s+(parseFloat(job.budget[c])||0),0);
+  const totalActual = jobTotalCosts(job);
+  const variance = totalBudget - totalActual;
+
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="font-size:14px;font-weight:700;">Budget vs Actual</div>
+      <button class="btn-sm-primary" onclick="saveBudget('${job.id}')">Save Budget</button>
+    </div>
+    <!-- Summary -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--border);">
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total Budget</div><div style="font-size:22px;font-weight:700;margin-top:4px;">${fmtVal(totalBudget)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Actual Costs</div><div style="font-size:22px;font-weight:700;margin-top:4px;color:#CC0000;">${fmtVal(totalActual)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Variance</div><div style="font-size:22px;font-weight:700;margin-top:4px;color:${variance>=0?'var(--green)':'#CC0000'};">${variance>=0?'+':''}${fmtVal(variance)}</div></div>
+    </div>
+    <!-- Category breakdown -->
+    <table style="width:100%;"><thead><tr style="background:var(--bg3);">
+      <th style="padding:10px 12px;text-align:left;">Category</th>
+      <th style="padding:10px 12px;text-align:right;width:140px;">Budget</th>
+      <th style="padding:10px 12px;text-align:right;width:120px;">Actual</th>
+      <th style="padding:10px 12px;text-align:right;width:120px;">Variance</th>
+      <th style="padding:10px 12px;width:120px;">% Used</th>
+    </tr></thead><tbody>
+      ${BUDGET_CATS.map(cat=>{
+        const budgeted = parseFloat(job.budget[cat])||0;
+        const actual = jobCostByCategory(job, cat);
+        const v = budgeted - actual;
+        const pct = budgeted ? Math.round(actual/budgeted*100) : (actual?100:0);
+        const overBudget = actual > budgeted && budgeted > 0;
+        return`<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 12px;font-weight:600;font-size:13px;">${cat}</td>
+          <td style="padding:10px 12px;text-align:right;">
+            <input type="number" value="${budgeted||''}" placeholder="0" data-cat="${cat}" data-jobid="${job.id}" oninput="JOB_BUDGET_TEMP['${job.id}']['${cat}']=parseFloat(this.value)||0;updateBudgetRow(this,'${cat}','${job.id}')" style="text-align:right;background:transparent;border:none;border-bottom:1px solid var(--border);padding:3px 6px;font-size:13px;font-weight:600;font-family:var(--font);color:var(--text);outline:none;width:110px;">
+          </td>
+          <td style="padding:10px 12px;text-align:right;font-size:13px;color:${actual?'#CC0000':'var(--text3)'};">${actual?fmtVal(actual):'—'}</td>
+          <td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;color:${v>=0?'var(--green)':overBudget?'#CC0000':'var(--text3)'};" id="bv-${cat.replace(/\s/g,'-')}-${job.id}">${budgeted?fmtVal(v):'—'}</td>
+          <td style="padding:10px 12px;">
+            ${budgeted||actual?`<div style="display:flex;align-items:center;gap:6px;">
+              <div style="flex:1;background:var(--bg3);border-radius:3px;height:6px;overflow:hidden;"><div style="height:100%;background:${overBudget?'#CC0000':'#CC0000'};border-radius:3px;width:${Math.min(pct,100)}%;opacity:${overBudget?1:.7};"></div></div>
+              <span style="font-size:11px;font-weight:700;min-width:32px;color:${overBudget?'#CC0000':'var(--text2)'};">${pct}%</span>
+            </div>`:'—'}
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+let JOB_BUDGET_TEMP = {};
+function updateBudgetRow(input, cat, jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!JOB_BUDGET_TEMP[jobId])JOB_BUDGET_TEMP[jobId]={};
+  const budgeted=parseFloat(input.value)||0;
+  JOB_BUDGET_TEMP[jobId][cat]=budgeted;
+  const actual=jobCostByCategory(job,cat);
+  const v=budgeted-actual;
+  const el=document.getElementById('bv-'+cat.replace(/\s/g,'-')+'-'+jobId);
+  if(el)el.textContent=budgeted?fmtVal(v):'—';
+  if(el)el.style.color=v>=0?'var(--green)':'#CC0000';
+}
+function saveBudget(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.budget)job.budget={};
+  // Read all inputs
+  document.querySelectorAll(`input[data-jobid="${jobId}"]`).forEach(inp=>{
+    job.budget[inp.dataset.cat]=parseFloat(inp.value)||0;
+  });
+  saveJobs();
+  showSaved('✓ Budget saved');
+}
+
+// ══ DOCUMENTS TAB ══
+function renderDocumentsTab(job){
+  if(!job.documents)job.documents=[];
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="font-size:14px;font-weight:700;">Documents</div>
+      <label class="btn-sm-primary" style="cursor:pointer;">
+        + Upload File
+        <input type="file" multiple style="display:none;" onchange="uploadJobDocs('${job.id}',this)">
+      </label>
+    </div>
+    <div class="import-zone" id="doc-drop-zone-${job.id.replace(/[^a-z0-9]/gi,'')}"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="onDocDrop(event,'${job.id}')">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Drop files here</div>
+      <div style="font-size:12px;color:var(--text3);">PDF, Word, Excel, Images — any file type</div>
+    </div>
+    ${job.documents.length?`
+    <div style="margin-top:16px;">
+      <table style="width:100%;"><thead><tr style="background:var(--bg3);">
+        <th style="padding:8px 12px;text-align:left;">File Name</th>
+        <th style="padding:8px 12px;text-align:left;width:100px;">Size</th>
+        <th style="padding:8px 12px;text-align:left;width:120px;">Uploaded</th>
+        <th style="padding:8px 12px;width:100px;"></th>
+      </tr></thead><tbody>
+        ${job.documents.map((doc,i)=>`<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 12px;font-weight:500;font-size:13px;">${doc.name}</td>
+          <td style="padding:10px 12px;font-size:12px;color:var(--text3);">${formatFileSize(doc.size)}</td>
+          <td style="padding:10px 12px;font-size:12px;color:var(--text3);">${doc.uploadedAt?new Date(doc.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+          <td style="padding:10px 12px;display:flex;gap:6px;">
+            <button class="btn-sm" onclick="openDocFile('${job.id}',${i})">View</button>
+            <button class="btn-sm" style="color:#CC0000;" onclick="deleteJobDoc('${job.id}',${i})">×</button>
+          </td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`:`<div style="margin-top:16px;text-align:center;color:var(--text3);font-size:13px;padding:20px;">No documents uploaded yet</div>`}
+  </div>`;
+}
+
+function onDocDrop(e,jobId){
+  e.preventDefault();
+  const zone=e.currentTarget;if(zone)zone.classList.remove('drag-over');
+  const files=[...e.dataTransfer.files];
+  processDocFiles(jobId,files);
+}
+function uploadJobDocs(jobId,input){
+  const files=[...input.files];
+  processDocFiles(jobId,files);
+  input.value='';
+}
+function processDocFiles(jobId,files){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.documents)job.documents=[];
+  let loaded=0;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      job.documents.push({name:file.name,size:file.size,uploadedAt:new Date().toISOString(),dataUrl:ev.target.result});
+      loaded++;
+      if(loaded===files.length){saveJobs();openJobDetail(jobId,'documents');}
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function openDocFile(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job||!job.documents[idx])return;
+  openPDFData(job.documents[idx]);
+}
+function deleteJobDoc(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Remove this document?'))return;
+  job.documents.splice(idx,1);saveJobs();openJobDetail(jobId,'documents');
+}
+function formatFileSize(bytes){
+  if(!bytes)return'—';
+  if(bytes<1024)return bytes+'B';
+  if(bytes<1048576)return Math.round(bytes/1024)+'KB';
+  return(bytes/1048576).toFixed(1)+'MB';
 }
 
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
