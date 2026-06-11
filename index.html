@@ -5045,7 +5045,7 @@ function renderCompanyJobList(company){
               const ini=pm?(pm.initials||(pm.first[0]+pm.last[0]).toUpperCase()):'—';
               const openCOR=(job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s,c)=>s+c.total,0);
               const sc=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
-              return`<tr style="cursor:pointer;" data-jobid="${job.id}" onclick="NAV.jobCompany='${company}';openJobDetail(this.dataset.jobid)">
+              return`<tr style="cursor:pointer;" data-jobid="${job.id}" data-company="${company}" onclick="NAV.jobCompany=this.dataset.company;openJobDetail(this.dataset.jobid,'overview')">
                 <td><span class="job-num">${job.num||'—'}</span></td>
                 <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
                 <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.gcName||'—'}</td>
@@ -5310,6 +5310,15 @@ function renderFormanJobList(company,jobs){
 
 function renderRoleMatrix(){
   loadRoleMatrix();
+  // Ensure all roles/modules have values (merge defaults with saved)
+  ROLES.forEach(role=>{
+    if(!ROLE_MATRIX[role.id]) ROLE_MATRIX[role.id]={};
+    MODULES.forEach(mod=>{
+      if(ROLE_MATRIX[role.id][mod.id]===undefined){
+        ROLE_MATRIX[role.id][mod.id]=(DEFAULT_ROLE_MATRIX[role.id]||{})[mod.id]||0;
+      }
+    });
+  });
   const PERM_LABELS = ['None','View','Full'];
   const PERM_COLORS = ['var(--bg3)','#FFF8E0','#E8F7EE'];
   const PERM_TEXT =   ['var(--text3)','#7A5800','var(--green)'];
@@ -5368,20 +5377,24 @@ function renderRoleMatrix(){
 }
 
 function cyclePermission(roleId, moduleId){
-  loadRoleMatrix();
-  if(!ROLE_MATRIX[roleId]) ROLE_MATRIX[roleId]={};
-  const cur=ROLE_MATRIX[roleId][moduleId]||0;
-  const next=(cur+1)%3;
-  ROLE_MATRIX[roleId][moduleId]=next;
   const PERM_LABELS=['None','View','Full'];
   const PERM_COLORS=['var(--bg3)','#FFF8E0','#E8F7EE'];
   const PERM_TEXT=['var(--text3)','#7A5800','var(--green)'];
+  // Read current value from the button itself (source of truth)
   const btn=document.getElementById('perm-'+roleId+'-'+moduleId);
-  if(btn){
-    btn.textContent=PERM_LABELS[next];
-    btn.style.background=PERM_COLORS[next];
-    btn.style.color=PERM_TEXT[next];
-  }
+  if(!btn)return;
+  const curLabel=btn.textContent.trim();
+  const curIdx=PERM_LABELS.indexOf(curLabel);
+  const next=(curIdx>=0?curIdx+1:1)%3;
+  // Update button immediately
+  btn.textContent=PERM_LABELS[next];
+  btn.style.background=PERM_COLORS[next];
+  btn.style.color=PERM_TEXT[next];
+  // Update in-memory matrix
+  if(!ROLE_MATRIX[roleId])ROLE_MATRIX[roleId]={};
+  ROLE_MATRIX[roleId][moduleId]=next;
+  // Auto-save so next click reads correctly
+  saveRoleMatrix();
 }
 
 function resetRoleMatrix(){
@@ -5403,7 +5416,7 @@ const JOB_TAB_LABELS = ['Overview','Submittal','Status','COR Log','SOV','Budget'
 // Override renderJobDetail to use new tab list
 function renderJobDetail(){
   const job = JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
-  if(!job){ renderJobs(); return; }
+  if(!job){ if(NAV.jobCompany)renderCompanyJobList(NAV.jobCompany);else renderJobsHome();return; }
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const sup = DB.members.find(m=>parseInt(m.id)===parseInt(job.superId));
@@ -5434,7 +5447,8 @@ function renderJobDetail(){
           <div class="job-hero-name">${job.name}</div>
           <div class="job-hero-meta">${gc?gc.name:job.gcName||'—'}${job.contactName?' · ATTN: '+job.contactName:''}${pm?' · PM: '+pm.first+' '+pm.last:''}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          <button class="btn-sm" onclick="NAV.jobCompany&&renderCompanyJobList(NAV.jobCompany)">← Jobs</button>
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openBulkImport('${job.id}')">Import Payroll</button>
           <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
