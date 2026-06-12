@@ -570,14 +570,17 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .sub-row-paint{grid-template-columns:28px 60px 1fr 1fr 120px 36px;}
 .sub-row-wc{grid-template-columns:28px 60px 1fr 1fr 120px 36px;}
 .sub-check{width:16px;height:16px;cursor:pointer;accent-color:#CC0000;}
-.sub-input{background:transparent;border:none;border-bottom:1px solid transparent;padding:3px 4px;font-size:12px;font-family:var(--font);color:var(--text);width:100%;outline:none;transition:border-color .15s;}
-.sub-input:focus{border-bottom-color:var(--border2);background:var(--bg2);}
+.sub-input{background:#FFFFFF;border:1px solid var(--border);border-radius:4px;padding:4px 7px;font-size:12px;font-family:var(--font);color:var(--text);width:100%;outline:none;transition:border-color .15s;box-sizing:border-box;}
+.sub-input:focus{border-color:#CC0000;box-shadow:0 0 0 2px rgba(204,0,0,.08);}
+.sub-row.included .sub-input{font-weight:700;border-color:var(--border2);}
 .sub-row.included .sub-input{font-weight:700;}
 .sub-add-btn{display:flex;align-items:center;gap:6px;padding:8px;color:var(--text3);font-size:12px;cursor:pointer;border:none;background:none;font-family:var(--font);transition:color .15s;}
 .sub-add-btn:hover{color:#CC0000;}
 /* Status */
-.status-input{background:transparent;border:1px solid transparent;border-radius:4px;padding:3px 6px;font-size:11px;font-family:var(--font);color:var(--text);width:100%;outline:none;}
-.status-input:focus{border-color:var(--border2);background:var(--bg2);}
+.status-input{background:#FFFFFF;border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:11px;font-family:var(--font);color:var(--text);width:100%;outline:none;box-sizing:border-box;}
+.status-input:focus{border-color:#CC0000;box-shadow:0 0 0 2px rgba(204,0,0,.08);}
+.status-input.status-approved{background:#E8F7EE;border-color:#B2DFCA;color:var(--green);font-weight:700;}
+.status-input.status-rejected{background:#FFF0F0;border-color:#FFAAAA;color:#CC0000;font-weight:700;}
 .status-approved{background:#D9EFE3;color:#1E5C3A;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;}
 .status-rejected{background:#FFEAEA;color:#CC0000;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;}
 /* COR Log */
@@ -4152,7 +4155,14 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
         <div></div><div>#</div><div>Manufacturer</div><div>Color</div><div>Finish</div><div style="border-left:2px solid var(--border2);padding-left:6px;">Order</div><div></div>
       </div>
       <div id="submittal-paint-rows">
-        ${paint.map((row,i)=>renderSubRow(job.id,'paint',row,i)).join('')}
+        ${(()=>{
+          const PAINT_SCREEN_MIN=11;
+          const rows=[];
+          const existing=paint.slice();
+          // Pad with empty rows to reach minimum
+          while(existing.length<PAINT_SCREEN_MIN)existing.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',orderNote:'',included:false,_blank:true});
+          return existing.map((row,i)=>renderSubRow(job.id,'paint',row,i)).join('');
+        })()}
       </div>
       <button class="sub-add-btn" onclick="addSubItem('${job.id}','paint')">+ Add paint item</button>
 
@@ -4162,7 +4172,13 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
         <div></div><div>#</div><div>Manufacturer</div><div>Pattern / Color</div><div>Lead Time</div><div style="border-left:2px solid var(--border2);padding-left:6px;">Order</div><div></div>
       </div>
       <div id="submittal-wc-rows">
-        ${wc.map((row,i)=>renderSubRow(job.id,'wc',row,i)).join('')}
+        ${(()=>{
+          const WC_SCREEN_MIN=7;
+          const rows=[];
+          const existing=wc.slice();
+          while(existing.length<WC_SCREEN_MIN)existing.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',orderNote:'',included:false,_blank:true});
+          return existing.map((row,i)=>renderSubRow(job.id,'wc',row,i)).join('');
+        })()}
       </div>
       <button class="sub-add-btn" onclick="addSubItem('${job.id}','wc')">+ Add wallcovering item</button>
     </div>`;
@@ -4171,7 +4187,7 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
 function renderSubRow(jobId, type, row, idx){
   const inc = row.included ? 'included' : '';
   const col4 = type==='paint' ? row.finish||'' : row.leadTime||'';
-  return `<div class="sub-row sub-row-paint ${inc}" id="subrow-${type}-${idx}" style="display:grid;grid-template-columns:28px 60px 1fr 1fr 120px 90px 36px;gap:8px;padding:7px 8px;border-bottom:1px solid var(--border);">
+  return `<div class="sub-row sub-row-paint ${inc}" id="subrow-${type}-${idx}" style="display:grid;grid-template-columns:28px 60px 1fr 1fr 120px 90px 36px;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${idx%2===0?'var(--bg2)':'var(--bg3)'};">
     <input type="checkbox" class="sub-check" ${row.included?'checked':''} onchange="toggleSubIncluded('${jobId}','${type}',${idx},this.checked)">
     <input class="sub-input" value="${row.num||''}" placeholder="#" oninput="updateSubField('${jobId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
     <input class="sub-input" value="${row.manufacturer||''}" placeholder="Manufacturer" oninput="updateSubField('${jobId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
@@ -4246,7 +4262,12 @@ function renderStatusPage(job, coHdr, coAddr, coPhone){
           <th style="width:100px;">Approved/Rejected</th><th style="width:90px;">Paint Ordered</th>
           <th style="width:90px;">Est. Delivery</th><th style="width:36px;"></th>
         </tr></thead><tbody id="status-paint-body">
-          ${(job.statusPaint||[]).map((row,i)=>renderStatusRow(job.id,'paint',row,i)).join('')}
+          ${(()=>{
+            const STATUS_MIN=11;
+            const existing=(job.statusPaint||[]).slice();
+            while(existing.length<STATUS_MIN)existing.push({num:'',finish:'',color:'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''});
+            return existing.map((row,i)=>renderStatusRow(job.id,'paint',row,i)).join('');
+          })()}
         </tbody></table>
       </div>
 
@@ -6320,6 +6341,41 @@ const COMPANY_LOGOS = {
 };
 function getCompanyLogo(company){
   return COMPANY_LOGOS[company]||'';
+}
+
+function syncStatusFromSubmittalAuto(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const paint=job.submittalPaint||[];
+  const wc=job.submittalWC||[];
+  // Sync paint status — add new rows, update existing, preserve status fields
+  if(!job.statusPaint)job.statusPaint=[];
+  const STATUS_PAINT_MIN=11;
+  // Update/add from submittal
+  paint.forEach((p,i)=>{
+    if(!p.num&&!p.manufacturer&&!p.color)return; // skip blank rows
+    const existing=job.statusPaint.find(s=>s._submittalIdx===i);
+    if(existing){
+      existing.num=p.num;existing.finish=p.finish;existing.color=p.color;
+    } else {
+      job.statusPaint.push({_submittalIdx:i,num:p.num||'',finish:p.finish||'',color:p.color||'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''});
+    }
+  });
+  // Pad status paint to minimum
+  while(job.statusPaint.length<STATUS_PAINT_MIN){
+    job.statusPaint.push({num:'',finish:'',color:'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''});
+  }
+  // Sync WC status
+  if(!job.statusWC)job.statusWC=[];
+  wc.forEach((w,i)=>{
+    if(!w.num&&!w.manufacturer&&!w.color)return;
+    const existing=job.statusWC.find(s=>s._submittalIdx===i);
+    if(existing){
+      existing.num=w.num;existing.manufacturer=w.manufacturer;existing.color=w.color;
+    } else {
+      job.statusWC.push({_submittalIdx:i,num:w.num||'',manufacturer:w.manufacturer||'',color:w.color||'',samplesOrdered:'',samplesReceived:'',approved:'',wcOrdered:'',estDelivery:''});
+    }
+  });
+  saveJobs();
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
