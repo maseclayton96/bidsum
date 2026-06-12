@@ -1086,6 +1086,12 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="fg"><label>Start date</label><input id="j-start" type="date" autocomplete="off"></div>
         <div class="fg"><label>End date</label><input id="j-end" type="date" autocomplete="off"></div>
       </div>
+      <div class="frow">
+        <div class="fg"><label>Class / Type</label><input id="j-class" autocomplete="off" placeholder="e.g. Painting, WC"></div>
+        <div class="fg"><label style="display:flex;align-items:center;gap:8px;margin-top:22px;cursor:pointer;">
+          <input type="checkbox" id="j-prelim" style="accent-color:#CC0000;width:16px;height:16px;"> Prelim Closed
+        </label></div>
+      </div>
       <div class="fg"><label>Notes</label>
         <textarea id="j-notes" autocomplete="off" placeholder="Scope summary, key notes..." style="min-height:56px;"></textarea>
       </div>
@@ -3903,6 +3909,8 @@ function saveJob(){
     end:document.getElementById('j-end').value,
     company:document.getElementById('j-company').value,
     notes:document.getElementById('j-notes').value.trim(),
+    classCode:document.getElementById('j-class')?document.getElementById('j-class').value.trim():'',
+    prelimClosed:document.getElementById('j-prelim')?document.getElementById('j-prelim').checked:false,
     costs:EDIT_JOB?EDIT_JOB.costs:[],
     changeOrders:EDIT_JOB?EDIT_JOB.changeOrders:[]
   };
@@ -4100,6 +4108,10 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
 
   return `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px;">
+      <button class="btn-sm" onclick="openManageSpecifiers('${job.id}')">Specifiers</button>
+      <button class="btn-sm-primary" onclick="printSubmittal(JOBS.find(j=>j.id==='${job.id}'))">Print / PDF</button>
+    </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
         <div style="font-size:11px;color:var(--text3);">
@@ -4120,6 +4132,19 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
       <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">
         *Note: <strong>Items in bold</strong> are included in this submittal.
       </div>
+
+      <!-- SPECIFIER SECTION -->
+      ${(job.specifiers||[]).length?`<div class="sub-section-title" style="margin-bottom:8px;">SPECIFIER</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px;gap:8px;padding:5px 8px;background:var(--bg3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:0;">
+        <div>Name</div><div>Company</div><div>Email</div><div>Phone</div><div></div>
+      </div>
+      ${(job.specifiers||[]).map((s,i)=>`<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;">${s.name||'—'}</span>
+        <span style="font-size:12px;">${s.company||'—'}</span>
+        <span style="font-size:12px;">${s.email||'—'}</span>
+        <span style="font-size:12px;">${s.phone||'—'}</span>
+        <button class="btn-sm" onclick="removeSpecifier('${job.id}',${i})">×</button>
+      </div>`).join('')}<div style="margin-bottom:14px;"></div>`:''}
 
       <!-- PAINT SECTION -->
       <div class="sub-section-title">PAINT</div>
@@ -4564,6 +4589,8 @@ function saveJob(){
     start:document.getElementById('j-start').value,
     end:document.getElementById('j-end').value,
     notes:document.getElementById('j-notes').value.trim(),
+    classCode:document.getElementById('j-class')?document.getElementById('j-class').value.trim():'',
+    prelimClosed:document.getElementById('j-prelim')?document.getElementById('j-prelim').checked:false,
     costs:existing?existing.costs:[],
     submittalPaint:existing?existing.submittalPaint:[],
     submittalWC:existing?existing.submittalWC:[],
@@ -5057,6 +5084,15 @@ function toggleCostDetail(id){
 
 // ═══════════════════════════════════════ COMPANY LANDING ══════════════════════════════════
 
+function updateJobField(jobId, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job[field]=val;saveJobs();
+}
+function togglePrelim(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job.prelimClosed=!job.prelimClosed;saveJobs();
+  renderCompanyJobList(NAV.jobCompany);
+}
 function openVisibleJob(idx){
   const job = VISIBLE_JOBS[idx];
   if(!job){ console.error('openVisibleJob: no job at index',idx); return; }
@@ -5091,32 +5127,46 @@ function renderCompanyJobList(company){
       <div class="section-hd" style="margin-bottom:10px;">
         <div class="section-title">${title} <span style="color:var(--text3);font-weight:400;font-size:12px;">${sectionJobs.length} job${sectionJobs.length!==1?'s':''}</span></div>
       </div>
-      ${sectionJobs.length?`<div class="job-list-table">
-        <table style="width:100%;">
+      ${sectionJobs.length?`<div class="job-list-table" style="overflow-x:auto;">
+        <table style="width:100%;min-width:1100px;">
           <thead><tr>
-            <th style="width:75px;">Job #</th>
-            <th>Job Name</th>
-            <th style="width:160px;">GC / Customer</th>
-            <th style="width:80px;">PM</th>
-            <th style="text-align:right;width:110px;">Contract</th>
-            <th style="text-align:right;width:110px;">Open CORs</th>
-            <th style="width:90px;">Status</th>
+            <th style="width:68px;">Job #</th>
+            <th style="width:38px;">PM</th>
+            <th style="min-width:160px;">Job Name</th>
+            <th style="width:160px;">Address</th>
+            <th style="width:90px;">City</th>
+            <th style="width:54px;">Zip</th>
+            <th style="width:140px;">GC / Customer</th>
+            <th style="width:120px;">Contact</th>
+            <th style="text-align:right;width:90px;">Contract</th>
+            <th style="text-align:right;width:90px;">Open CORs</th>
+            <th style="width:70px;">Class</th>
+            <th style="width:80px;">Prelim</th>
+            <th style="width:80px;">Status</th>
           </tr></thead>
           <tbody>
             ${sectionJobs.map(job=>{
               const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
               const ini=pm?(pm.initials||(pm.first[0]+pm.last[0]).toUpperCase()):'—';
+              const contact=DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
               const openCOR=(job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s,c)=>s+c.total,0);
               const sc=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
+              const prelimBadge=job.prelimClosed?'<span style="font-size:10px;background:#E8F7EE;color:var(--green);padding:2px 6px;border-radius:20px;font-weight:700;">Closed</span>':'<span style="font-size:10px;background:#FFF0F0;color:#CC0000;padding:2px 6px;border-radius:20px;font-weight:700;">Open</span>';
               VISIBLE_JOBS.push(job);
               const _idx=VISIBLE_JOBS.length-1;
               return`<tr style="cursor:pointer;" onclick="openVisibleJob(${_idx})">
                 <td><span class="job-num">${job.num||'—'}</span></td>
-                <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
-                <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.gcName||'—'}</td>
-                <td style="font-size:12px;font-weight:600;">${ini}</td>
+                <td style="font-size:11px;font-weight:700;">${ini}</td>
+                <td style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
+                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.address||'—'}</td>
+                <td style="font-size:11px;">${job.city||'—'}</td>
+                <td style="font-size:11px;">${job.zip||'—'}</td>
+                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.gcName||'—'}</td>
+                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${contact?contact.first+' '+contact.last:job.contactName||'—'}</td>
                 <td style="text-align:right;font-weight:600;">${fmtVal(jobContract(job))}</td>
                 <td style="text-align:right;font-weight:600;color:${openCOR?'#CC0000':'var(--text3)'};">${openCOR?fmtVal(openCOR):'—'}</td>
+                <td><input type="text" value="${job.classCode||''}" placeholder="Class" onclick="event.stopPropagation()" onchange="updateJobField('${job.id}','classCode',this.value)" style="width:60px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;font-family:var(--font);background:var(--bg);"></td>
+                <td>${prelimBadge}</td>
                 <td><span class="job-status-badge ${sc}">${job.status}</span></td>
               </tr>`;
             }).join('')}
@@ -5546,12 +5596,21 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
   const openCORs = (job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0);
   const rcvdCORs = (job.cors||[]).filter(c=>!c.void&&c.custAmount>0);
 
+  const widgetOrder=getWidgetOrder(job.id);
+  const widgets={
+    info: `<!-- Panel 1: Project Information -->`,
+    team: `<!-- Panel 2: Internal Project Team -->`,
+    dates: `<!-- Panel 3: Project Dates -->`,
+    notes: `<!-- Panel 4: Jobsite Instructions -->`,
+    gcteam: `<!-- Panel 5: GC Team -->`,
+    schedule: `<!-- Panel 6: Schedule -->`,
+  };
   return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 
     <!-- Panel 1: Project Information -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
-        Project Information
+        <span style="cursor:grab;color:var(--text3);margin-right:6px;" title="Drag to rearrange">⠿</span>Project Information
         <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
       </div>
       <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.7;">
@@ -5569,7 +5628,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     <!-- Panel 2: Internal Project Team -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
-        Internal Project Team
+        <span style="cursor:grab;color:var(--text3);margin-right:6px;" title="Drag to rearrange">⠿</span>Internal Project Team
         <button class="btn-sm" onclick="openEditTeamModal('${job.id}')">Edit Team</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
@@ -6073,6 +6132,169 @@ function printCORLog(job){
   setTimeout(()=>win.print(),500);
 }
 
+// ═══════════════════════════════════════ SUBMITTAL PRINT ════════════════════════════════
+function printSubmittal(job){
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
+  const coPhone = job.company==='ACI'?'(714) 701-1360 • Fax (714) 701-1361':'(714) 668-5250 • Fax (714) 668-5251';
+  const today = new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
+  const paint = job.submittalPaint||[];
+  const wc = job.submittalWC||[];
+
+  const paintRows = paint.map(r=>`<tr style="${r.included?'font-weight:bold;':''}">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;">${r.num||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${r.manufacturer||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${r.color||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${r.finish||''}</td>
+  </tr>`).join('') || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#999;font-style:italic;border:1px solid #ccc;">No paint items</td></tr>';
+
+  const wcRows = wc.map(r=>`<tr style="${r.included?'font-weight:bold;':''}">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;">${r.num||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${r.manufacturer||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${r.color||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${r.leadTime||''}</td>
+  </tr>`).join('') || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#999;font-style:italic;border:1px solid #ccc;">No wallcovering items</td></tr>';
+
+  // Specifier section
+  const specifierRows = (job.specifiers||[]).map(s=>`<tr>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${s.name||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${s.company||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${s.email||''}</td>
+    <td style="padding:4px 6px;border:1px solid #ccc;">${s.phone||''}</td>
+  </tr>`).join('');
+
+  const printHTML = `<!DOCTYPE html><html><head>
+    <title>Submittal — ${job.name}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:20px;color:#000;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;}
+      .co-name{font-size:14px;font-weight:bold;letter-spacing:.5px;}
+      .co-sub{font-size:10px;color:#333;margin-top:2px;}
+      .doc-block{text-align:right;}
+      .doc-title{font-size:13px;font-weight:bold;}
+      .info-grid{display:grid;grid-template-columns:120px 1fr 120px 1fr;gap:3px 10px;margin-bottom:12px;font-size:11px;}
+      .info-label{color:#555;font-weight:600;}
+      table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10px;}
+      th{padding:5px 6px;background:#f0f0f0;border:1px solid #ccc;text-align:left;font-weight:bold;}
+      .section-title{font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;border-bottom:1px solid #000;padding-bottom:3px;}
+      .note{font-size:10px;font-style:italic;margin-bottom:8px;}
+      .sig{margin-top:24px;display:flex;justify-content:space-between;}
+      .sig-line{border-top:1px solid #000;min-width:200px;padding-top:4px;font-size:10px;text-align:center;}
+      @media print{body{padding:10px;}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div>
+        <div class="co-name">${coHdr}</div>
+        <div class="co-sub">PAINTING AND WALLCOVERING CONTRACTORS</div>
+        <div class="co-sub">${coAddr} ${coPhone}</div>
+      </div>
+      <div class="doc-block">
+        <div class="doc-title">SUBMITTAL LETTER</div>
+        <div style="margin-top:4px;font-size:10px;">
+          <div><strong>BID #:</strong> ${job.num||'—'}</div>
+          <div><strong>DATE:</strong> ${today}</div>
+        </div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <span class="info-label">CUSTOMER:</span><span>${gc?gc.name:job.gcName||'—'}</span>
+      <span class="info-label">BID #:</span><span>${job.num||'—'}</span>
+      <span class="info-label">ADDRESS:</span><span>${[job.address,job.city,job.zip].filter(Boolean).join(', ')||'—'}</span>
+      <span class="info-label">DATE:</span><span>${today}</span>
+      <span class="info-label">ATTN:</span><span>${contact?contact.first+' '+contact.last:job.contactName||'—'}</span>
+      <span></span><span></span>
+      <span class="info-label">PROJECT:</span><span>${job.name}</span>
+      <span></span><span></span>
+    </div>
+    ${specifierRows?`<div class="section-title">SPECIFIER</div>
+    <table><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th></tr></thead><tbody>${specifierRows}</tbody></table>`:''}
+    <div class="note">*Note: <strong>Items in bold</strong> are included in this submittal.</div>
+    <div class="section-title">PAINT</div>
+    <table><thead><tr><th style="width:50px;">#</th><th>Manufacturer</th><th>Color</th><th style="width:100px;">Finish</th></tr></thead><tbody>${paintRows}</tbody></table>
+    <div class="section-title">WALLCOVERING</div>
+    <table><thead><tr><th style="width:50px;">#</th><th>Manufacturer</th><th>Pattern / Color</th><th style="width:100px;">Lead Time</th></tr></thead><tbody>${wcRows}</tbody></table>
+    <div class="sig">
+      <div></div>
+      <div>
+        <div class="sig-line">${pm?pm.first+' '+pm.last:'Project Manager'}<br>Project Manager</div>
+      </div>
+    </div>
+  </body></html>`;
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(printHTML);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
+
+// ═══════════════════════════════════════ WIDGET LAYOUT ══════════════════════════════════
+// Draggable panel order stored per job in localStorage
+const WIDGET_ORDER_KEY = 'bidsum-widget-order';
+let WIDGET_ORDERS = {};
+
+function loadWidgetOrders(){
+  try{const s=localStorage.getItem(WIDGET_ORDER_KEY);if(s)WIDGET_ORDERS=JSON.parse(s);}catch(e){WIDGET_ORDERS={};}
+}
+function saveWidgetOrders(){
+  try{localStorage.setItem(WIDGET_ORDER_KEY,JSON.stringify(WIDGET_ORDERS));}catch(e){}
+}
+function getWidgetOrder(jobId){
+  loadWidgetOrders();
+  return WIDGET_ORDERS[jobId]||['info','team','dates','notes','gcteam','schedule'];
+}
+function setWidgetOrder(jobId,order){
+  loadWidgetOrders();
+  WIDGET_ORDERS[jobId]=order;
+  saveWidgetOrders();
+}
+
+// Drag state for widgets
+let DRAGGING_WIDGET = null;
+function onWidgetDragStart(e,id){ DRAGGING_WIDGET=id; e.dataTransfer.effectAllowed='move'; }
+function onWidgetDragOver(e,id){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+function onWidgetDrop(e,jobId,targetId){
+  e.preventDefault();
+  if(!DRAGGING_WIDGET||DRAGGING_WIDGET===targetId)return;
+  const order=getWidgetOrder(jobId);
+  const fromIdx=order.indexOf(DRAGGING_WIDGET);
+  const toIdx=order.indexOf(targetId);
+  if(fromIdx<0||toIdx<0)return;
+  order.splice(fromIdx,1);
+  order.splice(toIdx,0,DRAGGING_WIDGET);
+  setWidgetOrder(jobId,order);
+  DRAGGING_WIDGET=null;
+  openJobDetail(jobId,'overview');
+}
+
+
+function openManageSpecifiers(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.specifiers)job.specifiers=[];
+  const html=`
+    <div class="fg"><label>Name</label><input id="sp-name" autocomplete="off" placeholder="Jane Smith"></div>
+    <div class="fg"><label>Company</label><input id="sp-company" autocomplete="off" placeholder="Design Studio"></div>
+    <div class="fg"><label>Email</label><input id="sp-email" autocomplete="off" placeholder="jane@studio.com"></div>
+    <div class="fg"><label>Phone</label><input id="sp-phone" autocomplete="off" placeholder="(714) 555-0000"></div>
+  `;
+  showQuickModal('Add Specifier', html, ()=>{
+    const name=document.getElementById('sp-name').value.trim();
+    if(!name){alert('Name required');return;}
+    job.specifiers.push({
+      name,
+      company:document.getElementById('sp-company').value.trim(),
+      email:document.getElementById('sp-email').value.trim(),
+      phone:document.getElementById('sp-phone').value.trim(),
+    });
+    saveJobs();openJobDetail(jobId,'submittal');
+  });
+}
+function removeSpecifier(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job.specifiers.splice(idx,1);saveJobs();openJobDetail(jobId,'submittal');
+}
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
 </script>
