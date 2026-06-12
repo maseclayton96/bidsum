@@ -1178,7 +1178,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 <div class="modal-overlay" id="modal-import">
   <div class="modal" style="width:900px;max-height:90vh;overflow-y:auto;">
     <div class="modal-head">
-      <div class="modal-title" id="import-modal-title">Import Payroll from Computer Ease</div>
+      <div class="modal-title" id="import-modal-title">Import Cost from Computer Ease</div>
       <div class="modal-close" onclick="closeModal('import')">×</div>
     </div>
     <div class="modal-body">
@@ -4308,15 +4308,39 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
   const origContract = job.value||0;
   return `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;">
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-        <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Original Contract</div><div style="font-size:16px;font-weight:700;margin-top:4px;">${fmtVal(origContract)}</div></div>
-        <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total COR Requested</div><div style="font-size:16px;font-weight:700;margin-top:4px;">${fmtVal(ct.req)}</div></div>
-        <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total COR Awarded</div><div style="font-size:16px;font-weight:700;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div></div>
-        <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Changes Outstanding</div><div style="font-size:16px;font-weight:700;margin-top:4px;color:#CC0000;">${fmtVal(ct.outstanding)}</div></div>
-        <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Revised Contract</div><div style="font-size:16px;font-weight:700;margin-top:4px;">${fmtVal(jobContract(job))}</div></div>
+      <!-- COR Summary Header -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Base Contract</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(origContract)}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Awarded</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div>
+        </div>
+        <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3F6E;">Revised Contract</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px;color:#1B3F6E;">${fmtVal(jobContract(job))}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Requested</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(ct.req)}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Changes Awarded</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div>
+        </div>
+        <div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC0000;">Changes Outstanding</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px;color:#CC0000;">${fmtVal(ct.outstanding)}</div>
+        </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
-        <button class="btn-sm-primary" onclick="openNewCOR('${job.id}')">+ New COR</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text3);">${cors.length} change order${cors.length!==1?'s':''}</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'))">Print / PDF</button>
+          <button class="btn-sm-primary" onclick="openNewCOR('${job.id}')">+ New COR</button>
+        </div>
       </div>
       <!-- COR Table -->
       <div style="overflow-x:auto;">
@@ -4684,8 +4708,8 @@ function renderAccounting(){
   document.getElementById('app').innerHTML=`
     <div style="font-size:22px;font-weight:700;margin-bottom:20px;">Accounting</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
-      <div class="acc-nav-card" onclick="openBulkImport()">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Bulk Payroll Import</div>
+      <div class="acc-nav-card" onclick="openCostImport()">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Bulk Cost Import</div>
         <div style="font-size:12px;color:var(--text3);">Import a Computer Ease CSV across all jobs at once</div>
       </div>
       <div class="acc-nav-card" onclick="openLaborRates()">
@@ -4711,7 +4735,7 @@ function renderImportHistory(){
     });
   });
   allImports.sort((a,b)=>new Date(b.importedAt)-new Date(a.importedAt));
-  if(!allImports.length)return`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:32px;"><div class="empty-text" style="font-size:13px;">No payroll imports yet</div></div>`;
+  if(!allImports.length)return`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:32px;"><div class="empty-text" style="font-size:13px;">No cost imports yet</div></div>`;
   return`<div class="jobs-list-table"><table style="width:100%;"><thead><tr>
     <th>Job #</th><th>Job Name</th><th>Import Date</th><th style="text-align:right;">Rows</th>
     <th style="text-align:right;">Total Hours</th><th style="text-align:right;">Total Cost</th>
@@ -4757,9 +4781,9 @@ function saveRates(){
 }
 
 // ── CSV Import ──
-function openBulkImport(jobId){
+function openCostImport(jobId){
   IMPORT_JOB_ID=jobId||null;
-  const title=jobId?'Import Payroll for This Job':'Bulk Payroll Import';
+  const title=jobId?'Import Cost for This Job':'Bulk Cost Import';
   document.getElementById('import-modal-title').textContent=title;
   resetImport();
   openModal('import');
@@ -5491,7 +5515,7 @@ function renderJobDetail(){
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
           <button class="btn-sm" onclick="NAV.screen='jobs';render()">← Jobs</button>
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
-          <button class="btn-sm" onclick="openBulkImport('${job.id}')">Import Payroll</button>
+          <button class="btn-sm" onclick="openCostImport('${job.id}')">Import Cost</button>
           <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
         </div>
       </div>
@@ -5542,22 +5566,25 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
       </div>
     </div>
 
-    <!-- Panel 2: Project Team -->
+    <!-- Panel 2: Internal Project Team -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
-      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Team</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+        Internal Project Team
+        <button class="btn-sm" onclick="openEditTeamModal('${job.id}')">Edit Team</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
         ${[
-          {label:'Project Manager', m:pm},
-          {label:'Superintendent', m:sup},
-          {label:'Foreman', m:foreman},
-          {label:'Coordinator', m:coord},
-        ].map(({label,m})=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
-          <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;${m?memberAvatarStyle(m):'background:var(--bg4);'}display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">
+          {label:'Project Manager', m:pm, field:'pmId'},
+          {label:'Superintendent', m:sup, field:'superId'},
+          {label:'Foreman', m:foreman, field:'foremanId'},
+          {label:'Coordinator', m:coord, field:'coordId'},
+        ].map(({label,m,field})=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;${m?memberAvatarStyle(m):'background:var(--bg4);border:1px dashed var(--border2);'}display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${m?'inherit':'var(--text3)'};">
             ${m?(m.initials||(m.first[0]+m.last[0]).toUpperCase()):'?'}
           </div>
           <div style="flex:1;">
-            <div style="font-size:11px;color:var(--text3);">${label}</div>
-            <div style="font-size:13px;font-weight:600;">${m?m.first+' '+m.last:'Not assigned'}</div>
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">${label}</div>
+            <div style="font-size:13px;font-weight:600;">${m?m.first+' '+m.last:'<span style="color:var(--text3);font-weight:400;">Not assigned</span>'}</div>
           </div>
           ${m?`<div style="font-size:11px;color:var(--text3);">${m.email||''}</div>`:''}
         </div>`).join('')}
@@ -5598,6 +5625,58 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
         <div id="weather-panel-${job.id}" style="font-size:12px;color:var(--text3);">Loading weather...</div>
       </div>`:''}
+    </div>
+
+  </div>
+
+  <!-- Row 2: GC Team + Schedule -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+
+    <!-- GC Project Team -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+        GC / Client Team
+        <button class="btn-sm" onclick="openAddGCTeamModal('${job.id}')">+ Add</button>
+      </div>
+      ${(job.gcTeam||[]).length?`<div style="display:flex;flex-direction:column;gap:8px;">
+        ${(job.gcTeam||[]).map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="width:32px;height:32px;border-radius:50%;background:#1B3F6E;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">
+            ${(p.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">${p.role||'Contact'}</div>
+            <div style="font-size:13px;font-weight:600;">${p.name||'—'}</div>
+            ${p.email?`<div style="font-size:11px;color:var(--text3);">${p.email}</div>`:''}
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn-sm" onclick="editGCTeamMember('${job.id}',${i})">Edit</button>
+            <button class="btn-sm" style="color:#CC0000;" onclick="deleteGCTeamMember('${job.id}',${i})">×</button>
+          </div>
+        </div>`).join('')}
+      </div>`:`<div style="color:var(--text3);font-size:12px;">No GC contacts added. Click + Add to add client team members.</div>`}
+    </div>
+
+    <!-- Schedule PDF -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+        Project Schedule
+        <label class="btn-sm" style="cursor:pointer;">
+          ${job.schedulePDF?'Replace PDF':'+ Upload PDF'}
+          <input type="file" accept=".pdf" style="display:none;" onchange="uploadSchedulePDF('${job.id}',this)">
+        </label>
+      </div>
+      ${job.schedulePDF?`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:var(--r);margin-bottom:10px;">
+          <div style="font-size:24px;">📄</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${job.schedulePDFName||'Schedule.pdf'}</div>
+            <div style="font-size:11px;color:var(--text3);">Uploaded ${job.schedulePDFDate?new Date(job.schedulePDFDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-sm-primary" onclick="viewSchedulePDF('${job.id}')">View</button>
+            <button class="btn-sm" style="color:#CC0000;" onclick="deleteSchedulePDF('${job.id}')">Remove</button>
+          </div>
+        </div>`:`<div style="color:var(--text3);font-size:12px;padding:20px 0;text-align:center;">No schedule uploaded yet.<br>Upload a PDF to attach the project schedule.</div>`}
     </div>
 
   </div>`;
@@ -5792,6 +5871,206 @@ function formatFileSize(bytes){
   if(bytes<1024)return bytes+'B';
   if(bytes<1048576)return Math.round(bytes/1024)+'KB';
   return(bytes/1048576).toFixed(1)+'MB';
+}
+
+// ═══════════════════════════════════════ TEAM EDIT MODAL JS ════════════════════════════
+
+// Edit Internal Team (PM, Super, Foreman, Coordinator)
+function openEditTeamModal(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  // Build a modal dynamically
+  const fields=[
+    {label:'Project Manager',field:'pmId',type:'PM'},
+    {label:'Superintendent',field:'superId',type:'SUP'},
+    {label:'Foreman',field:'foremanId',type:'FOR'},
+    {label:'Project Coordinator',field:'coordId',type:'PC'},
+  ];
+  const html=fields.map(f=>{
+    const members=DB.members.filter(m=>m.type===f.type&&m.active!==false);
+    return`<div class="fg"><label>${f.label}</label>
+      <select id="et-${f.field}">
+        <option value="">— none —</option>
+        ${members.map(m=>`<option value="${m.id}" ${parseInt(job[f.field])===parseInt(m.id)?'selected':''}>${m.first} ${m.last}</option>`).join('')}
+      </select></div>`;
+  }).join('');
+  showQuickModal('Edit Project Team', html, ()=>{
+    fields.forEach(f=>{
+      job[f.field]=parseInt(document.getElementById('et-'+f.field).value)||null;
+    });
+    saveJobs();
+    openJobDetail(jobId,'overview');
+  });
+}
+
+// GC Team Members (client-facing contacts)
+function openAddGCTeamModal(jobId, editIdx=null){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.gcTeam)job.gcTeam=[];
+  const existing = editIdx!==null ? job.gcTeam[editIdx] : {};
+  const html=`
+    <div class="fg"><label>Name</label><input id="gct-name" value="${existing.name||''}" placeholder="Full name" autocomplete="off"></div>
+    <div class="fg"><label>Role / Title</label><input id="gct-role" value="${existing.role||''}" placeholder="e.g. Project Manager" autocomplete="off"></div>
+    <div class="fg"><label>Email</label><input id="gct-email" type="email" value="${existing.email||''}" placeholder="email@company.com" autocomplete="off"></div>
+    <div class="fg"><label>Phone</label><input id="gct-phone" value="${existing.phone||''}" placeholder="(714) 555-0000" autocomplete="off"></div>
+  `;
+  showQuickModal(editIdx!==null?'Edit GC Contact':'Add GC Contact', html, ()=>{
+    const contact={
+      name:document.getElementById('gct-name').value.trim(),
+      role:document.getElementById('gct-role').value.trim(),
+      email:document.getElementById('gct-email').value.trim(),
+      phone:document.getElementById('gct-phone').value.trim(),
+    };
+    if(!contact.name){alert('Name required');return;}
+    if(editIdx!==null)job.gcTeam[editIdx]=contact;
+    else job.gcTeam.push(contact);
+    saveJobs();
+    openJobDetail(jobId,'overview');
+  });
+}
+function editGCTeamMember(jobId,idx){ openAddGCTeamModal(jobId,idx); }
+function deleteGCTeamMember(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Remove this contact?'))return;
+  job.gcTeam.splice(idx,1);saveJobs();openJobDetail(jobId,'overview');
+}
+
+// Quick modal helper
+function showQuickModal(title, bodyHtml, onSave){
+  const existing=document.getElementById('quick-modal-overlay');
+  if(existing)existing.remove();
+  const el=document.createElement('div');
+  el.id='quick-modal-overlay';
+  el.className='modal-overlay open';
+  el.innerHTML=`<div class="modal" style="width:460px;">
+    <div class="modal-head"><div class="modal-title">${title}</div><div class="modal-close" onclick="document.getElementById('quick-modal-overlay').remove()">×</div></div>
+    <div class="modal-body">${bodyHtml}</div>
+    <div class="modal-foot">
+      <button class="btn" onclick="document.getElementById('quick-modal-overlay').remove()">Cancel</button>
+      <button class="btn-primary" id="quick-modal-save">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  document.getElementById('quick-modal-save').onclick=()=>{
+    onSave();
+    const ov=document.getElementById('quick-modal-overlay');
+    if(ov)ov.remove();
+  };
+}
+
+// Schedule PDF
+function uploadSchedulePDF(jobId, input){
+  const file=input.files[0];if(!file)return;
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    job.schedulePDF=ev.target.result;
+    job.schedulePDFName=file.name;
+    job.schedulePDFDate=new Date().toISOString();
+    saveJobs();
+    openJobDetail(jobId,'overview');
+  };
+  reader.readAsDataURL(file);
+}
+function viewSchedulePDF(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job||!job.schedulePDF)return;
+  const win=window.open();
+  win.document.write(`<iframe src="${job.schedulePDF}" style="width:100%;height:100%;border:none;"></iframe>`);
+}
+function deleteSchedulePDF(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Remove schedule PDF?'))return;
+  job.schedulePDF=null;job.schedulePDFName=null;job.schedulePDFDate=null;
+  saveJobs();openJobDetail(jobId,'overview');
+}
+
+// ═══════════════════════════════════════ COR LOG PRINT ══════════════════════════════════
+function printCORLog(job){
+  const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
+  const coPhone=job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
+  const ct=jobCORTotals(job);
+  const origContract=job.value||0;
+  const revisedContract=jobContract(job);
+  const cors=job.cors||[];
+  const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+  const rows=cors.map((cor,i)=>{
+    const diff=(cor.custAmount||0)-cor.total;
+    return`<tr style="${cor.void?'opacity:.4;text-decoration:line-through;':''}">
+      <td style="padding:5px 8px;border:1px solid #ccc;text-align:center;">${i+1}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;">${cor.date||''}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;">${cor.void?'VOID — ':''} ${cor.desc||''}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;text-align:right;">${cor.void?'VOID':fmtVal(cor.total)}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;text-align:center;">${cor.custCONum||''}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;">${cor.custDate||''}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;text-align:right;">${cor.custAmount?fmtVal(cor.custAmount):''}</td>
+      <td style="padding:5px 8px;border:1px solid #ccc;text-align:right;">${cor.custAmount&&!cor.void?fmtVal(Math.abs(diff)):''}</td>
+    </tr>`;
+  }).join('');
+
+  const printHTML=`<!DOCTYPE html><html><head>
+    <title>COR Log — ${job.name}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:20px;color:#000;}
+      .header{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px;}
+      .company-name{font-size:16px;font-weight:bold;letter-spacing:1px;}
+      .company-sub{font-size:11px;color:#333;margin-top:2px;}
+      .doc-title{font-size:14px;font-weight:bold;margin:8px 0 2px;}
+      .job-info{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-bottom:14px;font-size:11px;}
+      .job-info span{color:#555;}
+      .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+      .summary-box{border:1px solid #ccc;padding:8px 10px;}
+      .summary-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#555;margin-bottom:3px;}
+      .summary-val{font-size:14px;font-weight:bold;}
+      table{width:100%;border-collapse:collapse;font-size:10px;}
+      thead tr{background:#f0f0f0;}
+      th{padding:5px 8px;border:1px solid #ccc;text-align:left;font-size:10px;}
+      @media print{body{padding:10px;}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div class="company-name">${coHdr}</div>
+      <div class="company-sub">PAINTING AND WALLCOVERING CONTRACTORS</div>
+      <div class="company-sub">${coAddr} · ${coPhone}</div>
+      <div class="doc-title">CHANGE ORDER REQUEST LOG</div>
+    </div>
+    <div class="job-info">
+      <div><span>PROJECT: </span><strong>${job.name}</strong></div>
+      <div><span>JOB #: </span><strong>${job.num||'—'}</strong></div>
+      <div><span>CUSTOMER: </span><strong>${gc?gc.name:job.gcName||'—'}</strong></div>
+      <div><span>DATE: </span><strong>${today}</strong></div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-box"><div class="summary-label">Original Contract</div><div class="summary-val">${fmtVal(origContract)}</div></div>
+      <div class="summary-box"><div class="summary-label">Total CORs Awarded</div><div class="summary-val">${fmtVal(ct.awd)}</div></div>
+      <div class="summary-box"><div class="summary-label">Revised Contract</div><div class="summary-val">${fmtVal(revisedContract)}</div></div>
+      <div class="summary-box"><div class="summary-label">Total CORs Requested</div><div class="summary-val">${fmtVal(ct.req)}</div></div>
+      <div class="summary-box"><div class="summary-label">Changes Outstanding</div><div class="summary-val">${fmtVal(ct.outstanding)}</div></div>
+      <div class="summary-box"><div class="summary-label">Changes Awarded</div><div class="summary-val">${fmtVal(ct.awd)}</div></div>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:40px;">COR #</th>
+        <th style="width:80px;">Date</th>
+        <th>Description</th>
+        <th style="width:80px;text-align:right;">Amount</th>
+        <th style="width:60px;text-align:center;">Cust CO#</th>
+        <th style="width:80px;">Cust Date</th>
+        <th style="width:80px;text-align:right;">Cust Amt</th>
+        <th style="width:70px;text-align:right;">Diff</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:20px;font-size:10px;color:#555;text-align:center;">
+      Printed ${today} · ${coHdr} · Confidential
+    </div>
+  </body></html>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(printHTML);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
 }
 
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
