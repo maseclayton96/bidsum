@@ -4036,7 +4036,10 @@ function openJobById(jobId){ openJobDetail(jobId); }
 function openJobDetail(jobId, tab){
   loadJobs();
   console.log('[openJobDetail] jobId=',jobId,'JOBS=',JOBS.length,'match=',JOBS.find(j=>String(j.id)===String(jobId))?'FOUND':'NOT FOUND');
-  const job = JOBS.find(j=>String(j.id)===String(jobId));
+  // Try exact match first, then partial match for safety
+  let job = JOBS.find(j=>String(j.id)===String(jobId));
+  if(!job) job = JOBS.find(j=>j.id==jobId); // loose equality
+  if(!job) job = JOBS.find(j=>String(j.id).includes(String(jobId))||String(jobId).includes(String(j.id)));
   if(job){
     NAV.jobCompany = job.company||NAV.jobCompany||'Bonas';
     CUR_JOB_ID = job.id;
