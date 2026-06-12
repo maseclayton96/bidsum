@@ -1402,6 +1402,7 @@ function render(){
   else if(NAV.screen==='team')renderTeam();
   else if(NAV.screen==='myprofile')renderMyProfile();
  else if(NAV.screen==='jobs'){if(NAV.jobCompany)renderCompanyJobList(NAV.jobCompany);else renderJobsHome();}
+ else if(NAV.screen==='jobdetail')renderJobDetail();
  else if(NAV.screen==='reports')renderReports();
  setTimeout(initAllDraggables,50);
  renderCurrentUserNav();
@@ -1453,6 +1454,13 @@ function renderNav(){
  } else if(NAV.screen==='reports'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Reports</span>`;
 
+ } else if(NAV.screen==='jobdetail'){
+ const _j=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
+ bc.innerHTML=`<span class="bc-item" onclick="goJobs()">Jobs</span><span class="bc-sep">›</span><span class="bc-item" onclick="NAV.jobCompany&&renderCompanyJobList(NAV.jobCompany)">${NAV.jobCompany||''}</span><span class="bc-sep">›</span><span class="bc-item cur">${_j?_j.name:'Job'}</span>`;
+ } else if(NAV.screen==='jobdetail'){
+ const _jd=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
+ const _co=NAV.jobCompany==='ACI'?'ACI':'Bonas';
+ bc.innerHTML=`<span class="bc-item" onclick="goJobs()">Jobs</span><span class="bc-sep">›</span><span class="bc-item" onclick="NAV.screen='jobs';render()">${_co}</span><span class="bc-sep">›</span><span class="bc-item cur">${_jd?_jd.name:'Job'}</span>`;
  } else if(NAV.screen==='accounting'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Accounting</span>`;
  
@@ -4034,8 +4042,9 @@ function openJobDetail(jobId, tab){
   } else {
     CUR_JOB_ID = jobId;
   }
-  CUR_JOB_TAB = tab || 'overview';
-  renderJobDetail();
+  CUR_JOB_TAB = tab||'overview';
+  NAV.screen='jobdetail';
+  render();
 }
 
 
@@ -4903,7 +4912,7 @@ function confirmImport(){
   alert(`Import complete: ${totalRows} rows imported to ${totalJobs} job${totalJobs!==1?'s':''} · Total cost: ${fmtVal(totalCost)}`);
   // Refresh current view
   if(NAV.screen==='accounting')renderAccounting();
-  else if(NAV.screen==='jobs'&&CUR_JOB_ID){openJobDetail(CUR_JOB_ID,'overview');}
+  else if(NAV.screen==='jobdetail'&&CUR_JOB_ID){openJobDetail(CUR_JOB_ID,'overview');}
 }
 
 // ── Role helpers ──
@@ -5448,7 +5457,7 @@ function renderJobDetail(){
           <div class="job-hero-meta">${gc?gc.name:job.gcName||'—'}${job.contactName?' · ATTN: '+job.contactName:''}${pm?' · PM: '+pm.first+' '+pm.last:''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
-          <button class="btn-sm" onclick="NAV.jobCompany&&renderCompanyJobList(NAV.jobCompany)">← Jobs</button>
+          <button class="btn-sm" onclick="NAV.screen='jobs';render()">← Jobs</button>
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openBulkImport('${job.id}')">Import Payroll</button>
           <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
