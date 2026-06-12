@@ -4034,7 +4034,8 @@ function renderJobs(){
 // ══════════════════════════════════════════════════════════════
 function openJobById(jobId){ openJobDetail(jobId); }
 function openJobDetail(jobId, tab){
-  loadJobs(); // Always reload before opening
+  loadJobs();
+  console.log('[openJobDetail] jobId=',jobId,'JOBS=',JOBS.length,'match=',JOBS.find(j=>String(j.id)===String(jobId))?'FOUND':'NOT FOUND');
   const job = JOBS.find(j=>String(j.id)===String(jobId));
   if(job){
     NAV.jobCompany = job.company||NAV.jobCompany||'Bonas';
