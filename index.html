@@ -4895,7 +4895,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Panel 3: Project Dates & COR Summary -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'dates')" ondragover="onWidgetDragOver(event,'dates')" ondrop="onWidgetDrop(event,'${job.id}','dates')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div draggable="true" ondragstart="onWidgetDragStart(event,'dates')" ondragover="onWidgetDragOver(event,'dates')" ondrop="onWidgetDrop(event,'${{job.id}}','dates')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
       <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Dates & Change Orders</div>
       <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.8;margin-bottom:16px;">
         <span style="color:var(--text3);font-weight:600;">Start Date</span><span style="font-weight:600;">${fmtDate(job.start)||'Not set'}</span>
@@ -4918,7 +4918,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Panel 4: Jobsite Instructions + Weather -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'notes')" ondragover="onWidgetDragOver(event,'notes')" ondrop="onWidgetDrop(event,'${job.id}','notes')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div draggable="true" ondragstart="onWidgetDragStart(event,'notes')" ondragover="onWidgetDragOver(event,'notes')" ondrop="onWidgetDrop(event,'${{job.id}}','notes')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
         Jobsite Instructions
         <button class="btn-sm" onclick="editJobsiteNotes('${job.id}')">Edit</button>
@@ -5773,7 +5773,7 @@ function renderSOVMonth(job,month,mi){
   const retOptions=[0,5,10,15,20];
   const isCustom=!retOptions.includes(retPct);
 
-  return\`<div style="border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;">
+  return`<div style="border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);cursor:pointer;" onclick="toggleSOVMonth('\${jid}',\${mi})">
       <div style="display:flex;align-items:center;gap:12px;">
         <span style="font-size:14px;color:var(--text3);">\${month.collapsed?'&#9654;':'&#9660;'}</span>
@@ -5789,7 +5789,7 @@ function renderSOVMonth(job,month,mi){
         <button class="btn-sm" onclick="event.stopPropagation();removeSOVMonth('\${jid}',\${mi})" style="color:#CC0000;">×</button>
       </div>
     </div>
-    \${!month.collapsed?\`
+    \${!month.collapsed?`
     <div style="padding:14px;overflow-x:auto;">
       <div style="display:grid;grid-template-columns:auto auto auto;gap:12px;margin-bottom:12px;align-items:end;">
         <div>
@@ -5845,7 +5845,7 @@ function renderSOVMonth(job,month,mi){
             const bal=(line.value||0)-total;
             const ret=ml.retention||0;
             const thisPct=line.value&&line.value>0?Math.round(thisApp/line.value*1000)/10:0;
-            return\`<tr style="background:\${li%2===0?'var(--bg2)':'var(--bg3)'}">
+            return`<tr style="background:\${li%2===0?'var(--bg2)':'var(--bg3)'}">
               <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;color:var(--text3);">\${li+1}</td>
               <td style="padding:4px 6px;border:1px solid var(--border);font-size:10px;">\${line.desc||''}</td>
               <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;">\${fmtMoney(line.value)}</td>
@@ -5856,7 +5856,7 @@ function renderSOVMonth(job,month,mi){
               <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;font-weight:600;color:\${pct>=100?'var(--green)':pct>50?'var(--blue)':'var(--text)'};">\${pct.toFixed(1)}%</td>
               <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;color:\${bal<0?'#CC0000':'var(--text)'};">\${fmtMoney(bal)}</td>
               <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;font-weight:600;color:#CC7000;">\${fmtMoney(ret)}</td>
-            </tr>\`;
+            </tr>`;
           }).join('')}
           <tr style="background:var(--bg3);font-weight:700;font-size:10px;">
             <td colspan="2" style="padding:6px 8px;border:1px solid var(--border);text-align:right;">TOTALS:</td>
@@ -5871,9 +5871,9 @@ function renderSOVMonth(job,month,mi){
           </tr>
         </tbody>
       </table>
-    </div>\`:''
+    </div>`:''
     }
-  </div>\`;
+  </div>`;
 }
 
 
