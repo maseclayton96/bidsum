@@ -1412,6 +1412,7 @@ function showErr(e){console.error(e);const ind=document.getElementById('autosave
 // ═══════════════════════════════════════ NAVIGATION ══════════════════════════════════
 function goLanding(){NAV={screen:'landing',memberId:null,gcId:null,memberTab:'bids',gcTab:'contacts'};render();}
 function goHome(){NAV={screen:'home',memberId:null,gcId:null,memberTab:'bids',gcTab:'contacts'};render();}
+function goPMHome(){NAV.screen='pmhome';render();}
 function goMember(id,tab){NAV.screen='member';NAV.memberId=parseInt(id);NAV.memberTab=tab||'bids';NAV.gcId=null;render();}
 function goGC(gcId,fromMemberId){NAV.screen='gc';NAV.gcId=parseInt(gcId);NAV.gcTab='contacts';if(fromMemberId!=null)NAV.memberId=parseInt(fromMemberId);render();}
 function setMemberTab(t){NAV.memberTab=t;render();}
@@ -1428,6 +1429,7 @@ function render(){
   else if(NAV.screen==='accounting')renderAccounting();
   else if(NAV.screen==='team')renderTeam();
   else if(NAV.screen==='myprofile')renderMyProfile();
+ else if(NAV.screen==='pmhome')renderPMHome();
  else if(NAV.screen==='jobs'){if(NAV.jobCompany)renderCompanyJobList(NAV.jobCompany);else renderJobsHome();}
  else if(NAV.screen==='jobdetail')renderJobDetail();
  else if(NAV.screen==='reports')renderReports();
@@ -1446,7 +1448,8 @@ function renderNav(){
    const isManager=SESSION.user.role==='manager';
    modBtns.innerHTML=`
      ${navMods.includes('bidsum')?`<button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">BidSum</button>`:''}
-     ${navMods.includes('jobs')?`<button class="btn-nav ${NAV.screen==='jobs'?'btn-nav-active':''}" onclick="goJobs()">Jobs</button>`:''}
+     <button class="btn-nav ${NAV.screen==='pmhome'?'btn-nav-active':''}" onclick="goPMHome()">Home</button>
+     ${navMods.includes('jobs')?`<button class="btn-nav ${NAV.screen==='jobs'||NAV.screen==='jobdetail'?'btn-nav-active':''}" onclick="goJobs()">Jobs</button>`:''}
      ${navMods.includes('reports')?`<button class="btn-nav ${NAV.screen==='reports'?'btn-nav-active':''}" onclick="goReports()">Reports</button>`:''}
      ${navMods.includes('accounting')?`<button class="btn-nav ${NAV.screen==='accounting'?'btn-nav-active':''}" onclick="goAccounting()">Accounting</button>`:''}
      ${navMods.includes('team')?`<button class="btn-nav ${NAV.screen==='team'?'btn-nav-active':''}" onclick="goTeam()">Team</button>`:''}
@@ -1460,6 +1463,8 @@ function renderNav(){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Admin Panel</span>`;
  } else if(NAV.screen==='home'){
 
+ } else if(NAV.screen==='pmhome'){
+ bc.innerHTML=`<span class="bc-item cur">Home</span>`;
  } else if(NAV.screen==='member'){
  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">${m?m.first+' '+m.last:'Member'}</span>`;
@@ -3945,8 +3950,33 @@ function renderCompanyJobList(company){
     </div>`;
   };
 
+  // Store search term per company
+  const searchId = 'job-search-'+company;
+  const searchTerm = (window._JOB_SEARCH&&window._JOB_SEARCH[company])||'';
+  // Filter jobs by search
+  function filterJobs(list){
+    if(!searchTerm) return list;
+    const q=searchTerm.toLowerCase();
+    return list.filter(j=>{
+      const pm=DB.members.find(m=>parseInt(m.id)===parseInt(j.pmId));
+      const ini=pm?pm.first[0]+pm.last[0]:'';
+      return (j.num||'').toLowerCase().includes(q)
+          || (j.name||'').toLowerCase().includes(q)
+          || (j.gcName||'').toLowerCase().includes(q)
+          || (j.address||'').toLowerCase().includes(q)
+          || (j.city||'').toLowerCase().includes(q)
+          || (j.contactName||'').toLowerCase().includes(q)
+          || ini.toLowerCase().includes(q)
+          || (j.status||'').toLowerCase().includes(q);
+    });
+  }
+  const fActive=filterJobs(active);
+  const fOnHold=filterJobs(onHold);
+  const fComplete=filterJobs(complete);
+  const matchCount=fActive.length+fOnHold.length+fComplete.length;
+
   document.getElementById('app').innerHTML=`
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
       <div>
         <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;">${coHdr}</div>
         <div style="font-size:13px;color:var(--text3);margin-top:2px;">${jobs.length} total jobs · ${active.length} active</div>
@@ -3962,10 +3992,24 @@ function renderCompanyJobList(company){
         </div>
       </div>
     </div>
-    ${renderSection('Active Jobs', active, true)}
-    ${renderSection('On Hold', onHold, false)}
-    ${renderSection('Complete', complete, false)}
+    <!-- Search bar -->
+    <div style="margin-bottom:18px;">
+      <div style="position:relative;max-width:420px;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none;">&#128269;</span>
+        <input id="${searchId}" type="text" value="${searchTerm}" placeholder="Search jobs — name, #, GC, city, PM..."
+          oninput="jobListSearch('${company}',this.value)"
+          style="width:100%;padding:9px 14px 9px 38px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--bg2);color:var(--text);outline:none;box-shadow:var(--shadow);">
+        ${searchTerm?`<button onclick="jobListSearch('${company}','')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;">&#10005;</button>`:''}
+      </div>
+      ${searchTerm?`<div style="font-size:12px;color:var(--text3);margin-top:6px;">${matchCount} result${matchCount!==1?'s':''} for "${searchTerm}"</div>`:''}
+    </div>
+    ${renderSection('Active Jobs', fActive, !searchTerm)}
+    ${renderSection('On Hold', fOnHold, false)}
+    ${renderSection('Complete', fComplete, false)}
+    ${searchTerm&&matchCount===0?'<div style="text-align:center;padding:40px;color:var(--text3);">No jobs match "'+searchTerm+'"</div>':''}
   `;
+  // Re-focus search input after re-render
+  const si=document.getElementById(searchId);if(si&&searchTerm){si.focus();si.setSelectionRange(9999,9999);}
 }
 
 function renderJobsHome(){
@@ -4008,7 +4052,22 @@ function renderJobsHome(){
           <div style="background:#111;color:#fff;border-radius:var(--r);padding:11px 16px;font-size:13px;font-weight:600;text-align:center;">Open Jobs →</div>
         </div>
       </div>
-    </div>`;
+    </div>
+
+    <!-- Cross-company search -->
+    <div style="margin-top:28px;text-align:center;">
+      <div style="font-size:13px;font-weight:600;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Search all jobs</div>
+      <div style="position:relative;max-width:440px;margin:0 auto;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none;">&#128269;</span>
+        <input id="jobs-home-search" type="text" placeholder="Search by name, #, GC, city, PM…"
+          onkeydown="if(event.key==='Enter'&&this.value.trim()){jobsHomeSearch(this.value.trim());}"
+          style="width:100%;padding:11px 48px 11px 40px;border:1px solid var(--border);border-radius:var(--r);font-size:14px;font-family:var(--font);background:var(--bg2);color:var(--text);outline:none;box-shadow:var(--shadow-md);">
+        <button onclick="jobsHomeSearch(document.getElementById('jobs-home-search').value.trim())"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--blue);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">Go</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Press Enter or click Go — routes to company with most matches</div>
+    </div>
+  `;
 }
 
 
@@ -7054,6 +7113,256 @@ function updateSOVRetention(jobId,mi,pct){
   saveJobs();
   const c=document.getElementById('sov-months-container-'+jobId);
   if(c)c.innerHTML=(job.sovMonths||[]).map((m,i)=>renderSOVMonth(job,m,i)).join('');
+}
+
+function jobListSearch(company, term){
+  if(!window._JOB_SEARCH) window._JOB_SEARCH={};
+  window._JOB_SEARCH[company]=term;
+  renderCompanyJobList(company);
+}
+
+function jobsHomeSearch(term){
+  if(!term)return;
+  if(!window._JOB_SEARCH)window._JOB_SEARCH={};
+  // Search both companies; go to the one with more matches
+  loadJobs();
+  const q=term.toLowerCase();
+  const match=j=>(j.num||'').toLowerCase().includes(q)||(j.name||'').toLowerCase().includes(q)||(j.gcName||'').toLowerCase().includes(q)||(j.city||'').toLowerCase().includes(q)||(j.contactName||'').toLowerCase().includes(q);
+  const bCount=JOBS.filter(j=>j.company==='Bonas'&&match(j)).length;
+  const aCount=JOBS.filter(j=>j.company==='ACI'&&match(j)).length;
+  const company=aCount>=bCount?'ACI':'Bonas';
+  window._JOB_SEARCH[company]=term;
+  NAV.screen='jobs';NAV.jobCompany=company;
+  render();
+}
+
+function renderPMHome(){
+  loadJobs();
+  const user = SESSION.user;
+  const isManager = user&&user.role==='manager';
+  const now = new Date();
+  const greeting = now.getHours()<12?'Good morning':'now.getHours()<17?'Good afternoon':'Good evening';
+
+  // ── All active jobs (both companies) ──
+  const allJobs = JOBS;
+  const activeJobs = allJobs.filter(j=>j.status==='Active');
+  const holdJobs   = allJobs.filter(j=>j.status==='On Hold');
+
+  // ── Sales totals ──
+  const totalContract  = allJobs.reduce((s,j)=>s+jobContract(j),0);
+  const activeContract = activeJobs.reduce((s,j)=>s+jobContract(j),0);
+  const bonasContract  = allJobs.filter(j=>j.company==='Bonas').reduce((s,j)=>s+jobContract(j),0);
+  const aciContract    = allJobs.filter(j=>j.company==='ACI').reduce((s,j)=>s+jobContract(j),0);
+
+  // ── Open CORs across all jobs ──
+  const openCORs = [];
+  allJobs.forEach(j=>{
+    (j.cors||[]).forEach((c,ci)=>{
+      if(!c.void && c.total>0 && !c.custAmount){
+        openCORs.push({job:j, cor:c, corIdx:ci});
+      }
+    });
+  });
+  const totalOpenCOR = openCORs.reduce((s,x)=>s+x.cor.total,0);
+
+  // ── CORs received (custAmount set) ──
+  const rcvdCORs = [];
+  allJobs.forEach(j=>{
+    (j.cors||[]).forEach((c,ci)=>{
+      if(!c.void && c.custAmount>0){
+        rcvdCORs.push({job:j, cor:c, corIdx:ci});
+      }
+    });
+  });
+  const totalRcvd = rcvdCORs.reduce((s,x)=>s+x.cor.custAmount,0);
+
+  // ── PM breakdown ──
+  const pms = DB.members.filter(m=>m.type==='PM');
+  const pmRows = pms.map(pm=>{
+    const pmJobs = activeJobs.filter(j=>parseInt(j.pmId)===parseInt(pm.id));
+    const pmContract = pmJobs.reduce((s,j)=>s+jobContract(j),0);
+    const pmOpenCOR = pmJobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s2,c)=>s2+c.total,0)),0);
+    if(!pmJobs.length) return '';
+    const ini = (pm.first[0]||'')+(pm.last[0]||'');
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:10px 12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${ini}</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;">${pm.first} ${pm.last}</div>
+            <div style="font-size:11px;color:var(--text3);">${pm.email||''}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:10px 12px;text-align:center;font-weight:700;font-size:15px;">${pmJobs.length}</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;">${fmtVal(pmContract)}</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;color:${pmOpenCOR>0?'#CC0000':'var(--text3)'};">${pmOpenCOR>0?fmtVal(pmOpenCOR):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Active jobs table ──
+  const activeRows = activeJobs
+    .sort((a,b)=>jobContract(b)-jobContract(a))
+    .map(job=>{
+      const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+      const ini = pm?(pm.first[0]+pm.last[0]):'—';
+      const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+      const openCOR = (job.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s,c)=>s+c.total,0);
+      const ct = jobCORTotals(job);
+      return `<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openVisibleJob('${job.id}')">
+        <td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">${job.num||'—'}</span></td>
+        <td style="padding:9px 12px;">
+          <div style="font-weight:600;font-size:13px;">${job.name}</div>
+          <div style="font-size:11px;color:var(--text3);">${job.gcName||'—'} · ${job.city||''}</div>
+        </td>
+        <td style="padding:9px 12px;"><span style="font-size:11px;background:var(--bg3);border-radius:4px;padding:2px 6px;font-weight:600;">${job.company}</span></td>
+        <td style="padding:9px 12px;font-size:12px;color:var(--text2);">${ini}</td>
+        <td style="padding:9px 12px;text-align:right;font-weight:700;">${fmtVal(jobContract(job))}</td>
+        <td style="padding:9px 12px;text-align:right;font-weight:700;color:${openCOR>0?'#CC0000':'var(--text3)'};">${openCOR>0?fmtVal(openCOR):'—'}</td>
+      </tr>`;
+    }).join('');
+
+  // ── Open COR list ──
+  const corRows = openCORs
+    .sort((a,b)=>b.cor.total-a.cor.total)
+    .map(({job,cor,corIdx})=>{
+      const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+      const ini = pm?(pm.first[0]+pm.last[0]):'—';
+      const days = cor.date ? Math.floor((now-new Date(cor.date))/(1000*60*60*24)) : null;
+      return `<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openCORForm('${job.id}',${corIdx})">
+        <td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">${job.num||'—'}</span></td>
+        <td style="padding:9px 12px;">
+          <div style="font-weight:600;font-size:13px;">${job.name}</div>
+          <div style="font-size:11px;color:var(--text3);">${cor.desc||'No description'}</div>
+        </td>
+        <td style="padding:9px 12px;font-size:12px;color:var(--text2);">${ini}</td>
+        <td style="padding:9px 12px;text-align:right;font-weight:700;color:#CC0000;">${fmtVal(cor.total)}</td>
+        <td style="padding:9px 12px;font-size:11px;color:var(--text3);">${cor.date?fmtDate(cor.date):'—'}</td>
+        <td style="padding:9px 12px;font-size:11px;color:${days>30?'#CC0000':days>14?'#CC7000':'var(--text3)'};">${days!==null?days+'d ago':'—'}</td>
+      </tr>`;
+    }).join('');
+
+  const tblStyle = 'width:100%;border-collapse:collapse;font-size:12px;';
+  const thStyle  = 'padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);white-space:nowrap;';
+  const thR      = thStyle+'text-align:right;';
+
+  document.getElementById('app').innerHTML=`
+    <!-- Page header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">Project Manager Home</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="goJobs()">View All Jobs</button>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Active Jobs</div>
+        <div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">${activeJobs.length}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">${holdJobs.length} on hold</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total Contract Value</div>
+        <div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">${fmtVal(totalContract)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">Active: ${fmtVal(activeContract)}</div>
+      </div>
+      <div style="background:#FFF8F0;border:1px solid #FFDDAA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC7000;">Open CORs</div>
+        <div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:#CC7000;">${openCORs.length}</div>
+        <div style="font-size:11px;color:#CC7000;margin-top:3px;">${fmtVal(totalOpenCOR)} pending</div>
+      </div>
+      <div style="background:#F0FFF4;border:1px solid #B2DFCA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);">CORs Awarded</div>
+        <div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--green);">${rcvdCORs.length}</div>
+        <div style="font-size:11px;color:var(--green);margin-top:3px;">${fmtVal(totalRcvd)} received</div>
+      </div>
+      <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);">Bonas Company</div>
+        <div style="font-size:22px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--blue);">${fmtVal(bonasContract)}</div>
+        <div style="font-size:11px;color:var(--blue);margin-top:3px;">${allJobs.filter(j=>j.company==='Bonas'&&j.status==='Active').length} active jobs</div>
+      </div>
+      <div style="background:#F5F0FF;border:1px solid #D0B8F0;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--purple);">ACI</div>
+        <div style="font-size:22px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--purple);">${fmtVal(aciContract)}</div>
+        <div style="font-size:11px;color:var(--purple);margin-top:3px;">${allJobs.filter(j=>j.company==='ACI'&&j.status==='Active').length} active jobs</div>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div style="display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:start;">
+
+      <!-- Active Jobs table -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:700;">Active Jobs</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:1px;">Sorted by contract value</div>
+          </div>
+          <button class="btn-sm" onclick="goJobs()">View all</button>
+        </div>
+        ${activeJobs.length?`
+        <div style="overflow-x:auto;">
+          <table style="${tblStyle}">
+            <thead><tr style="background:var(--bg3);">
+              <th style="${thStyle}width:60px;">Job #</th>
+              <th style="${thStyle}">Job</th>
+              <th style="${thStyle}width:60px;">Co.</th>
+              <th style="${thStyle}width:40px;">PM</th>
+              <th style="${thR}width:90px;">Contract</th>
+              <th style="${thR}width:90px;">Open COR</th>
+            </tr></thead>
+            <tbody>${activeRows}</tbody>
+          </table>
+        </div>`:`<div style="padding:32px;text-align:center;color:var(--text3);">No active jobs</div>`}
+      </div>
+
+      <!-- Right column: Open CORs + PM Breakdown -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Open CORs -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF8F0;">
+            <div style="font-size:14px;font-weight:700;color:#CC7000;">Open CORs <span style="font-size:12px;font-weight:400;margin-left:6px;">${openCORs.length} pending · ${fmtVal(totalOpenCOR)}</span></div>
+          </div>
+          ${openCORs.length?`
+          <div style="overflow-x:auto;max-height:380px;overflow-y:auto;">
+            <table style="${tblStyle}">
+              <thead><tr style="background:var(--bg3);">
+                <th style="${thStyle}width:55px;">Job #</th>
+                <th style="${thStyle}">Job / Description</th>
+                <th style="${thStyle}width:32px;">PM</th>
+                <th style="${thR}width:80px;">Amount</th>
+                <th style="${thStyle}width:65px;">Date</th>
+                <th style="${thStyle}width:55px;">Age</th>
+              </tr></thead>
+              <tbody>${corRows}</tbody>
+            </table>
+          </div>`:`<div style="padding:24px;text-align:center;color:var(--text3);">No open CORs</div>`}
+        </div>
+
+        <!-- PM Breakdown -->
+        ${pmRows?`
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
+            <div style="font-size:14px;font-weight:700;">By Project Manager</div>
+          </div>
+          <table style="${tblStyle}">
+            <thead><tr style="background:var(--bg3);">
+              <th style="${thStyle}">PM</th>
+              <th style="${thStyle}text-align:center;width:60px;">Jobs</th>
+              <th style="${thR}width:90px;">Contract</th>
+              <th style="${thR}width:90px;">Open COR</th>
+            </tr></thead>
+            <tbody>${pmRows}</tbody>
+          </table>
+        </div>`:''}
+      </div>
+    </div>
+  `;
 }
 </script>
 </body>
