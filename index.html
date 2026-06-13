@@ -1291,7 +1291,6 @@ const DEFAULT_ROLE_MATRIX = {
   ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2},
 };
 let ROLE_MATRIX = {};
-let VISIBLE_JOBS = []; // temp array for job list clicks
 function loadRoleMatrix(){
   try{const s=localStorage.getItem('bidsum-role-matrix');
     if(s)ROLE_MATRIX=JSON.parse(s);
@@ -3826,6 +3825,125 @@ async function submitFirstUser(){
 
 
 // ═══════════════════════════════════════ JOBS HOME ════════════════════════════════════════
+// ═══════════════════════════════════════ COMPANY JOB LIST ═══════════════════════════════
+
+function openVisibleJob(idx){
+  const job = VISIBLE_JOBS[idx];
+  if(!job){ console.error('No job at index',idx); return; }
+  NAV.jobCompany = job.company||'Bonas';
+  CUR_JOB_ID = job.id;
+  CUR_JOB_TAB = 'overview';
+  NAV.screen = 'jobdetail';
+  render();
+}
+
+function updateJobField(jobId, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job[field]=val;saveJobs();
+}
+
+function togglePrelim(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job.prelimClosed=!job.prelimClosed;saveJobs();
+  renderCompanyJobList(NAV.jobCompany);
+}
+
+function renderCompanyJobList(company){
+  VISIBLE_JOBS = [];
+  // Foreman: only show assigned jobs
+  if(SESSION.user&&SESSION.user.type==='FOR'){
+    loadJobs();
+    const myJobs=JOBS.filter(j=>j.company===company&&(parseInt(j.pmId)===parseInt(SESSION.user.id)||parseInt(j.superId)===parseInt(SESSION.user.id)));
+    renderFormanJobList(company,myJobs);
+    return;
+  }
+  loadJobs();
+  const jobs = JOBS.filter(j=>j.company===company).sort((a,b)=>parseInt(a.num||0)-parseInt(b.num||0));
+  const active = jobs.filter(j=>j.status==='Active');
+  const onHold = jobs.filter(j=>j.status==='On Hold');
+  const complete = jobs.filter(j=>j.status==='Complete');
+  const coHdr = company==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
+  const totalContract = jobs.reduce((s,j)=>s+jobContract(j),0);
+  const totalOpenCORs = jobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s2,c)=>s2+c.total,0)),0);
+
+  const renderSection = (title, sectionJobs, showEmpty) => {
+    if(!sectionJobs.length && !showEmpty) return '';
+    return`<div style="margin-bottom:24px;">
+      <div class="section-hd" style="margin-bottom:10px;">
+        <div class="section-title">${title} <span style="color:var(--text3);font-weight:400;font-size:12px;">${sectionJobs.length} job${sectionJobs.length!==1?'s':''}</span></div>
+      </div>
+      ${sectionJobs.length?`<div class="job-list-table" style="overflow-x:auto;">
+        <table style="width:100%;min-width:1100px;">
+          <thead><tr>
+            <th style="width:68px;">Job #</th>
+            <th style="width:38px;">PM</th>
+            <th style="min-width:160px;">Job Name</th>
+            <th style="width:160px;">Address</th>
+            <th style="width:90px;">City</th>
+            <th style="width:54px;">Zip</th>
+            <th style="width:140px;">GC / Customer</th>
+            <th style="width:120px;">Contact</th>
+            <th style="text-align:right;width:90px;">Contract</th>
+            <th style="text-align:right;width:90px;">Open CORs</th>
+            <th style="width:70px;">Class</th>
+            <th style="width:80px;">Prelim</th>
+            <th style="width:80px;">Status</th>
+          </tr></thead>
+          <tbody>
+            ${sectionJobs.map(job=>{
+              const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+              const ini=pm?(pm.initials||(pm.first[0]+pm.last[0]).toUpperCase()):'—';
+              const contact=DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+              const openCOR=(job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s,c)=>s+c.total,0);
+              const sc=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
+              const prelimBadge=job.prelimClosed?'<span style="font-size:10px;background:#E8F7EE;color:var(--green);padding:2px 6px;border-radius:20px;font-weight:700;">Closed</span>':'<span style="font-size:10px;background:#FFF0F0;color:#CC0000;padding:2px 6px;border-radius:20px;font-weight:700;">Open</span>';
+              VISIBLE_JOBS.push(job);
+              const _idx=VISIBLE_JOBS.length-1;
+              return`<tr style="cursor:pointer;" onclick="openVisibleJob(${_idx})">
+                <td><span class="job-num">${job.num||'—'}</span></td>
+                <td style="font-size:11px;font-weight:700;">${ini}</td>
+                <td style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
+                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.address||'—'}</td>
+                <td style="font-size:11px;">${job.city||'—'}</td>
+                <td style="font-size:11px;">${job.zip||'—'}</td>
+                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.gcName||'—'}</td>
+                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${contact?contact.first+' '+contact.last:job.contactName||'—'}</td>
+                <td style="text-align:right;font-weight:600;">${fmtVal(jobContract(job))}</td>
+                <td style="text-align:right;font-weight:600;color:${openCOR?'#CC0000':'var(--text3)'};">${openCOR?fmtVal(openCOR):'—'}</td>
+                <td><input type="text" value="${job.classCode||''}" placeholder="Class" onclick="event.stopPropagation()" onchange="updateJobField('${job.id}','classCode',this.value)" style="width:60px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;font-family:var(--font);background:var(--bg);"></td>
+                <td>${prelimBadge}</td>
+                <td><span class="job-status-badge ${sc}">${job.status}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`:`<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);">No ${title.toLowerCase()} jobs</div>`}
+    </div>`;
+  };
+
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;">${coHdr}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${jobs.length} total jobs · ${active.length} active</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;text-align:center;min-width:90px;box-shadow:var(--shadow);">
+          <div style="font-size:18px;font-weight:700;">${fmtVal(totalContract)}</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Total Contract</div>
+        </div>
+        <div style="background:#FFEAEA;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 16px;text-align:center;min-width:90px;box-shadow:var(--shadow);">
+          <div style="font-size:18px;font-weight:700;color:#CC0000;">${fmtVal(totalOpenCORs)}</div>
+          <div style="font-size:10px;color:#CC0000;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Open CORs</div>
+        </div>
+      </div>
+    </div>
+    ${renderSection('Active Jobs', active, true)}
+    ${renderSection('On Hold', onHold, false)}
+    ${renderSection('Complete', complete, false)}
+  `;
+}
+
 function renderJobsHome(){
   loadJobs();
   const bonasJobs = JOBS.filter(j=>j.company==='Bonas');
