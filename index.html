@@ -4895,7 +4895,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Panel 3: Project Dates & COR Summary -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'dates')" ondragover="onWidgetDragOver(event,'dates')" ondrop="onWidgetDrop(event,'${{job.id}}','dates')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div draggable="true" ondragstart="onWidgetDragStart(event,'dates')" ondragover="onWidgetDragOver(event,'dates')" ondrop="onWidgetDrop(event,'${job.id}','dates')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
       <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Dates & Change Orders</div>
       <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.8;margin-bottom:16px;">
         <span style="color:var(--text3);font-weight:600;">Start Date</span><span style="font-weight:600;">${fmtDate(job.start)||'Not set'}</span>
@@ -4918,7 +4918,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Panel 4: Jobsite Instructions + Weather -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'notes')" ondragover="onWidgetDragOver(event,'notes')" ondrop="onWidgetDrop(event,'${{job.id}}','notes')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div draggable="true" ondragstart="onWidgetDragStart(event,'notes')" ondragover="onWidgetDragOver(event,'notes')" ondrop="onWidgetDrop(event,'${job.id}','notes')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
         Jobsite Instructions
         <button class="btn-sm" onclick="editJobsiteNotes('${job.id}')">Edit</button>
@@ -7141,7 +7141,7 @@ function renderPMHome(){
   const user = SESSION.user;
   const isManager = user&&user.role==='manager';
   const now = new Date();
-  const greeting = now.getHours()<12?'Good morning':'now.getHours()<17?'Good afternoon':'Good evening';
+  const greeting = now.getHours()<12?'Good morning':now.getHours()<17?'Good afternoon':'Good evening';
 
   // ── All active jobs (both companies) ──
   const allJobs = JOBS;
