@@ -1048,6 +1048,13 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <div class="modal-close" onclick="closeModal('job')">×</div>
     </div>
     <div class="modal-body">
+      <div class="fg"><label>Import from Awarded Bid <span style="color:var(--text3);font-weight:400;">(optional — auto-fills form)</span></label>
+        <select id="j-bid-import" onchange="importFromBid(this.value)">
+          <option value="">— or fill manually below —</option>
+          ${DB.bids.filter(b=>b.status==='Awarded').sort((a,b2)=>b2.id-a.id).map(b=>`<option value="${b.id}">Bid #${b.num||b.id} — ${b.job||'Untitled'} (${b.gcName||''})</option>`).join('')}
+        </select>
+      </div>
+      <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
       <div class="frow">
         <div class="fg"><label>Job # <span style="color:var(--text3);font-weight:400;">(auto-suggested)</span></label>
           <input id="j-num" autocomplete="off" placeholder="e.g. 5624">
@@ -1089,15 +1096,22 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="fg"><label>Start date</label><input id="j-start" type="date" autocomplete="off"></div>
         <div class="fg"><label>End date</label><input id="j-end" type="date" autocomplete="off"></div>
       </div>
-      <div class="frow">
-        <div class="fg"><label>Class / Type</label><input id="j-class" autocomplete="off" placeholder="e.g. Painting, WC"></div>
-        <div class="fg"><label style="display:flex;align-items:center;gap:8px;margin-top:22px;cursor:pointer;">
-          <input type="checkbox" id="j-prelim" style="accent-color:#CC0000;width:16px;height:16px;"> Prelim Closed
-        </label></div>
-      </div>
       <div class="fg"><label>Notes</label>
         <textarea id="j-notes" autocomplete="off" placeholder="Scope summary, key notes..." style="min-height:56px;"></textarea>
       </div>
+      ${SESSION.user&&SESSION.user.role==='manager'?`
+      <div style="border-top:2px solid #CC0000;margin:14px 0 10px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#CC0000;background:var(--bg2);padding:0 8px;">Admin Only</span>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Class / Type</label><input id="j-class" autocomplete="off" placeholder="Painting, WC"></div>
+        <div class="fg"><label style="display:flex;align-items:center;gap:8px;margin-top:22px;cursor:pointer;">
+          <input type="checkbox" id="j-prelim" style="accent-color:#CC0000;width:16px;height:16px;"> Prelim Closed
+        </label></div>
+      </div>`:`
+      <input type="hidden" id="j-class" value="">
+      <input type="hidden" id="j-prelim-val" value="">
+      `}
     </div>
     <div class="modal-foot">
       <button class="btn-danger" id="btn-delete-job" style="display:none;" onclick="deleteJob()">Delete</button>
@@ -1433,7 +1447,7 @@ function renderNav(){
      ${navMods.includes('accounting')?`<button class="btn-nav ${NAV.screen==='accounting'?'btn-nav-active':''}" onclick="goAccounting()">Accounting</button>`:''}
      ${navMods.includes('team')?`<button class="btn-nav ${NAV.screen==='team'?'btn-nav-active':''}" onclick="goTeam()">Team</button>`:''}
      ${navMods.includes('admin')?`<button class="btn-nav ${NAV.screen==='manager'?'btn-nav-active':''}" onclick="goAdmin()">Admin</button>`:''}
-     ${isManager?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add</button>`:''}
+     ${isManager?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add Team</button>`:''}
    `;
  }
  if(NAV.screen==='landing'){
@@ -4031,7 +4045,7 @@ function saveJob(){
     company:document.getElementById('j-company').value,
     notes:document.getElementById('j-notes').value.trim(),
     classCode:document.getElementById('j-class')?document.getElementById('j-class').value.trim():'',
-    prelimClosed:document.getElementById('j-prelim')?document.getElementById('j-prelim').checked:false,
+    prelimClosed:document.getElementById('j-prelim')&&document.getElementById('j-prelim').type!=='hidden'?document.getElementById('j-prelim').checked:false,
     costs:EDIT_JOB?EDIT_JOB.costs:[],
     changeOrders:EDIT_JOB?EDIT_JOB.changeOrders:[]
   };
@@ -4604,7 +4618,7 @@ function renderRoleMatrix(){
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr style="background:var(--bg3);">
-              <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);min-width:160px;">Role</th>
+              <th style="padding:8px 10px;text-align:left;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);min-width:130px;">Role</th>
               ${MODULES.map(m=>`<th style="padding:12px 16px;text-align:center;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);border-left:1px solid var(--border);min-width:110px;">
                 <div>${m.label}</div>
                 <div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;">${m.desc}</div>
@@ -4619,7 +4633,7 @@ function renderRoleMatrix(){
                 ${MODULES.map(mod=>{
                   const p=perms[mod.id]||0;
                   return`<td style="padding:8px;text-align:center;border-left:1px solid var(--border);">
-                    <button onclick="cyclePermission('${role.id}','${mod.id}')" style="background:${PERM_COLORS[p]};color:${PERM_TEXT[p]};border:1px solid var(--border);border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);min-width:70px;transition:all .15s;" id="perm-${role.id}-${mod.id}">
+                    <button onclick="cyclePermission('${role.id}','${mod.id}')" style="background:${PERM_COLORS[p]};color:${PERM_TEXT[p]};border:1px solid var(--border);border-radius:var(--r);padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);min-width:58px;transition:all .15s;" id="perm-${role.id}-${mod.id}">
                       ${PERM_LABELS[p]}
                     </button>
                   </td>`;
@@ -5882,6 +5896,163 @@ function syncJobsFromBids(){
     }
   });
   if(changed) saveJobs();
+}
+
+// ═══ MISSING FUNCTIONS RESTORED ═══
+
+function goTeam(){NAV.screen='team';render();}
+
+function renderTeam(){
+  const byType = {
+    PM: DB.members.filter(m=>m.type==='PM'&&m.active!==false),
+    EST: DB.members.filter(m=>m.type==='EST'&&m.active!==false),
+    PC: DB.members.filter(m=>m.type==='PC'&&m.active!==false),
+    FOR: DB.members.filter(m=>m.type==='FOR'&&m.active!==false),
+    SUP: DB.members.filter(m=>m.type==='SUP'&&m.active!==false),
+    ACC: DB.members.filter(m=>(m.type==='ACC'||m.type==='ACCMGR')&&m.active!==false),
+    inactive: DB.members.filter(m=>m.active===false)
+  };
+  const isAdmin = SESSION.user&&(SESSION.user.role==='manager'||SESSION.user.type==='ACCMGR');
+  const typeLabel = m => m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='PC'?'Project Coordinator':m.type==='FOR'?'Foreman':m.type==='SUP'?'Superintendent':m.type==='ACCMGR'?'Accounting Manager':m.type==='ACC'?'Accounting':'Member';
+
+  const renderMemberSection = (title, members) => {
+    if(!members.length) return '';
+    return`<div style="margin-bottom:28px;">
+      <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">${title}</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+        ${members.map(m=>{
+          const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
+          const awarded=myBids.filter(b=>b.status==='Awarded');
+          const lastLogin=m.lastLogin?new Date(m.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+          return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px;box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+              <div style="${memberAvatarStyle(m)}width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;">${m.first} ${m.last}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:1px;">${m.title||typeLabel(m)}</div>
+                <div style="margin-top:3px;"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;${m.role==='manager'?'background:#FFEAEA;color:#CC0000;':'background:var(--bg3);color:var(--text3);'}">${m.role==='manager'?'Manager':'Employee'}</span></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:14px;">
+              <div><span style="color:var(--text3);">Email: </span>${m.email||'—'}</div>
+              <div><span style="color:var(--text3);">Phone: </span>${m.phone||'—'}</div>
+              ${m.type==='PM'||m.type==='EST'?`<div><span style="color:var(--text3);">Bids: </span>${myBids.length}</div><div><span style="color:var(--text3);">Wins: </span>${awarded.length}</div>`:''}
+              <div style="grid-column:1/-1;"><span style="color:var(--text3);">Last login: </span>${lastLogin}</div>
+            </div>
+            ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn-sm" onclick="openMemberEditById(${m.id})">Edit</button>
+              <button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>
+              ${parseInt(m.id)!==parseInt(SESSION.user.id)?`<button class="btn-sm" onclick="mgrToggleRole(${m.id})">${m.role==='manager'?'→ Employee':'→ Manager'}</button>`:''}
+            </div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  };
+
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-size:22px;font-weight:700;">Team</div>
+      ${isAdmin?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>`:''}
+    </div>
+    ${renderMemberSection('Project Managers', byType.PM)}
+    ${renderMemberSection('Estimators', byType.EST)}
+    ${renderMemberSection('Project Coordinators', byType.PC)}
+    ${renderMemberSection('Foremen', byType.FOR)}
+    ${renderMemberSection('Superintendents', byType.SUP)}
+    ${renderMemberSection('Accounting', byType.ACC)}
+    ${byType.inactive.length?renderMemberSection('Inactive', byType.inactive):''}
+  `;
+}
+
+function renderAccounting(){
+  loadJobs();loadLaborRates();
+  const isAccMgr=SESSION.user&&(SESSION.user.type==='ACCMGR'||SESSION.user.role==='manager');
+  document.getElementById('app').innerHTML=`
+    <div style="font-size:22px;font-weight:700;margin-bottom:20px;">Accounting</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+      <div class="acc-nav-card" onclick="openBulkImport()">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Bulk Cost Import</div>
+        <div style="font-size:12px;color:var(--text3);">Import a Computer Ease CSV across all jobs</div>
+      </div>
+      <div class="acc-nav-card" onclick="openLaborRates()">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Labor Rates</div>
+        <div style="font-size:12px;color:var(--text3);">Set hourly rates per class code</div>
+      </div>
+      ${isAccMgr?`<div class="acc-nav-card" onclick="openManagerPanel()">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Team Access</div>
+        <div style="font-size:12px;color:var(--text3);">Assign roles and manage team access</div>
+      </div>`:'<div></div>'}
+    </div>
+    <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">Recent Imports</div></div>
+    ${renderImportHistory()}
+  `;
+}
+
+function renderMyProfile(){
+  if(!SESSION.user)return;
+  const m=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id))||SESSION.user;
+  const typeLabel = t => t==='PM'?'Project Manager':t==='EST'?'Estimator':t==='PC'?'Project Coordinator':t==='FOR'?'Foreman':t==='SUP'?'Superintendent':t==='ACCMGR'?'Accounting Manager':t==='ACC'?'Accounting':'Member';
+  document.getElementById('app').innerHTML=`
+    <div style="max-width:560px;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:28px;box-shadow:var(--shadow);margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:18px;margin-bottom:24px;">
+          <div style="${memberAvatarStyle(m)}width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
+          <div>
+            <div style="font-size:22px;font-weight:700;">${m.first} ${m.last}</div>
+            <div style="font-size:13px;color:var(--text3);margin-top:2px;">${m.title||''} · ${typeLabel(m.type)}</div>
+            <div style="margin-top:4px;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;${m.role==='manager'?'background:#FFEAEA;color:#CC0000;':'background:var(--bg3);color:var(--text3);'}">${m.role==='manager'?'Manager':'Employee'}</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;">
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Email</div><div style="font-size:13px;">${m.email||'—'}</div></div>
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Phone</div><div style="font-size:13px;">${m.phone||'—'}</div></div>
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Initials</div><div style="font-size:13px;font-weight:600;">${m.initials||'—'}</div></div>
+          ${m.type==='PM'?`<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Bid Series</div><div style="font-size:13px;">${m.series||'—'}</div></div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-primary" onclick="openMemberEditForSelf()">Edit Profile</button>
+          <button class="btn" onclick="openChangePinModal()">Change PIN</button>
+        </div>
+      </div>
+      ${SESSION.user.role==='manager'?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);"><div style="font-size:13px;font-weight:700;margin-bottom:12px;">Manager Tools</div><button class="btn-primary" onclick="openManagerPanel()">Team Access Management</button></div>`:''}
+    </div>`;
+}
+
+function jobTotalCosts(job){
+  return (job.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+}
+
+function onJobCompanyChange(){
+  const company=document.getElementById('j-company').value;
+  const numEl=document.getElementById('j-num');
+  if(numEl&&!EDIT_JOB_ID) numEl.value=nextJobNum(company);
+}
+
+function openMemberEditById(id){
+  NAV.memberId=id;openMemberEdit();
+}
+
+function importFromBid(bidId){
+  if(!bidId) return;
+  const bid = DB.bids.find(b=>parseInt(b.id)===parseInt(bidId));
+  if(!bid) return;
+  const company = bid.company||'Bonas';
+  document.getElementById('j-company').value = company;
+  document.getElementById('j-num').value = nextJobNum(company);
+  if(bid.job) document.getElementById('j-name').value = bid.job;
+  if(bid.value) document.getElementById('j-value').value = bid.value;
+  // Set GC
+  const gcSel = document.getElementById('j-gc');
+  if(gcSel && bid.gcId){ gcSel.value = bid.gcId; populateJobContacts(bid.gcId); }
+  setTimeout(()=>{
+    const contSel = document.getElementById('j-contact');
+    if(contSel && bid.contactId) contSel.value = bid.contactId;
+    const pmSel = document.getElementById('j-pm');
+    if(pmSel && bid.memberId) pmSel.value = bid.memberId;
+  }, 100);
+  // Store bid link
+  window._IMPORT_BID_ID = parseInt(bidId);
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
