@@ -520,6 +520,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .job-active{background:#D9EFE3;color:#1E5C3A;}
 .job-complete{background:var(--bg3);color:var(--text3);}
 .job-onhold{background:#FCEFD8;color:#7A3E0A;}
+.job-closed{background:var(--bg4);color:var(--text3);}
 @media(max-width:768px){
  .landing-hero{flex-direction:column;padding:20px 18px;}
  .landing-kpis{flex-wrap:wrap;}
@@ -598,8 +599,8 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .job-hero-num{font-size:13px;font-weight:700;color:#CC0000;margin-bottom:2px;}
 .job-hero-name{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px;}
 .job-hero-meta{font-size:12px;color:var(--text3);}
-.job-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
-.jkpi-val{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.job-kpis{display:flex;flex-wrap:wrap;gap:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.jkpi-val{font-size:15px;font-weight:700;letter-spacing:-.2px;}
 .jkpi-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
 @media(max-width:768px){
   .cor-row{grid-template-columns:40px 70px 1fr 70px 50px;}
@@ -1107,7 +1108,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <div class="fg"><label>Contract value ($)</label>
         <input id="j-value" type="text" autocomplete="off" placeholder="0" onfocus="if(this.value==='0')this.value=''" onblur="formatBidValue(this)">
       </div>
-      <input type="hidden" id="j-status" value="Active">
+      <select id="j-status" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;font-size:13px;font-family:var(--font);color:var(--text);"><option value="Active">Active</option><option value="On Hold">On Hold</option><option value="Complete">Complete</option><option value="Closed">Closed</option></select>
       <div class="frow">
         <div class="fg"><label>Start date</label><input id="j-start" type="date" autocomplete="off"></div>
         <div class="fg"><label>End date</label><input id="j-end" type="date" autocomplete="off"></div>
@@ -3907,6 +3908,7 @@ function renderCompanyJobList(company){
   const active = jobs.filter(j=>j.status==='Active');
   const onHold = jobs.filter(j=>j.status==='On Hold');
   const complete = jobs.filter(j=>j.status==='Complete');
+  // Closed handled separately below
   const coHdr = company==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
   const totalContract = jobs.reduce((s,j)=>s+jobContract(j),0);
   const totalOpenCORs = jobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s2,c)=>s2+c.total,0)),0);
@@ -3984,10 +3986,12 @@ function renderCompanyJobList(company){
           || (j.status||'').toLowerCase().includes(q);
     });
   }
+  const closed = jobs.filter(j=>j.status==='Closed');
   const fActive=filterJobs(active);
   const fOnHold=filterJobs(onHold);
   const fComplete=filterJobs(complete);
-  const matchCount=fActive.length+fOnHold.length+fComplete.length;
+  const fClosed=filterJobs(closed);
+  const matchCount=fActive.length+fOnHold.length+fComplete.length+fClosed.length;
 
   document.getElementById('app').innerHTML=`
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
@@ -4020,6 +4024,7 @@ function renderCompanyJobList(company){
     ${renderSection('Active Jobs', fActive, !searchTerm)}
     ${renderSection('On Hold', fOnHold, false)}
     ${renderSection('Complete', fComplete, false)}
+    ${fClosed.length?renderClosedSection(fClosed):''}
     ${searchTerm&&matchCount===0?'<div style="text-align:center;padding:40px;color:var(--text3);">No jobs match "'+searchTerm+'"</div>':''}
   `;
   // Re-focus search input after re-render
@@ -4085,12 +4090,13 @@ function openNewJobModal(){
   document.getElementById('btn-delete-job').style.display='none';
   ['j-name','j-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('j-value').value='0';
-  document.getElementById('j-status').value='Active';
+  if(document.getElementById('j-status'))document.getElementById('j-status').value='Active';
   document.getElementById('j-start').value=new Date().toISOString().split('T')[0];
   document.getElementById('j-end').value='';
   document.getElementById('j-company').value='ACI';
   // Populate GC and PM dropdowns
   document.getElementById('j-gc').innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+  if(document.getElementById('j-status'))document.getElementById('j-status').value=job.status||'Active';
   document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
   document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
   if(document.getElementById('j-foreman'))document.getElementById('j-foreman').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='FOR').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
@@ -4291,7 +4297,7 @@ function renderJobOverview_OLD(job, pm, sup, gc, contract, costs, gp, margin, ct
         <div class="pl-card-label">Job Details</div>
         <div style="font-size:13px;margin-top:8px;display:grid;grid-template-columns:100px 1fr;gap:6px;line-height:1.6;">
           <span style="color:var(--text3);">Company</span><span style="font-weight:600;">${job.company}</span>
-          <span style="color:var(--text3);">Status</span><span><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span></span>
+          <span style="color:var(--text3);">Status</span><span><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':job.status==='Closed'?'job-closed':'job-status-active'}">${job.status}</span></span>
           <span style="color:var(--text3);">Start</span><span>${fmtDate(job.start)||'—'}</span>
           <span style="color:var(--text3);">End</span><span>${fmtDate(job.end)||'TBD'}</span>
           <span style="color:var(--text3);">PM</span><span>${pm?pm.first+' '+pm.last:'—'}</span>
@@ -4810,16 +4816,17 @@ function renderJobDetail(){
           <button class="btn-sm" onclick="NAV.screen='jobs';render()">← Jobs</button>
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openCostImport('${job.id}')">Import Cost</button>
+          ${job.status==='Closed'?`<button class="btn-sm" style="background:#D9EFE3;color:#1E5C3A;border-color:#B2DFCA;" onclick="reopenJob('${job.id}')">↩ Reopen</button>`:`<button class="btn-sm" style="background:#FFF0F0;color:#CC0000;border-color:#FFAAAA;" onclick="closeJob('${job.id}')">✓ Close Job</button>`}
           <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
         </div>
       </div>
       <!-- KPIs -->
       <div class="job-kpis">
-        <div><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
-        <div><div class="jkpi-val">${fmtVal(ct.req)}</div><div class="jkpi-lbl">CORs Requested</div></div>
-        <div><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
-        <div><div class="jkpi-val" style="color:#CC0000;">${fmtVal(costs)}</div><div class="jkpi-lbl">Total Costs</div></div>
-        <div><div class="jkpi-val" style="color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</div><div class="jkpi-lbl">${gp>=0?'Gross Profit':'Loss'}</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(ct.req)}</div><div class="jkpi-lbl">CORs Requested</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val" style="color:#CC0000;">${fmtVal(costs)}</div><div class="jkpi-lbl">Total Costs</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);border-right:none;"><div class="jkpi-val" style="color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</div><div class="jkpi-lbl">${gp>=0?'Gross Profit':'Loss'}</div></div>
       </div>
     </div>
     <!-- Tab Bar -->
@@ -4849,7 +4856,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     gcteam: `<!-- Panel 5: GC Team -->`,
     schedule: `<!-- Panel 6: Schedule -->`,
   };
-  return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+  return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
 
     <!-- Panel 1: Project Information -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
@@ -7176,6 +7183,7 @@ function renderPMHome(){
 
   const openCORs = [];
   myJobs.forEach(j=>{
+    if(j.status==='Closed') return; // exclude closed jobs from open CORs
     (j.cors||[]).forEach((c,ci)=>{
       if(!c.void&&c.total>0&&!c.custAmount) openCORs.push({job:j,cor:c,corIdx:ci});
     });
@@ -7320,6 +7328,79 @@ function viewPMHome(memberId){
   window._VIEW_AS_PM_ID = parseInt(memberId);
   NAV.screen = 'pmhome';
   render();
+}
+
+function closeJob(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Close "'+job.name+'"?\n\nThis will move it to the Closed list and remove it from active COR tracking. You can reopen it at any time.'))return;
+  job.status='Closed';
+  job.closedDate=new Date().toISOString().split('T')[0];
+  saveJobs();
+  openJobDetail(jobId,'overview');
+}
+
+function reopenJob(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Reopen "'+job.name+'" and move it back to Active?'))return;
+  job.status='Active';
+  job.closedDate=null;
+  saveJobs();
+  openJobDetail(jobId,'overview');
+}
+
+function renderClosedSection(closedJobs){
+  if(!closedJobs.length) return '';
+  const totalContract = closedJobs.reduce((s,j)=>s+jobContract(j),0);
+  const totalCost     = closedJobs.reduce((s,j)=>s+jobTotalCosts(j),0);
+  const totalGP       = totalContract - totalCost;
+  const rows = closedJobs.map(job=>{
+    const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+    const ini=pm?pm.first[0]+pm.last[0]:'—';
+    const contract=jobContract(job);
+    const cost=jobTotalCosts(job);
+    const gp=contract-cost;
+    const gpPct=contract?Math.round(gp/contract*100):0;
+    return '<tr style="cursor:pointer;opacity:.85;" onclick="openVisibleJob(\''+job.id+\'\')">'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);"><span class="job-num">'+(job.num||'—')+'</span></td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);font-weight:600;">'+job.name+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;">'+(job.gcName||'—')+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;text-align:center;">'+ini+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;font-weight:600;">'+fmtVal(contract)+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;color:#CC0000;">'+fmtVal(cost)+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:'+(gp>=0?'var(--green)':'#CC0000')+';"> '+fmtVal(Math.abs(gp))+' ('+(gp>=0?'+':'-')+gpPct+'%)</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;color:var(--text3);">'+(job.closedDate?fmtDate(job.closedDate):'—')+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">'
+      +'<button class="btn-sm" style="font-size:10px;padding:2px 7px;" onclick="event.stopPropagation();reopenJob(\''+job.id+\'\')" title="Reopen">↩</button>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
+
+  return '<div style="margin-bottom:24px;">'
+    +'<div class="section-hd" style="margin-bottom:10px;">'
+    +'<div class="section-title" style="color:var(--text3);">Closed <span style="font-weight:400;font-size:12px;">'+closedJobs.length+' job'+(closedJobs.length!==1?'s':'')+'</span></div>'
+    +'</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px;padding:12px 16px;display:flex;gap:24px;">'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Total Contract</div><div style="font-size:16px;font-weight:700;margin-top:3px;">'+fmtVal(totalContract)+'</div></div>'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Total Cost</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:#CC0000;">'+fmtVal(totalCost)+'</div></div>'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Gross Profit</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:'+(totalGP>=0?'var(--green)':'#CC0000')+';">'+fmtVal(Math.abs(totalGP))+'</div></div>'
+    +'</div>'
+    +'<div class="job-list-table" style="overflow-x:auto;">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<thead><tr style="background:var(--bg3);">'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);width:70px;">Job #</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);">Job Name</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);">GC / Customer</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);width:40px;text-align:center;">PM</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:90px;">Contract</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:90px;">Total Cost</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:100px;">Gross Profit</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);width:90px;">Closed</th>'
+    +'<th style="padding:7px 8px;border:1px solid var(--border);width:40px;"></th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>'
+    +'</div>'
+    +'</div>';
 }
 </script>
 </body>
