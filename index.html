@@ -684,6 +684,11 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  <select id="first-type" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;">
  <option value="PM">Project Manager</option>
  <option value="EST">Estimator</option>
+ <option value="SUP">Superintendent</option>
+ <option value="FOR">Foreman</option>
+ <option value="PC">Project Coordinator</option>
+ <option value="ACC">Accounting</option>
+ <option value="ACCMGR">Accounting Manager</option>
  </select>
  </div>
  <div style="margin-bottom:14px;"><label class="auth-label">Email</label><input id="first-email" class="auth-input" type="email" placeholder="you@company.com" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
@@ -751,6 +756,11 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  <select id="m-type" onchange="toggleSeriesField()">
  <option value="PM">Project Manager</option>
  <option value="EST">Estimator</option>
+ <option value="SUP">Superintendent</option>
+ <option value="FOR">Foreman</option>
+ <option value="PC">Project Coordinator</option>
+ <option value="ACC">Accounting</option>
+ <option value="ACCMGR">Accounting Manager</option>
  </select>
  </div>
  <div class="fg"><label>Title / speciality</label><input id="m-title" autocomplete="off" placeholder="e.g. Senior PM"></div>
@@ -3789,7 +3799,11 @@ async function mgrToggleRole(id){
  try{
  await sbPatch('members',id,{...memberToBody(m),role:newRole});
  m.role=newRole;
- document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
+ // Re-render whichever screen we are on
+ const listEl=document.getElementById('mgr-user-list');
+ if(listEl)listEl.innerHTML=renderMgrUserList();
+ else render();
+ showSaved('✓ Role updated');
  }catch(e){alert('Error: '+e.message);}
 }
 
@@ -4052,20 +4066,6 @@ function renderJobsHome(){
           <div style="background:#111;color:#fff;border-radius:var(--r);padding:11px 16px;font-size:13px;font-weight:600;text-align:center;">Open Jobs →</div>
         </div>
       </div>
-    </div>
-
-    <!-- Cross-company search -->
-    <div style="margin-top:28px;text-align:center;">
-      <div style="font-size:13px;font-weight:600;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Search all jobs</div>
-      <div style="position:relative;max-width:440px;margin:0 auto;">
-        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none;">&#128269;</span>
-        <input id="jobs-home-search" type="text" placeholder="Search by name, #, GC, city, PM…"
-          onkeydown="if(event.key==='Enter'&&this.value.trim()){jobsHomeSearch(this.value.trim());}"
-          style="width:100%;padding:11px 48px 11px 40px;border:1px solid var(--border);border-radius:var(--r);font-size:14px;font-family:var(--font);background:var(--bg2);color:var(--text);outline:none;box-shadow:var(--shadow-md);">
-        <button onclick="jobsHomeSearch(document.getElementById('jobs-home-search').value.trim())"
-          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--blue);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">Go</button>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Press Enter or click Go — routes to company with most matches</div>
     </div>
   `;
 }
@@ -7153,229 +7153,147 @@ function renderPMHome(){
   const user = SESSION.user;
   const isManager = user&&user.role==='manager';
   const now = new Date();
-  const greeting = now.getHours()<12?'Good morning':now.getHours()<17?'Good afternoon':'Good evening';
 
-  // ── All active jobs (both companies) ──
+  const myId = user?parseInt(user.id):null;
   const allJobs = JOBS;
-  const activeJobs = allJobs.filter(j=>j.status==='Active');
-  const holdJobs   = allJobs.filter(j=>j.status==='On Hold');
+  const myJobs = isManager ? allJobs : allJobs.filter(j=>parseInt(j.pmId)===myId||parseInt(j.superId)===myId||parseInt(j.foremanId)===myId||parseInt(j.coordId)===myId);
 
-  // ── Sales totals ──
-  const totalContract  = allJobs.reduce((s,j)=>s+jobContract(j),0);
+  const activeJobs = myJobs.filter(j=>j.status==='Active');
+  const holdJobs   = myJobs.filter(j=>j.status==='On Hold');
+  const totalContract  = myJobs.reduce((s,j)=>s+jobContract(j),0);
   const activeContract = activeJobs.reduce((s,j)=>s+jobContract(j),0);
-  const bonasContract  = allJobs.filter(j=>j.company==='Bonas').reduce((s,j)=>s+jobContract(j),0);
-  const aciContract    = allJobs.filter(j=>j.company==='ACI').reduce((s,j)=>s+jobContract(j),0);
+  const bonasContract  = myJobs.filter(j=>j.company==='Bonas').reduce((s,j)=>s+jobContract(j),0);
+  const aciContract    = myJobs.filter(j=>j.company==='ACI').reduce((s,j)=>s+jobContract(j),0);
 
-  // ── Open CORs across all jobs ──
   const openCORs = [];
-  allJobs.forEach(j=>{
+  myJobs.forEach(j=>{
     (j.cors||[]).forEach((c,ci)=>{
-      if(!c.void && c.total>0 && !c.custAmount){
-        openCORs.push({job:j, cor:c, corIdx:ci});
-      }
+      if(!c.void&&c.total>0&&!c.custAmount) openCORs.push({job:j,cor:c,corIdx:ci});
     });
   });
   const totalOpenCOR = openCORs.reduce((s,x)=>s+x.cor.total,0);
 
-  // ── CORs received (custAmount set) ──
   const rcvdCORs = [];
-  allJobs.forEach(j=>{
+  myJobs.forEach(j=>{
     (j.cors||[]).forEach((c,ci)=>{
-      if(!c.void && c.custAmount>0){
-        rcvdCORs.push({job:j, cor:c, corIdx:ci});
-      }
+      if(!c.void&&c.custAmount>0) rcvdCORs.push({job:j,cor:c,corIdx:ci});
     });
   });
   const totalRcvd = rcvdCORs.reduce((s,x)=>s+x.cor.custAmount,0);
 
-  // ── PM breakdown ──
-  const pms = DB.members.filter(m=>m.type==='PM');
-  const pmRows = pms.map(pm=>{
-    const pmJobs = activeJobs.filter(j=>parseInt(j.pmId)===parseInt(pm.id));
-    const pmContract = pmJobs.reduce((s,j)=>s+jobContract(j),0);
-    const pmOpenCOR = pmJobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s2,c)=>s2+c.total,0)),0);
-    if(!pmJobs.length) return '';
-    const ini = (pm.first[0]||'')+(pm.last[0]||'');
-    return `<tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:10px 12px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${ini}</div>
-          <div>
-            <div style="font-weight:600;font-size:13px;">${pm.first} ${pm.last}</div>
-            <div style="font-size:11px;color:var(--text3);">${pm.email||''}</div>
-          </div>
-        </div>
-      </td>
-      <td style="padding:10px 12px;text-align:center;font-weight:700;font-size:15px;">${pmJobs.length}</td>
-      <td style="padding:10px 12px;text-align:right;font-weight:700;">${fmtVal(pmContract)}</td>
-      <td style="padding:10px 12px;text-align:right;font-weight:700;color:${pmOpenCOR>0?'#CC0000':'var(--text3)'};">${pmOpenCOR>0?fmtVal(pmOpenCOR):'—'}</td>
-    </tr>`;
-  }).join('');
+  let pmRowsHtml = '';
+  if(isManager){
+    const pms = DB.members.filter(m=>m.type==='PM');
+    pmRowsHtml = pms.map(pm=>{
+      const pmJobs = activeJobs.filter(j=>parseInt(j.pmId)===parseInt(pm.id));
+      if(!pmJobs.length) return '';
+      const pmContract = pmJobs.reduce((s,j)=>s+jobContract(j),0);
+      const pmOpenCOR  = pmJobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s2,c)=>s2+c.total,0)),0);
+      const ini=(pm.first[0]||'')+(pm.last[0]||'');
+      return '<tr style="border-bottom:1px solid var(--border);">'
+        +'<td style="padding:10px 12px;"><div style="display:flex;align-items:center;gap:10px;">'
+        +'<div style="width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">'+ini+'</div>'
+        +'<div><div style="font-weight:600;font-size:13px;">'+pm.first+' '+pm.last+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);">'+(pm.email||'')+'</div></div></div></td>'
+        +'<td style="padding:10px 12px;text-align:center;font-weight:700;font-size:15px;">'+pmJobs.length+'</td>'
+        +'<td style="padding:10px 12px;text-align:right;font-weight:700;">'+fmtVal(pmContract)+'</td>'
+        +'<td style="padding:10px 12px;text-align:right;font-weight:700;color:'+(pmOpenCOR>0?'#CC0000':'var(--text3)')+';">'+(pmOpenCOR>0?fmtVal(pmOpenCOR):'—')+'</td>'
+        +'</tr>';
+    }).join('');
+  }
 
-  // ── Active jobs table ──
   const activeRows = activeJobs
     .sort((a,b)=>jobContract(b)-jobContract(a))
     .map(job=>{
       const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
       const ini = pm?(pm.first[0]+pm.last[0]):'—';
-      const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
       const openCOR = (job.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s,c)=>s+c.total,0);
-      const ct = jobCORTotals(job);
-      return `<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openVisibleJob('${job.id}')">
-        <td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">${job.num||'—'}</span></td>
-        <td style="padding:9px 12px;">
-          <div style="font-weight:600;font-size:13px;">${job.name}</div>
-          <div style="font-size:11px;color:var(--text3);">${job.gcName||'—'} · ${job.city||''}</div>
-        </td>
-        <td style="padding:9px 12px;"><span style="font-size:11px;background:var(--bg3);border-radius:4px;padding:2px 6px;font-weight:600;">${job.company}</span></td>
-        <td style="padding:9px 12px;font-size:12px;color:var(--text2);">${ini}</td>
-        <td style="padding:9px 12px;text-align:right;font-weight:700;">${fmtVal(jobContract(job))}</td>
-        <td style="padding:9px 12px;text-align:right;font-weight:700;color:${openCOR>0?'#CC0000':'var(--text3)'};">${openCOR>0?fmtVal(openCOR):'—'}</td>
-      </tr>`;
+      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openVisibleJob(\''+job.id+'\')">'
+        +'<td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">'+(job.num||'—')+'</span></td>'
+        +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);">'+(job.gcName||'—')+' \u00b7 '+(job.city||'')+'</div></td>'
+        +'<td style="padding:9px 12px;"><span style="font-size:11px;background:var(--bg3);border-radius:4px;padding:2px 6px;font-weight:600;">'+job.company+'</span></td>'
+        +(isManager?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
+        +'<td style="padding:9px 12px;text-align:right;font-weight:700;">'+fmtVal(jobContract(job))+'</td>'
+        +'<td style="padding:9px 12px;text-align:right;font-weight:700;color:'+(openCOR>0?'#CC0000':'var(--text3)')+';">'+(openCOR>0?fmtVal(openCOR):'—')+'</td>'
+        +'</tr>';
     }).join('');
 
-  // ── Open COR list ──
   const corRows = openCORs
     .sort((a,b)=>b.cor.total-a.cor.total)
     .map(({job,cor,corIdx})=>{
+      const days = cor.date?Math.floor((now-new Date(cor.date))/(1000*60*60*24)):null;
       const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
       const ini = pm?(pm.first[0]+pm.last[0]):'—';
-      const days = cor.date ? Math.floor((now-new Date(cor.date))/(1000*60*60*24)) : null;
-      return `<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openCORForm('${job.id}',${corIdx})">
-        <td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">${job.num||'—'}</span></td>
-        <td style="padding:9px 12px;">
-          <div style="font-weight:600;font-size:13px;">${job.name}</div>
-          <div style="font-size:11px;color:var(--text3);">${cor.desc||'No description'}</div>
-        </td>
-        <td style="padding:9px 12px;font-size:12px;color:var(--text2);">${ini}</td>
-        <td style="padding:9px 12px;text-align:right;font-weight:700;color:#CC0000;">${fmtVal(cor.total)}</td>
-        <td style="padding:9px 12px;font-size:11px;color:var(--text3);">${cor.date?fmtDate(cor.date):'—'}</td>
-        <td style="padding:9px 12px;font-size:11px;color:${days>30?'#CC0000':days>14?'#CC7000':'var(--text3)'};">${days!==null?days+'d ago':'—'}</td>
-      </tr>`;
+      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openCORForm(\''+job.id+'\','+corIdx+')">'
+        +'<td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">'+(job.num||'—')+'</span></td>'
+        +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);">'+(cor.desc||'No description')+'</div></td>'
+        +(isManager?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
+        +'<td style="padding:9px 12px;text-align:right;font-weight:700;color:#CC0000;">'+fmtVal(cor.total)+'</td>'
+        +'<td style="padding:9px 12px;font-size:11px;color:var(--text3);">'+(cor.date?fmtDate(cor.date):'—')+'</td>'
+        +'<td style="padding:9px 12px;font-size:11px;color:'+(days>30?'#CC0000':days>14?'#CC7000':'var(--text3)')+';">'+(days!==null?days+'d ago':'—')+'</td>'
+        +'</tr>';
     }).join('');
 
-  const tblStyle = 'width:100%;border-collapse:collapse;font-size:12px;';
-  const thStyle  = 'padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);white-space:nowrap;';
-  const thR      = thStyle+'text-align:right;';
+  const tS = 'width:100%;border-collapse:collapse;font-size:12px;';
+  const th = 'padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);white-space:nowrap;';
+  const thR = th+'text-align:right;';
+  const pageTitle = isManager?'Project Manager Home':('My Jobs \u2014 '+(user?user.first+' '+user.last:''));
+  const pageSub   = isManager
+    ? new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
+    : myJobs.length+' job'+(myJobs.length!==1?'s':'')+' assigned \u00b7 '+activeJobs.length+' active';
 
-  document.getElementById('app').innerHTML=`
-    <!-- Page header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
-      <div>
-        <div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">Project Manager Home</div>
-        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-sm" onclick="goJobs()">View All Jobs</button>
-      </div>
-    </div>
+  document.getElementById('app').innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">'
+    +'<div><div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">'+pageTitle+'</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">'+pageSub+'</div></div>'
+    +'<button class="btn-sm" onclick="goJobs()">View All Jobs</button></div>'
 
-    <!-- KPI strip -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Active Jobs</div>
-        <div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">${activeJobs.length}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">${holdJobs.length} on hold</div>
-      </div>
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total Contract Value</div>
-        <div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">${fmtVal(totalContract)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">Active: ${fmtVal(activeContract)}</div>
-      </div>
-      <div style="background:#FFF8F0;border:1px solid #FFDDAA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC7000;">Open CORs</div>
-        <div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:#CC7000;">${openCORs.length}</div>
-        <div style="font-size:11px;color:#CC7000;margin-top:3px;">${fmtVal(totalOpenCOR)} pending</div>
-      </div>
-      <div style="background:#F0FFF4;border:1px solid #B2DFCA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);">CORs Awarded</div>
-        <div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--green);">${rcvdCORs.length}</div>
-        <div style="font-size:11px;color:var(--green);margin-top:3px;">${fmtVal(totalRcvd)} received</div>
-      </div>
-      <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);">Bonas Company</div>
-        <div style="font-size:22px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--blue);">${fmtVal(bonasContract)}</div>
-        <div style="font-size:11px;color:var(--blue);margin-top:3px;">${allJobs.filter(j=>j.company==='Bonas'&&j.status==='Active').length} active jobs</div>
-      </div>
-      <div style="background:#F5F0FF;border:1px solid #D0B8F0;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--purple);">ACI</div>
-        <div style="font-size:22px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--purple);">${fmtVal(aciContract)}</div>
-        <div style="font-size:11px;color:var(--purple);margin-top:3px;">${allJobs.filter(j=>j.company==='ACI'&&j.status==='Active').length} active jobs</div>
-      </div>
-    </div>
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Active Jobs</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">'+activeJobs.length+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">'+holdJobs.length+' on hold</div></div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract Value</div><div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">'+fmtVal(totalContract)+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">Active: '+fmtVal(activeContract)+'</div></div>'
+    +'<div style="background:#FFF8F0;border:1px solid #FFDDAA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC7000;">Open CORs</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:#CC7000;">'+openCORs.length+'</div><div style="font-size:11px;color:#CC7000;margin-top:3px;">'+fmtVal(totalOpenCOR)+' pending</div></div>'
+    +'<div style="background:#F0FFF4;border:1px solid #B2DFCA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);">CORs Awarded</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--green);">'+rcvdCORs.length+'</div><div style="font-size:11px;color:var(--green);margin-top:3px;">'+fmtVal(totalRcvd)+' received</div></div>'
+    +(isManager
+      ?'<div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);">Bonas</div><div style="font-size:22px;font-weight:800;margin-top:6px;color:var(--blue);">'+fmtVal(bonasContract)+'</div><div style="font-size:11px;color:var(--blue);margin-top:3px;">'+allJobs.filter(j=>j.company==='Bonas'&&j.status==='Active').length+' active</div></div>'
+       +'<div style="background:#F5F0FF;border:1px solid #D0B8F0;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--purple);">ACI</div><div style="font-size:22px;font-weight:800;margin-top:6px;color:var(--purple);">'+fmtVal(aciContract)+'</div><div style="font-size:11px;color:var(--purple);margin-top:3px;">'+allJobs.filter(j=>j.company==='ACI'&&j.status==='Active').length+' active</div></div>'
+      :'')
+    +'</div>'
 
-    <!-- Two-column layout -->
-    <div style="display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:start;">
+    +'<div style="display:grid;grid-template-columns:1fr 400px;gap:16px;align-items:start;">'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:14px;font-weight:700;">Active Jobs</div><div style="font-size:11px;color:var(--text3);margin-top:1px;">Sorted by contract value</div></div><button class="btn-sm" onclick="goJobs()">View all</button></div>'
+    +(activeJobs.length
+      ?'<div style="overflow-x:auto;"><table style="'+tS+'"><thead><tr style="background:var(--bg3);">'
+       +'<th style="'+th+'width:60px;">Job #</th><th style="'+th+'">Job</th><th style="'+th+'width:60px;">Co.</th>'
+       +(isManager?'<th style="'+th+'width:40px;">PM</th>':'')
+       +'<th style="'+thR+'width:90px;">Contract</th><th style="'+thR+'width:90px;">Open COR</th>'
+       +'</tr></thead><tbody>'+activeRows+'</tbody></table></div>'
+      :'<div style="padding:32px;text-align:center;color:var(--text3);">No active jobs assigned to you</div>')
+    +'</div>'
 
-      <!-- Active Jobs table -->
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:14px;font-weight:700;">Active Jobs</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:1px;">Sorted by contract value</div>
-          </div>
-          <button class="btn-sm" onclick="goJobs()">View all</button>
-        </div>
-        ${activeJobs.length?`
-        <div style="overflow-x:auto;">
-          <table style="${tblStyle}">
-            <thead><tr style="background:var(--bg3);">
-              <th style="${thStyle}width:60px;">Job #</th>
-              <th style="${thStyle}">Job</th>
-              <th style="${thStyle}width:60px;">Co.</th>
-              <th style="${thStyle}width:40px;">PM</th>
-              <th style="${thR}width:90px;">Contract</th>
-              <th style="${thR}width:90px;">Open COR</th>
-            </tr></thead>
-            <tbody>${activeRows}</tbody>
-          </table>
-        </div>`:`<div style="padding:32px;text-align:center;color:var(--text3);">No active jobs</div>`}
-      </div>
-
-      <!-- Right column: Open CORs + PM Breakdown -->
-      <div style="display:flex;flex-direction:column;gap:16px;">
-
-        <!-- Open CORs -->
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">
-          <div style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF8F0;">
-            <div style="font-size:14px;font-weight:700;color:#CC7000;">Open CORs <span style="font-size:12px;font-weight:400;margin-left:6px;">${openCORs.length} pending · ${fmtVal(totalOpenCOR)}</span></div>
-          </div>
-          ${openCORs.length?`
-          <div style="overflow-x:auto;max-height:380px;overflow-y:auto;">
-            <table style="${tblStyle}">
-              <thead><tr style="background:var(--bg3);">
-                <th style="${thStyle}width:55px;">Job #</th>
-                <th style="${thStyle}">Job / Description</th>
-                <th style="${thStyle}width:32px;">PM</th>
-                <th style="${thR}width:80px;">Amount</th>
-                <th style="${thStyle}width:65px;">Date</th>
-                <th style="${thStyle}width:55px;">Age</th>
-              </tr></thead>
-              <tbody>${corRows}</tbody>
-            </table>
-          </div>`:`<div style="padding:24px;text-align:center;color:var(--text3);">No open CORs</div>`}
-        </div>
-
-        <!-- PM Breakdown -->
-        ${pmRows?`
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">
-          <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
-            <div style="font-size:14px;font-weight:700;">By Project Manager</div>
-          </div>
-          <table style="${tblStyle}">
-            <thead><tr style="background:var(--bg3);">
-              <th style="${thStyle}">PM</th>
-              <th style="${thStyle}text-align:center;width:60px;">Jobs</th>
-              <th style="${thR}width:90px;">Contract</th>
-              <th style="${thR}width:90px;">Open COR</th>
-            </tr></thead>
-            <tbody>${pmRows}</tbody>
-          </table>
-        </div>`:''}
-      </div>
-    </div>
-  `;
+    +'<div style="display:flex;flex-direction:column;gap:16px;">'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF8F0;">'
+    +'<div style="font-size:14px;font-weight:700;color:#CC7000;">Open CORs <span style="font-size:12px;font-weight:400;margin-left:6px;">'+openCORs.length+' pending \u00b7 '+fmtVal(totalOpenCOR)+'</span></div></div>'
+    +(openCORs.length
+      ?'<div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table style="'+tS+'">'
+       +'<thead><tr style="background:var(--bg3);">'
+       +'<th style="'+th+'width:55px;">Job #</th><th style="'+th+'">Job / COR</th>'
+       +(isManager?'<th style="'+th+'width:32px;">PM</th>':'')
+       +'<th style="'+thR+'width:80px;">Amount</th><th style="'+th+'width:65px;">Date</th><th style="'+th+'width:50px;">Age</th>'
+       +'</tr></thead><tbody>'+corRows+'</tbody></table></div>'
+      :'<div style="padding:24px;text-align:center;color:var(--text3);">No open CORs \u2014 great work!</div>')
+    +'</div>'
+    +(isManager&&pmRowsHtml
+      ?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
+       +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);"><div style="font-size:14px;font-weight:700;">By Project Manager</div></div>'
+       +'<table style="'+tS+'"><thead><tr style="background:var(--bg3);">'
+       +'<th style="'+th+'">PM</th><th style="'+th+'text-align:center;width:60px;">Jobs</th>'
+       +'<th style="'+thR+'width:90px;">Contract</th><th style="'+thR+'width:90px;">Open COR</th>'
+       +'</tr></thead><tbody>'+pmRowsHtml+'</tbody></table></div>'
+      :'')
+    +'</div>'
+    +'</div>';
 }
-</script>
-</body>
-</html>
