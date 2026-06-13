@@ -1082,6 +1082,12 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
         <div class="fg"><label>Superintendent</label>
           <select id="j-super"><option value="">— none —</option></select>
         </div>
+        <div class="fg"><label>Foreman</label>
+          <select id="j-foreman"><option value="">— none —</option></select>
+        </div>
+        <div class="fg"><label>Project Coordinator</label>
+          <select id="j-coord"><option value="">— none —</option></select>
+        </div>
       </div>
       <div class="fg"><label>Address</label><input id="j-address" autocomplete="off" placeholder="Street Address"></div>
       <div class="frow">
@@ -2319,6 +2325,14 @@ function nextBidNum(memberId){
  const memberBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
  const nums=memberBids.map(b=>{const n=parseInt(b.num);return isNaN(n)?0:n;}).filter(n=>n>=base&&n<base+1000);
  return String(Math.max(base-1,...nums)+1);
+}
+function nextBidNumForPM(pmId){
+  const pm=DB.members.find(x=>parseInt(x.id)===parseInt(pmId));
+  if(!pm||!pm.series) return nextBidNum(pmId);
+  const base=parseInt(pm.series);
+  const pmBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(pm.id));
+  const nums=pmBids.map(b=>{const n=parseInt(b.num);return isNaN(n)?0:n;}).filter(n=>n>=base&&n<base+1000);
+  return String(Math.max(base-1,...nums)+1);
 }
 
 // ═══════════════════════════════════════ MEMBER MODAL ════════════════════════════════
@@ -3839,9 +3853,9 @@ async function submitFirstUser(){
 // ═══════════════════════════════════════ JOBS HOME ════════════════════════════════════════
 // ═══════════════════════════════════════ COMPANY JOB LIST ═══════════════════════════════
 
-function openVisibleJob(idx){
-  const job = VISIBLE_JOBS[idx];
-  if(!job){ console.error('No job at index',idx); return; }
+function openVisibleJob(jobId){
+  const job = JOBS.find(j=>String(j.id)===String(jobId));
+  if(!job){ console.error('No job found:',jobId); return; }
   NAV.jobCompany = job.company||'Bonas';
   CUR_JOB_ID = job.id;
   CUR_JOB_TAB = 'overview';
@@ -3909,9 +3923,7 @@ function renderCompanyJobList(company){
               const openCOR=(job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s,c)=>s+c.total,0);
               const sc=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
               const prelimBadge=job.prelimClosed?'<span style="font-size:10px;background:#E8F7EE;color:var(--green);padding:2px 6px;border-radius:20px;font-weight:700;">Closed</span>':'<span style="font-size:10px;background:#FFF0F0;color:#CC0000;padding:2px 6px;border-radius:20px;font-weight:700;">Open</span>';
-              VISIBLE_JOBS.push(job);
-              const _idx=VISIBLE_JOBS.length-1;
-              return`<tr style="cursor:pointer;" onclick="openVisibleJob(${_idx})">
+              return`<tr style="cursor:pointer;" onclick="openVisibleJob('${job.id}')">
                 <td><span class="job-num">${job.num||'—'}</span></td>
                 <td style="font-size:11px;font-weight:700;">${ini}</td>
                 <td style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
@@ -4021,6 +4033,9 @@ function openNewJobModal(){
   // Populate GC and PM dropdowns
   document.getElementById('j-gc').innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
   document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  if(document.getElementById('j-foreman'))document.getElementById('j-foreman').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='FOR').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  if(document.getElementById('j-coord'))document.getElementById('j-coord').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='PC').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
   openModal('job');
 }
 
@@ -4034,7 +4049,7 @@ function saveJob(){
   const pmId=parseInt(document.getElementById('j-pm').value)||null;
   const job={
     id:EDIT_JOB?EDIT_JOB.id:'job-'+Date.now(),
-    bidId:EDIT_JOB?EDIT_JOB.bidId:null,
+    bidId:EDIT_JOB?EDIT_JOB.bidId:(window._IMPORT_BID_ID||null),
     name,gcId,gcName:gc?gc.name:'',pmId,
     value:parseFloat(document.getElementById('j-value').value)||0,
     status:document.getElementById('j-status').value,
@@ -4044,12 +4059,15 @@ function saveJob(){
     notes:document.getElementById('j-notes').value.trim(),
     classCode:document.getElementById('j-class')?document.getElementById('j-class').value.trim():'',
     prelimClosed:document.getElementById('j-prelim')?document.getElementById('j-prelim').checked:false,
+    superId:parseInt(document.getElementById('j-super').value)||null,
+    foremanId:document.getElementById('j-foreman')?parseInt(document.getElementById('j-foreman').value)||null:null,
+    coordId:document.getElementById('j-coord')?parseInt(document.getElementById('j-coord').value)||null:null,
     costs:EDIT_JOB?EDIT_JOB.costs:[],
     changeOrders:EDIT_JOB?EDIT_JOB.changeOrders:[]
   };
   if(EDIT_JOB_IDX!==null)JOBS[EDIT_JOB_IDX]=job;
   else JOBS.push(job);
-  saveJobs();closeModal('job');renderJobs();
+  saveJobs();closeModal('job');renderJobs();window._IMPORT_BID_ID=null;
 }
 
 // Cost entry
@@ -6121,8 +6139,8 @@ function openEditJob(jobId){
   document.getElementById('j-pm').value=job.pmId||'';
   document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
   document.getElementById('j-super').value=job.superId||'';
-  if(document.getElementById('j-foreman'))document.getElementById('j-foreman').value=job.foremanId||'';
-  if(document.getElementById('j-coord'))document.getElementById('j-coord').value=job.coordId||'';
+  if(document.getElementById('j-foreman')){document.getElementById('j-foreman').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='FOR').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');document.getElementById('j-foreman').value=job.foremanId||'';}
+  if(document.getElementById('j-coord')){document.getElementById('j-coord').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='PC').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');document.getElementById('j-coord').value=job.coordId||'';}
   openModal('job');
 }
 
@@ -6326,6 +6344,80 @@ function printCOR(jobId, corIdx){
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
+
+function printSOV(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
+  const logoSrc=getCompanyLogo(job.company||'Bonas');
+  const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const sovLines=job.sov||[];
+  const totalScheduled=sovLines.reduce((s,l)=>s+(l.value||0),0);
+  const contract=jobContract(job);
+  const rows=sovLines.map((line,i)=>`<tr>
+    <td style="padding:5px 8px;border:1px solid #ccc;text-align:center;">${i+1}</td>
+    <td style="padding:5px 8px;border:1px solid #ccc;">${line.desc||''}</td>
+    <td style="padding:5px 8px;border:1px solid #ccc;text-align:right;">$${(line.value||0).toLocaleString()}</td>
+  </tr>`).join('');
+  const printHTML=`<!DOCTYPE html><html><head>
+    <title>SOV — ${job.name}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:20px;color:#000;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;}
+      .co-name{font-size:15px;font-weight:bold;}
+      .co-sub{font-size:10px;color:#333;margin-top:2px;}
+      table{width:100%;border-collapse:collapse;font-size:11px;}
+      th{padding:6px 8px;background:#f0f0f0;border:1px solid #ccc;text-align:left;font-weight:bold;}
+      td{padding:5px 8px;border:1px solid #ccc;}
+      .total-row td{font-weight:bold;background:#f0f0f0;}
+      @media print{body{padding:10px;}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${logoSrc?`<img src="${logoSrc}" style="width:52px;height:52px;object-fit:contain;" alt="">`:'' }
+        <div>
+          <div class="co-name">${coHdr}</div>
+          <div class="co-sub">PAINTING AND WALLCOVERING CONTRACTORS</div>
+          <div class="co-sub">${coAddr}</div>
+        </div>
+      </div>
+      <div style="text-align:right;font-size:10px;">
+        <div style="font-size:13px;font-weight:bold;">SCHEDULE OF VALUES</div>
+        <div style="margin-top:4px;"><strong>JOB #:</strong> ${job.num||'—'}</div>
+        <div><strong>DATE:</strong> ${today}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;margin-bottom:14px;">
+      <div><strong>PROJECT:</strong> ${job.name}</div>
+      <div><strong>CUSTOMER:</strong> ${gc?gc.name:job.gcName||'—'}</div>
+      <div><strong>ADDRESS:</strong> ${[job.address,job.city,job.zip].filter(Boolean).join(', ')||'—'}</div>
+      <div><strong>PM:</strong> ${pm?pm.first+' '+pm.last:'—'}</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:50px;">Item #</th>
+        <th>Description of Work</th>
+        <th style="width:140px;text-align:right;">Scheduled Value</th>
+      </tr></thead>
+      <tbody>
+        ${rows}
+        <tr class="total-row">
+          <td colspan="2" style="text-align:right;">TOTAL CONTRACT VALUE</td>
+          <td style="text-align:right;">$${totalScheduled.toLocaleString()}</td>
+        </tr>
+        ${Math.abs(totalScheduled-contract)>1?`<tr class="total-row"><td colspan="2" style="text-align:right;color:#CC0000;">Revised Contract (incl. COs)</td><td style="text-align:right;color:#CC0000;">$${contract.toLocaleString()}</td></tr>`:''}
+      </tbody>
+    </table>
+    <div style="margin-top:24px;font-size:10px;color:#555;text-align:center;">Printed ${today} · ${coHdr} · Confidential</div>
+  </body></html>`;
+  const win=window.open('','_blank','width=800,height=700');
+  win.document.write(printHTML);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
 </script>
 </body>
 </html>
