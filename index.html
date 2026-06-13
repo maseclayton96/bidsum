@@ -5475,10 +5475,8 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
   if(!job.cors) job.cors = [];
   const origContract = job.value||0;
   const revisedContract = jobContract(job);
-
-  const COR_MIN = Math.max(50, job.corRowCount||50);
+  // Only show actual CORs — no null padding
   const displayCors = [...job.cors];
-  while(displayCors.length < COR_MIN) displayCors.push(null);
 
   return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
     <!-- Summary -->
@@ -5492,14 +5490,9 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
     </div>
     <!-- Actions -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div style="display:flex;gap:6px;align-items:center;">
-        <span style="font-size:12px;color:var(--text3);">Add rows:</span>
-        <button class="btn-sm" onclick="addCORRows('${job.id}',1)">+1</button>
-        <button class="btn-sm" onclick="addCORRows('${job.id}',5)">+5</button>
-        <button class="btn-sm" onclick="addCORRows('${job.id}',10)">+10</button>
-      </div>
+      <div></div>
       <div style="display:flex;gap:8px;">
-        <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'))">Print / PDF</button>
+        <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'))">Print Log</button>
         <button class="btn-sm-primary" onclick="openNewCOR('${job.id}')">+ New COR</button>
       </div>
     </div>
@@ -5508,7 +5501,7 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr style="background:var(--bg3);">
-            <th style="padding:7px 8px;border:1px solid var(--border);width:80px;text-align:center;">COR #</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:70px;text-align:center;">COR #</th>
             <th style="padding:7px 8px;border:1px solid var(--border);width:90px;">Date</th>
             <th style="padding:7px 8px;border:1px solid var(--border);">Description</th>
             <th style="padding:7px 8px;border:1px solid var(--border);width:90px;text-align:right;">Amount</th>
@@ -5516,69 +5509,60 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
             <th style="padding:7px 8px;border:1px solid var(--border);width:100px;">Cust Date</th>
             <th style="padding:7px 8px;border:1px solid var(--border);width:100px;text-align:right;">Cust Amt</th>
             <th style="padding:7px 8px;border:1px solid var(--border);width:80px;text-align:right;">Diff</th>
-            <th style="padding:7px 8px;border:1px solid var(--border);width:50px;text-align:center;">VOID</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:48px;text-align:center;">VOID</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:40px;text-align:center;">⎙</th>
           </tr>
         </thead>
         <tbody id="cor-log-tbody-${job.id}">
-          ${displayCors.map((cor,i)=>{
-            const rowNum=i+1;
-            const isVoid=cor&&cor.void;
-            const isActive=cor&&!cor.void&&cor.total>0;
-            const diff=cor?((cor.custAmount||0)-cor.total):0;
-            const rowBg=isVoid?'opacity:.45;':'';
-            const jid=job.id;
-            return`<tr style="${rowBg}${isVoid?'text-decoration:line-through;':''}background:${i%2===0?'var(--bg2)':'var(--bg3)'};" id="cor-row-${job.id}-${i}">
-              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
-                ${isActive
-                  ? `<span class="cor-num-link" onclick="openCORForm('${jid}',${i})" title="Edit COR ${rowNum}">${rowNum}</span>
-                     <button class="btn-sm" onclick="event.stopPropagation();printCOR('${jid}',${i})" style="padding:1px 4px;font-size:9px;" title="Print">⎙</button>`
-                  : `<span style="color:var(--text3);font-weight:400;">${rowNum}</span>`}
-              </td>
-              <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;">${cor?fmtDate(cor.date)||'':''}</td>
-              <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                ${isVoid?'<span style="color:#CC0000;font-weight:700;">VOID</span> ':''}${cor?cor.desc||'':''}</td>
-              <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:600;color:${isActive?'#CC0000':'var(--text3)'};">${cor&&cor.total?fmtVal(cor.total):'—'}</td>
-              <!-- Cust CO# — inline editable -->
-              <td style="padding:3px 6px;border:1px solid var(--border);">
-                ${cor&&cor.total>0&&!isVoid
-                  ? `<input value="${cor.custCONum||''}" placeholder="CO#"
-                       oninput="inlineCORUpdate('${jid}',${i},'custCONum',this.value)"
-                       style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:center;outline:none;color:var(--text);">`
-                  : ''}
-              </td>
-              <!-- Cust Date — inline editable -->
-              <td style="padding:3px 6px;border:1px solid var(--border);">
-                ${cor&&cor.total>0&&!isVoid
-                  ? `<input type="date" value="${cor.custDate||''}"
-                       onchange="inlineCORUpdate('${jid}',${i},'custDate',this.value)"
-                       style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);outline:none;color:var(--text);">`
-                  : ''}
-              </td>
-              <!-- Cust Amt — inline editable -->
-              <td style="padding:3px 6px;border:1px solid var(--border);">
-                ${cor&&cor.total>0&&!isVoid
-                  ? `<input type="number" value="${cor.custAmount||''}" placeholder="0"
-                       oninput="inlineCORUpdate('${jid}',${i},'custAmount',parseFloat(this.value)||0)"
-                       style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:right;outline:none;color:var(--green);font-weight:700;">`
-                  : ''}
-              </td>
-              <!-- Diff — auto-calculated -->
-              <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-size:11px;font-weight:600;color:${
-                !cor||!cor.custAmount?'var(--text3)':diff<0?'#CC0000':diff>0?'var(--green)':'var(--text3)'
-              };">${cor&&cor.custAmount&&!isVoid?fmtVal(Math.abs(diff))+(diff<0?' short':''):''}</td>
-              <!-- VOID checkbox -->
-              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
-                ${cor&&cor.total>0
-                  ? `<input type="checkbox" ${isVoid?'checked':''} onchange="toggleCORVoid('${jid}',${i},this.checked)" style="accent-color:#CC0000;cursor:pointer;" title="Mark VOID">`
-                  : ''}
-              </td>
-            </tr>`;
-          }).join('')}
+          ${displayCors.length === 0
+            ? `<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No CORs yet — click + New COR to get started</td></tr>`
+            : displayCors.map((cor,i)=>{
+              const rowNum=i+1;
+              const isVoid=cor&&cor.void;
+              const isActive=cor&&!cor.void&&cor.total>0;
+              const diff=cor?((cor.custAmount||0)-cor.total):0;
+              const rowBg=isVoid?'opacity:.45;':'';
+              const jid=job.id;
+              return`<tr style="${rowBg}${isVoid?'text-decoration:line-through;':''}background:${i%2===0?'var(--bg2)':'var(--bg3)'};border-bottom:1px solid var(--border);" id="cor-row-${job.id}-${i}">
+                <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
+                  <span class="cor-num-link" onclick="openCORForm('${jid}',${i})" title="Edit COR ${rowNum}" style="color:#CC0000;font-weight:700;cursor:pointer;text-decoration:underline;">${rowNum}</span>
+                </td>
+                <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;">${cor?fmtDate(cor.date)||'':''}</td>
+                <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  ${isVoid?'<span style="color:#CC0000;font-weight:700;">VOID</span> ':''}${cor?cor.desc||'':''}</td>
+                <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:600;color:${isActive?'#CC0000':'var(--text3)'};">${cor&&cor.total?fmtVal(cor.total):'—'}</td>
+                <td style="padding:3px 6px;border:1px solid var(--border);">
+                  ${cor?`<input value="${cor.custCONum||''}" placeholder="CO#"
+                     oninput="inlineCORUpdate('${jid}',${i},'custCONum',this.value)"
+                     style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:center;outline:none;color:var(--text);">`:''}
+                </td>
+                <td style="padding:3px 6px;border:1px solid var(--border);">
+                  ${cor?`<input type="date" value="${cor.custDate||''}"
+                     onchange="inlineCORUpdate('${jid}',${i},'custDate',this.value)"
+                     style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);outline:none;color:var(--text);">`:''}
+                </td>
+                <td style="padding:3px 6px;border:1px solid var(--border);">
+                  ${cor?`<input type="number" value="${cor.custAmount||''}" placeholder="0"
+                     oninput="inlineCORUpdate('${jid}',${i},'custAmount',parseFloat(this.value)||0)"
+                     style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:right;outline:none;color:var(--green);font-weight:700;">`:''}
+                </td>
+                <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-size:11px;font-weight:600;color:${
+                  !cor||!cor.custAmount?'var(--text3)':diff<0?'#CC0000':diff>0?'var(--green)':'var(--text3)'
+                };">${cor&&cor.custAmount?fmtVal(Math.abs(diff))+(diff<0?' ▼':''):''}</td>
+                <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
+                  ${cor?`<input type="checkbox" ${isVoid?'checked':''} onchange="toggleCORVoid('${jid}',${i},this.checked)" style="accent-color:#CC0000;cursor:pointer;" title="Mark VOID">`:''}
+                </td>
+                <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
+                  ${cor&&cor.total>0?`<button onclick="event.stopPropagation();printCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);" title="Print COR ${rowNum}">⎙</button>`:''}
+                </td>
+              </tr>`;
+            }).join('')}
         </tbody>
       </table>
     </div>
   </div>`;
 }
+
 
 function addCORRows(jobId, count){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
@@ -5612,23 +5596,10 @@ function toggleCORVoid(jobId,idx,checked){
 function renderSOV(job){
   if(!job.sov)job.sov=[];
   if(!job.sovMonths)job.sovMonths=initSOVMonths();
-  // Auto-populate period dates for any month missing them
-  job.sovMonths.forEach((month,mi)=>{
-    if(!month.periodFrom||!month.periodTo){
-      const dates=sovMonthDates(month.name);
-      if(!month.periodFrom)month.periodFrom=dates.from;
-      if(!month.periodTo)month.periodTo=dates.to;
-    }
-  });
   const contract=jobContract(job);
   const totalScheduled=job.sov.reduce((s,l)=>s+(l.value||0),0);
-  // Billed = sum of all months' thisAppPlace per line
-  const totalBilled=job.sovMonths.reduce((ms,month)=>{
-    return ms+(month.lines||[]).reduce((ls,ml)=>ls+(ml.thisAppPlace||0)+(ml.thisAppMat||0)+(ml.prevApps||0),0);
-  },0)/Math.max(job.sovMonths.filter(m=>!m.collapsed||true).length,1);
-  // Simpler: just use pctComplete if set, else 0
-  const totalBilled2=job.sov.reduce((s,l)=>s+((l.value||0)*(l.pctComplete||0)/100),0);
-  const balance=totalScheduled-totalBilled2;
+  const totalBilled=job.sov.reduce((s,l)=>s+((l.value||0)*(l.pctComplete||0)/100),0);
+  const balance=totalScheduled-totalBilled;
 
   return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -5640,19 +5611,40 @@ function renderSOV(job){
     </div>
     <!-- Summary -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtMoney(contract)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">SOV Total</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:${Math.abs(totalScheduled-contract)>1?'#CC0000':'var(--text)'};">${fmtMoney(totalScheduled)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Billed to Date</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:var(--green);">${fmtMoney(totalBilled2)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Balance</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtMoney(balance)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(contract)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">SOV Total</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:${Math.abs(totalScheduled-contract)>1?'#CC0000':'var(--text)'};">${fmtVal(totalScheduled)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Billed to Date</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:var(--green);">${fmtVal(totalBilled)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Balance</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(balance)}</div></div>
     </div>
-    <!-- SOV Line Items -->
+    <!-- Line items (shared across months) -->
     <div style="margin-bottom:20px;">
       <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
         <span>SOV Line Items</span>
         <button class="btn-sm" onclick="addSOVLine('${job.id}')">+ Add Line</button>
       </div>
-      <div style="overflow-x:auto;" id="sov-lines-wrap-${job.id}">
-        ${sovLinesTable(job)}
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:500px;">
+          <thead><tr style="background:var(--bg3);">
+            <th style="padding:6px 8px;border:1px solid var(--border);width:40px;">Item #</th>
+            <th style="padding:6px 8px;border:1px solid var(--border);">Description of Work</th>
+            <th style="padding:6px 8px;border:1px solid var(--border);width:120px;text-align:right;">Scheduled Value</th>
+            <th style="padding:6px 8px;border:1px solid var(--border);width:36px;"></th>
+          </tr></thead>
+          <tbody>
+            ${job.sov.map((line,i)=>`<tr style="background:${i%2===0?'var(--bg2)':'var(--bg3)'};">
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">${i+1}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" value="${line.desc||''}" placeholder="Description" oninput="SOV_LINE_UPDATE('${job.id}',${i},'desc',this.value)" style="width:100%;"></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${line.value||''}" placeholder="$0" oninput="SOV_LINE_UPDATE('${job.id}',${i},'value',parseFloat(this.value)||0)" style="width:100%;text-align:right;"></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;"><button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})" style="padding:1px 5px;">×</button></td>
+            </tr>`).join('')}
+            ${!job.sov.length?`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);border:1px solid var(--border);">No SOV lines yet — click + Add Line</td></tr>`:''}
+            <tr style="background:var(--bg3);font-weight:700;">
+              <td colspan="2" style="padding:7px 8px;border:1px solid var(--border);text-align:right;">TOTAL</td>
+              <td style="padding:7px 8px;border:1px solid var(--border);text-align:right;font-size:13px;">${fmtVal(totalScheduled)}</td>
+              <td style="border:1px solid var(--border);"></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
     <!-- Monthly Applications -->
@@ -5661,77 +5653,6 @@ function renderSOV(job){
       ${(job.sovMonths||[]).map((month,mi)=>renderSOVMonth(job,month,mi)).join('')}
     </div>
   </div>`;
-}
-
-// Separate function so we can re-render just the line items table in-place
-function sovLinesTable(job){
-  const totalScheduled=job.sov.reduce((s,l)=>s+(l.value||0),0);
-  return`<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:500px;">
-    <thead><tr style="background:var(--bg3);">
-      <th style="padding:6px 8px;border:1px solid var(--border);width:40px;">Item #</th>
-      <th style="padding:6px 8px;border:1px solid var(--border);">Description of Work</th>
-      <th style="padding:6px 8px;border:1px solid var(--border);width:150px;text-align:right;">Scheduled Value</th>
-      <th style="padding:6px 8px;border:1px solid var(--border);width:36px;"></th>
-    </tr></thead>
-    <tbody>
-      ${job.sov.map((line,i)=>`<tr style="background:${i%2===0?'var(--bg2)':'var(--bg3)'};">
-        <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">${i+1}</td>
-        <td style="padding:5px 8px;border:1px solid var(--border);">
-          <input class="sub-input" value="${(line.desc||'').replace(/"/g,'&quot;')}" placeholder="Description of Work"
-            onblur="sovLineBlur('${job.id}',${i},'desc',this.value)"
-            style="width:100%;">
-        </td>
-        <td style="padding:5px 8px;border:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:4px;">
-            <span style="color:var(--text3);font-size:12px;">$</span>
-            <input class="sub-input" type="number" value="${line.value||''}" placeholder="0.00" step="0.01"
-              onblur="sovLineBlur('${job.id}',${i},'value',parseFloat(this.value)||0)"
-              style="flex:1;text-align:right;">
-          </div>
-          ${line.value?`<div style="font-size:10px;color:var(--text3);text-align:right;margin-top:1px;">${fmtMoney(line.value)}</div>`:''}
-        </td>
-        <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
-          <button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})" style="padding:1px 5px;">×</button>
-        </td>
-      </tr>`).join('')}
-      ${!job.sov.length?`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);border:1px solid var(--border);">No SOV lines yet — click + Add Line</td></tr>`:''}
-      <tr style="background:var(--bg3);font-weight:700;">
-        <td colspan="2" style="padding:7px 8px;border:1px solid var(--border);text-align:right;">TOTAL</td>
-        <td style="padding:7px 8px;border:1px solid var(--border);text-align:right;font-size:13px;">${fmtMoney(totalScheduled)}</td>
-        <td style="border:1px solid var(--border);"></td>
-      </tr>
-    </tbody>
-  </table>`;
-}
-
-// onblur handler — saves and re-renders the line items table in place (no full page nav)
-function sovLineBlur(jobId, idx, field, val){
-  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
-  if(!job.sov[idx]) return;
-  job.sov[idx][field] = val;
-  saveJobs();
-  // Re-render just the line items table, not the whole page
-  const wrap = document.getElementById('sov-lines-wrap-'+jobId);
-  if(wrap) wrap.innerHTML = sovLinesTable(job);
-  // Also refresh month tables so descriptions/values propagate
-  const container = document.getElementById('sov-months-container-'+jobId);
-  if(container) container.innerHTML = (job.sovMonths||[]).map((month,mi)=>renderSOVMonth(job,month,mi)).join('');
-}
-
-// Compute first/last day of month from name like "January 2025"
-function sovMonthDates(name){
-  const parts = name.split(' ');
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const mIdx = monthNames.indexOf(parts[0]);
-  const yr = parseInt(parts[1]) || new Date().getFullYear();
-  if(mIdx < 0) return {from:'', to:''};
-  const from = new Date(yr, mIdx, 1);
-  const to = new Date(yr, mIdx+1, 0); // last day
-  const pad = n => String(n).padStart(2,'0');
-  return {
-    from: `${from.getFullYear()}-${pad(from.getMonth()+1)}-${pad(from.getDate())}`,
-    to: `${to.getFullYear()}-${pad(to.getMonth()+1)}-${pad(to.getDate())}`
-  };
 }
 
 function initSOVMonths(){
@@ -5749,14 +5670,9 @@ function initSOVMonths(){
 function renderSOVMonth(job,month,mi){
   const sovLines=job.sov||[];
   const monthLines=month.lines||[];
+  // Ensure month lines match SOV lines
   while(monthLines.length<sovLines.length)monthLines.push({prevApps:0,thisAppPlace:0,thisAppMat:0,stored:0,retention:0});
   month.lines=monthLines;
-
-  if(!month.periodFrom||!month.periodTo){
-    const dates=sovMonthDates(month.name);
-    if(!month.periodFrom)month.periodFrom=dates.from;
-    if(!month.periodTo)month.periodTo=dates.to;
-  }
 
   const totalScheduled=sovLines.reduce((s,l)=>s+(l.value||0),0);
   const totalPrev=monthLines.reduce((s,l)=>s+(l.prevApps||0),0);
@@ -5767,131 +5683,88 @@ function renderSOVMonth(job,month,mi){
   const totalBalance=totalScheduled-totalCompleted;
   const totalRetention=monthLines.reduce((s,l)=>s+(l.retention||0),0);
   const pctComplete=totalScheduled?Math.round(totalCompleted/totalScheduled*100):0;
-  const jid=job.id;
 
   return`<div style="border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;">
-    <!-- Month Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);cursor:pointer;" onclick="toggleSOVMonth(${JSON.stringify(jid)},${mi})">
+    <!-- Month Header (always visible) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);cursor:pointer;" onclick="toggleSOVMonth('${job.id}',${mi})">
       <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:14px;color:var(--text3);">${month.collapsed?"\u25b6":"\u25bc"}</span>
+        <span style="font-size:14px;color:var(--text3);">${month.collapsed?'▶':'▼'}</span>
         <div>
-          <div style="font-weight:700;font-size:13px;">${month.name}</div>
-          <div style="font-size:11px;color:var(--text3);">
-            ${month.periodFrom&&month.periodTo
-              ? new Date(month.periodFrom+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})+" \u2013 "+new Date(month.periodTo+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})
-              : "No period set"}
-            ${totalCompleted>0?" \u00b7 Billed: "+fmtMoney(totalCompleted)+" ("+pctComplete+"%)": ""}
-          </div>
+          <div style="font-weight:700;font-size:13px;">${month.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">— App #${month.appNum}</span></div>
+          <div style="font-size:11px;color:var(--text3);">${totalCompleted>0?`Billed: ${fmtVal(totalCompleted)} (${pctComplete}% complete)`:'No billing entered'}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        ${totalCompleted>0?`<span style="font-size:12px;font-weight:700;color:var(--green);">${fmtMoney(totalCompleted)}</span>`:""}
-        <button class="btn-sm" onclick="event.stopPropagation();removeSOVMonth(${JSON.stringify(jid)},${mi})" style="color:#CC0000;">\u00d7</button>
+        ${totalCompleted>0?`<span style="font-size:12px;font-weight:700;color:var(--green);">${fmtVal(totalCompleted)}</span>`:''}
+        <button class="btn-sm" onclick="event.stopPropagation();removeSOVMonth('${job.id}',${mi})" style="color:#CC0000;">×</button>
       </div>
     </div>
     ${!month.collapsed?`
+    <!-- Expanded AIA-style grid -->
     <div style="padding:14px;overflow-x:auto;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;max-width:420px;">
-        <div>
-          <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Period From</label>
-          <input class="sub-input" type="date" value="${month.periodFrom||""}"
-            onchange="updateSOVMonthField(${JSON.stringify(jid)},${mi},"periodFrom",this.value)"
-            style="display:block;margin-top:3px;width:140px;">
-        </div>
-        <div>
-          <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Period To</label>
-          <input class="sub-input" type="date" value="${month.periodTo||""}"
-            onchange="updateSOVMonthField(${JSON.stringify(jid)},${mi},"periodTo",this.value)"
-            style="display:block;margin-top:3px;width:140px;">
-        </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div><label style="font-size:10px;color:var(--text3);text-transform:uppercase;">Application #</label>
+          <input class="sub-input" type="number" value="${month.appNum}" oninput="updateSOVMonthField('${job.id}',${mi},'appNum',parseInt(this.value)||1)" style="width:80px;margin-top:2px;"></div>
+        <div><label style="font-size:10px;color:var(--text3);text-transform:uppercase;">Period From</label>
+          <input class="sub-input" type="date" value="${month.periodFrom||''}" oninput="updateSOVMonthField('${job.id}',${mi},'periodFrom',this.value)" style="width:130px;margin-top:2px;"></div>
+        <div><label style="font-size:10px;color:var(--text3);text-transform:uppercase;">Period To</label>
+          <input class="sub-input" type="date" value="${month.periodTo||''}" oninput="updateSOVMonthField('${job.id}',${mi},'periodTo',this.value)" style="width:130px;margin-top:2px;"></div>
       </div>
-      <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:950px;">
+      <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:900px;">
         <thead>
           <tr style="background:var(--bg3);">
-            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:32px;">#</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:40px;">Item #</th>
             <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);">Description of Work</th>
-            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:100px;text-align:right;">Scheduled Value</th>
-            <th colspan="3" style="padding:5px 6px;border:1px solid var(--border);text-align:center;">Work Completed</th>
-            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Total Completed</th>
-            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:65px;text-align:center;">% Done</th>
-            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Balance</th>
-            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Retention</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Scheduled Value</th>
+            <th colspan="2" style="padding:5px 6px;border:1px solid var(--border);text-align:center;">Work Completed to Date</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:80px;text-align:right;">Total Stored &amp; Completed</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:60px;text-align:center;">% Complete</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:80px;text-align:right;">Balance to Finish</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:80px;text-align:right;">Retention</th>
           </tr>
           <tr style="background:var(--bg3);">
-            <th style="padding:5px 6px;border:1px solid var(--border);width:95px;text-align:right;">Prev Billings</th>
-            <th style="padding:5px 6px;border:1px solid var(--border);width:100px;text-align:center;">This App ($)</th>
-            <th style="padding:5px 6px;border:1px solid var(--border);width:75px;text-align:center;">This App (%)</th>
+            <th style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Prev Apps</th>
+            <th style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">This Application</th>
           </tr>
         </thead>
         <tbody>
           ${sovLines.map((line,li)=>{
             const ml=monthLines[li]||{};
             const prev=ml.prevApps||0;
-            const thisApp=ml.thisAppPlace||0;
+            const thisApp=(ml.thisAppPlace||0)+(ml.thisAppMat||0);
             const stored=ml.stored||0;
             const total=prev+thisApp+stored;
-            const pct=line.value&&line.value>0?(Math.round(total/line.value*1000)/10):0;
+            const pct=line.value?Math.round(total/line.value*100):0;
             const bal=(line.value||0)-total;
             const ret=ml.retention||0;
-            const thisPct=line.value&&line.value>0?(Math.round(thisApp/line.value*1000)/10):0;
-            return`<tr style="background:${li%2===0?"var(--bg2)":"var(--bg3)"}">
+            return`<tr style="background:${li%2===0?'var(--bg2)':'var(--bg3)'};">
               <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;color:var(--text3);">${li+1}</td>
-              <td style="padding:4px 6px;border:1px solid var(--border);font-size:10px;">${line.desc||""}</td>
-              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;">${fmtMoney(line.value)}</td>
-              <td style="padding:3px 5px;border:1px solid var(--border);">
-                <div style="display:flex;align-items:center;gap:2px;">
-                  <span style="font-size:9px;color:var(--text3);">$</span>
-                  <input type="number" value="${prev||"" }" placeholder="0.00" step="0.01"
-                    onblur="sovMonthLineBlur(${JSON.stringify(jid)},${mi},${li},"prevApps",parseFloat(this.value)||0)"
-                    style="width:72px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:var(--font);">
-                </div>
-              </td>
-              <td style="padding:3px 5px;border:1px solid var(--border);">
-                <div style="display:flex;align-items:center;gap:2px;">
-                  <span style="font-size:9px;color:var(--text3);">$</span>
-                  <input type="number" value="${thisApp||"" }" placeholder="0.00" step="0.01"
-                    onblur="sovMonthLineBlur(${JSON.stringify(jid)},${mi},${li},"thisAppPlace",parseFloat(this.value)||0)"
-                    style="width:72px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:var(--font);">
-                </div>
-              </td>
-              <td style="padding:3px 5px;border:1px solid var(--border);">
-                <div style="display:flex;align-items:center;gap:2px;">
-                  <input type="number" value="${thisPct||"" }" placeholder="0" step="0.1" min="0" max="100"
-                    onblur="sovMonthPctBlur(${JSON.stringify(jid)},${mi},${li},parseFloat(this.value)||0)"
-                    style="width:45px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:var(--font);">
-                  <span style="font-size:9px;color:var(--text3);">%</span>
-                </div>
-              </td>
-              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;font-weight:600;">${fmtMoney(total)}</td>
-              <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;font-weight:600;color:${pct>=100?"var(--green)":pct>50?"var(--blue)":"var(--text)"};">)${pct.toFixed(1)}%</td>
-              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;color:${bal<0?"#CC0000":"var(--text)"};">)${fmtMoney(bal)}</td>
-              <td style="padding:3px 5px;border:1px solid var(--border);">
-                <div style="display:flex;align-items:center;gap:2px;">
-                  <span style="font-size:9px;color:var(--text3);">$</span>
-                  <input type="number" value="${ret||"" }" placeholder="0.00" step="0.01"
-                    onblur="sovMonthLineBlur(${JSON.stringify(jid)},${mi},${li},"retention",parseFloat(this.value)||0)"
-                    style="width:70px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:var(--font);">
-                </div>
-              </td>
+              <td style="padding:4px 6px;border:1px solid var(--border);font-size:10px;">${line.desc||''}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;">${fmtVal(line.value)}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${prev||''}" placeholder="$0" oninput="updateSOVMonthLine('${job.id}',${mi},${li},'prevApps',parseFloat(this.value)||0)" style="width:80px;text-align:right;"></td>
+              <td style="padding:4px 6px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${ml.thisAppPlace||''}" placeholder="$0" oninput="updateSOVMonthLine('${job.id}',${mi},${li},'thisAppPlace',parseFloat(this.value)||0)" style="width:80px;text-align:right;"></td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;font-weight:600;">${fmtVal(total)}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;font-weight:600;color:${pct>=100?'var(--green)':'var(--text)'};">${pct}%</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;">${fmtVal(bal)}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${ret||''}" placeholder="$0" oninput="updateSOVMonthLine('${job.id}',${mi},${li},'retention',parseFloat(this.value)||0)" style="width:70px;text-align:right;"></td>
             </tr>`;
-          }).join("")}
-          <tr style="background:var(--bg3);font-weight:700;font-size:10px;">
+          }).join('')}
+          <!-- Totals row -->
+          <tr style="background:var(--bg3);font-weight:700;">
             <td colspan="2" style="padding:6px 8px;border:1px solid var(--border);text-align:right;">TOTALS:</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtMoney(totalScheduled)}</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtMoney(totalPrev)}</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtMoney(totalPlace+totalMat)}</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);"></td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtMoney(totalCompleted)}</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">${pctComplete.toFixed(1)}%</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtMoney(totalBalance)}</td>
-            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtMoney(totalRetention)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalScheduled)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalPrev)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalPlace+totalMat)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalCompleted)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">${pctComplete}%</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalBalance)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalRetention)}</td>
           </tr>
         </tbody>
       </table>
-    </div>`:""}
+    </div>`:''}
   </div>`;
 }
-
 
 function toggleSOVMonth(jobId,mi){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
@@ -5919,9 +5792,6 @@ function updateSOVMonthField(jobId,mi,field,val){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
   if(job.sovMonths&&job.sovMonths[mi])job.sovMonths[mi][field]=val;
   saveJobs();
-  // Re-render months in-place so period dates show immediately
-  const container=document.getElementById('sov-months-container-'+jobId);
-  if(container) container.innerHTML=(job.sovMonths||[]).map((month,idx)=>renderSOVMonth(job,month,idx)).join('');
 }
 function updateSOVMonthLine(jobId,mi,li,field,val){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
@@ -6580,29 +6450,7 @@ function openCORForm(jobId, corIdx){
 }
 
 // Create a new blank COR and open the form
-function openNewCOR(jobId){
-  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  if(!job.cors) job.cors = [];
-  // Push a blank COR
-  const newCOR = {
-    date: new Date().toISOString().split('T')[0],
-    desc: '',
-    lines: [],
-    total: 0,
-    custCONum: '',
-    custDate: '',
-    custAmount: 0,
-    void: false
-  };
-  job.cors.push(newCOR);
-  saveJobs();
-  COR_ACTIVE_JOB_ID = jobId;
-  COR_ACTIVE_IDX = job.cors.length - 1;
-  CUR_JOB_ID = jobId;
-  CUR_JOB_TAB = 'cor';
-  NAV.screen = 'jobdetail';
-  render();
-}
+
 
 // Inline update from COR Log cells (Cust CO#, Cust Date, Cust Amt)
 function inlineCORUpdate(jobId, idx, field, val){
@@ -6627,7 +6475,7 @@ function inlineCORUpdate(jobId, idx, field, val){
 // ──── RENDER THE COR FORM ────
 function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   if(!job.cors) job.cors = [];
-  const corIdx = COR_ACTIVE_IDX !== null ? COR_ACTIVE_IDX : job.cors.length; // fallback to new
+  const corIdx = COR_ACTIVE_IDX !== null ? COR_ACTIVE_IDX : job.cors.length;
   const cor = job.cors[corIdx];
   if(!cor){
     return`<div style="text-align:center;padding:40px;color:var(--text3);">
@@ -6642,98 +6490,83 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const lines = cor.lines || [];
 
-  // Labor lines (type='labor') and Material lines (type='material' or default)
-  const laborLines = lines.filter(l=>l.category==='labor');
-  const materialLines = lines.filter(l=>l.category==='material'||!l.category);
+  // Get job-level rates (with defaults matching the paper form)
+  if(!job.corRates) job.corRates = {};
+  const R = {
+    regular:  job.corRates.regular  || 89.24,
+    overtime: job.corRates.overtime || 99.54,
+    premium:  job.corRates.premium  || 86.30,
+    flat:     job.corRates.flat     || 40.77,
+    enamel:   job.corRates.enamel   || 45.68,
+    dtm:      job.corRates.dtm      || 55.50,
+  };
+
+  // Labor lines by key
+  const laborLines  = lines.filter(l=>l.category==='labor');
+  const matLines    = lines.filter(l=>l.category==='material');
 
   // Totals
-  const laborTotal = laborLines.reduce((s,l)=>{const amt=((l.qty||0)*(l.rate||0));return s+(l.type==='deduct'?-amt:amt);},0);
-  const materialTotal = materialLines.reduce((s,l)=>{const amt=((l.qty||0)*(l.rate||0));return s+(l.type==='deduct'?-amt:amt);},0);
-  const grandTotal = laborTotal + materialTotal;
+  const amt = (l) => (l.qty||0)*(l.rate||0) * (l.type==='deduct'?-1:1);
+  const laborTotal    = laborLines.reduce((s,l)=>s+amt(l),0);
+  const matTotal      = matLines.reduce((s,l)=>s+amt(l),0);
+  const grandTotal    = laborTotal + matTotal;
 
-  // Labor rate presets (from job or defaults)
-  const LABOR_PRESETS = [
-    {label:'Hours (regular time) @', rate: 89.24, key:'regular'},
-    {label:'Hours (over time) @', rate: 99.54, key:'overtime'},
-    {label:'Hours (premium time contract work) @', rate: 86.30, key:'premium'},
-  ];
-  const MATERIAL_PRESETS = [
-    {label:'Gallons of flat paint @', rate: 40.77, key:'flat'},
-    {label:'Gallons of enamel paint @', rate: 45.68, key:'enamel'},
-    {label:'Gallons of DTM paint @', rate: 55.50, key:'dtm'},
-    {label:'Sundries', rate: 0, key:'sundries'},
-  ];
+  // Sundries = 8% of straight + overtime labor
+  const regularLine  = laborLines.find(l=>l.key==='regular');
+  const overtimeLine = laborLines.find(l=>l.key==='overtime');
+  const straightOT   = (regularLine?(regularLine.qty||0)*(regularLine.rate||0):0)
+                     + (overtimeLine?(overtimeLine.qty||0)*(overtimeLine.rate||0):0);
+  const sundriesAuto = Math.round(straightOT * 0.08 * 100)/100;
+  // Update sundries line if it's auto
+  const sundriesLine = matLines.find(l=>l.key==='sundries');
+  if(sundriesLine && sundriesLine.autoCalc !== false){
+    sundriesLine.rate = sundriesAuto;
+    sundriesLine.qty = 1;
+  }
 
-  const renderLaborRow = (line, li) => {
-    const amt = (line.qty||0)*(line.rate||0);
-    const signAmt = line.type==='deduct' ? -amt : amt;
-    return`<tr id="cor-line-${corIdx}-${li}" style="background:${li%2===0?'#fff':'#fafafa'};">
-      <td style="padding:3px 6px;border:1px solid #ddd;font-size:10px;">${line.label||line.key||''}</td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:60px;">
-        <input type="number" value="${line.qty||''}" placeholder="0" min="0" step="0.25"
-          oninput="corLineUpdate('${job.id}',${corIdx},${li},'qty',parseFloat(this.value)||0)"
-          style="width:50px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;">
+  const renderRow = (line, li, isLabor) => {
+    const lineAmt = Math.abs((line.qty||0)*(line.rate||0));
+    const signAmt = amt(line);
+    const isSundries = line.key === 'sundries';
+    const inp = (field, val, ph, step, w, extra) =>
+      `<input type="number" value="${val||''}" placeholder="${ph||'0'}" step="${step||'1'}" min="0"
+        oninput="corLineUpdate('${job.id}',${corIdx},${li},'${field}',parseFloat(this.value)||0)"
+        style="width:${w||'50px'};border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:Arial;${extra||''}">`;
+    return`<tr id="cor-line-${corIdx}-${li}" style="background:${li%2===0?'#fff':'#f8f8f8'};">
+      <td style="padding:3px 8px;border:1px solid #ddd;font-size:10px;">${line.label||line.key||''}</td>
+      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:62px;">
+        ${isSundries
+          ? `<span style="font-size:10px;color:#888;font-style:italic;">auto</span>`
+          : inp('qty', line.qty, '0', isLabor?'0.25':'1', '50px')}
       </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:70px;">
-        <span style="font-size:10px;color:#555;">$</span>
-        <input type="number" value="${line.rate||''}" placeholder="0.00" step="0.01"
-          oninput="corLineUpdate('${job.id}',${corIdx},${li},'rate',parseFloat(this.value)||0)"
-          style="width:55px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;">
+      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:80px;">
+        <span style="font-size:9px;color:#888;">$</span>
+        ${isSundries
+          ? `<span style="font-size:10px;font-weight:600;">${sundriesAuto.toFixed(2)}</span>`
+          : inp('rate', line.rate, '0.00', '0.01', '58px')}
       </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;width:50px;">
+      <td style="padding:3px 5px;border:1px solid #ddd;width:58px;">
         <select oninput="corLineUpdate('${job.id}',${corIdx},${li},'type',this.value)"
-          style="width:100%;font-size:10px;border:1px solid #ccc;border-radius:3px;padding:1px;">
+          style="width:100%;font-size:10px;border:1px solid #ccc;border-radius:3px;padding:1px;font-family:Arial;">
           <option value="add" ${line.type!=='deduct'?'selected':''}>ADD:</option>
           <option value="deduct" ${line.type==='deduct'?'selected':''}>DEDUCT:</option>
         </select>
       </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-weight:600;font-size:10px;color:${signAmt<0?'#CC0000':'#000'};">$${Math.abs(amt).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:center;width:28px;">
-        <button onclick="corLineRemove('${job.id}',${corIdx},${li})" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:12px;padding:0;">×</button>
+      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-weight:600;font-size:10px;color:${signAmt<0?'#CC0000':'#000'};">
+        $${lineAmt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
       </td>
     </tr>`;
   };
 
-  const renderMaterialRow = (line, li) => {
-    const amt = (line.qty||0)*(line.rate||0);
-    const signAmt = line.type==='deduct' ? -amt : amt;
-    return`<tr id="cor-line-${corIdx}-${li}" style="background:${li%2===0?'#fff':'#fafafa'};">
-      <td style="padding:3px 6px;border:1px solid #ddd;font-size:10px;">${line.label||line.key||''}</td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:60px;">
-        <input type="number" value="${line.qty||''}" placeholder="0" min="0"
-          oninput="corLineUpdate('${job.id}',${corIdx},${li},'qty',parseFloat(this.value)||0)"
-          style="width:50px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;">
-      </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:70px;">
-        <span style="font-size:10px;color:#555;">$</span>
-        <input type="number" value="${line.rate||''}" placeholder="0.00" step="0.01"
-          oninput="corLineUpdate('${job.id}',${corIdx},${li},'rate',parseFloat(this.value)||0)"
-          style="width:55px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;">
-      </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;width:50px;">
-        <select oninput="corLineUpdate('${job.id}',${corIdx},${li},'type',this.value)"
-          style="width:100%;font-size:10px;border:1px solid #ccc;border-radius:3px;padding:1px;">
-          <option value="add" ${line.type!=='deduct'?'selected':''}>ADD:</option>
-          <option value="deduct" ${line.type==='deduct'?'selected':''}>DEDUCT:</option>
-        </select>
-      </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-weight:600;font-size:10px;color:${signAmt<0?'#CC0000':'#000'};">$${Math.abs(amt).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:center;width:28px;">
-        <button onclick="corLineRemove('${job.id}',${corIdx},${li})" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:12px;padding:0;">×</button>
-      </td>
-    </tr>`;
-  };
-
-  const lineTableHeader = `<tr style="background:#f0f0f0;">
-    <th style="padding:4px 6px;border:1px solid #ccc;text-align:left;font-size:10px;">Description</th>
-    <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;width:60px;">Qty</th>
-    <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;width:80px;">Rate</th>
-    <th style="padding:4px 6px;border:1px solid #ccc;font-size:10px;width:60px;">Add/Ded</th>
-    <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;width:80px;">Amount</th>
-    <th style="padding:4px 6px;border:1px solid #ccc;width:28px;"></th>
+  const lineTableHeader = `<tr style="background:#e8e8e8;">
+    <th style="padding:4px 8px;border:1px solid #ccc;text-align:left;font-size:10px;font-weight:bold;">Description</th>
+    <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold;width:62px;">Qty</th>
+    <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold;width:80px;">Rate</th>
+    <th style="padding:4px 6px;border:1px solid #ccc;font-size:10px;font-weight:bold;width:58px;">Add/Ded</th>
+    <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold;width:80px;">Amount</th>
   </tr>`;
 
-  // Navigation between CORs
+  // Nav
   const prevBtn = corIdx > 0
     ? `<button class="btn-sm" onclick="openCORForm('${job.id}',${corIdx-1})">‹ COR ${corIdx}</button>`
     : `<button class="btn-sm" disabled style="opacity:.4;">‹ Prev</button>`;
@@ -6741,24 +6574,79 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     ? `<button class="btn-sm" onclick="openCORForm('${job.id}',${corIdx+1})">COR ${corIdx+2} ›</button>`
     : `<button class="btn-sm" onclick="openNewCOR('${job.id}')">+ New COR ›</button>`;
 
+  // Editable header fields
+  const editStyle = 'border:none;font-size:10px;font-family:Arial;outline:none;background:transparent;width:100%;padding:1px 0;';
+  const editInput = (id,val,ph,type) =>
+    `<input id="${id}" type="${type||'text'}" value="${(val||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph||''}"
+      style="${editStyle}${type==='date'?'':''}">`;
+
   return`
-  <!-- COR Form — matches the ACI/Bonas paper COR format -->
-  <div style="max-width:800px;margin:0 auto;">
+  <div style="max-width:820px;margin:0 auto;">
+    <!-- Rate Settings Banner (collapsible) -->
+    <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleEl('cor-rates-panel-${job.id}')">
+        <span style="font-size:12px;font-weight:700;color:#1B3F6E;">⚙ Job Hourly &amp; Material Rates <span style="font-weight:400;font-size:11px;">(click to edit — these set all auto-fill rates)</span></span>
+        <span style="font-size:11px;color:#1B3F6E;" id="cor-rates-chevron-${job.id}">▼</span>
+      </div>
+      <div id="cor-rates-panel-${job.id}" style="display:none;margin-top:10px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px;">
+          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
+            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Regular Time ($/hr)</div>
+            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R.regular}" id="crate-regular-${job.id}"
+              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
+          </div>
+          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
+            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Overtime ($/hr)</div>
+            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R.overtime}" id="crate-overtime-${job.id}"
+              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
+          </div>
+          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
+            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Premium Time ($/hr)</div>
+            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R.premium}" id="crate-premium-${job.id}"
+              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
+          </div>
+          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
+            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Flat Paint ($/gal)</div>
+            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R.flat}" id="crate-flat-${job.id}"
+              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
+          </div>
+          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
+            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Enamel Paint ($/gal)</div>
+            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R.enamel}" id="crate-enamel-${job.id}"
+              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
+          </div>
+          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
+            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">DTM Paint ($/gal)</div>
+            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R.dtm}" id="crate-dtm-${job.id}"
+              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#555;margin-top:4px;">📌 Sundries auto-calculates as 8% of straight time + overtime labor cost</div>
+        <button class="btn-sm-primary" onclick="saveCORRates('${job.id}',${corIdx})" style="margin-top:8px;">Save Rates &amp; Apply to This COR</button>
+      </div>
+    </div>
+
     <!-- Nav bar -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div style="display:flex;gap:8px;align-items:center;">
         ${prevBtn}
         <span style="font-size:13px;font-weight:700;padding:4px 10px;background:var(--bg3);border-radius:var(--r);">COR # ${corNum}</span>
         ${nextBtn}
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn-sm" onclick="openJobDetail('${job.id}','corlog')" style="color:var(--text3);">← Back to Log</button>
+        <button class="btn-sm" onclick="openJobDetail('${job.id}','corlog')" style="color:var(--text3);">← Log</button>
         <button class="btn-sm" onclick="printCOR('${job.id}',${corIdx})">⎙ Print</button>
         <button class="btn-sm-primary" onclick="saveCORForm('${job.id}',${corIdx})">Save COR</button>
       </div>
     </div>
 
-    <!-- COR Form Paper -->
+    <!-- COR Paper Form -->
     <div style="background:#fff;border:1px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.1);font-family:Arial,sans-serif;" id="cor-form-paper">
 
       <!-- Header -->
@@ -6766,8 +6654,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
         <div style="font-size:18px;font-weight:bold;letter-spacing:1px;">${coHdr}</div>
         <div style="font-size:10px;color:#333;margin-top:1px;">PAINTING AND WALLCOVERING CONTRACTORS</div>
         <div style="display:flex;justify-content:space-between;font-size:9px;color:#555;margin-top:4px;">
-          <span>${coAddr}</span>
-          <span>${coPhone}</span>
+          <span>${coAddr}</span><span>${coPhone}</span>
         </div>
       </div>
 
@@ -6777,86 +6664,113 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
         <div style="font-size:12px;font-weight:bold;margin-top:2px;"># ${corNum}</div>
       </div>
 
-      <!-- Header Info Grid -->
-      <div style="display:grid;grid-template-columns:80px 1fr 80px 120px;gap:0;border-bottom:1px solid #ddd;font-size:10px;">
-        <div style="padding:4px 8px;border-right:1px solid #ddd;font-weight:bold;color:#555;">CUSTOMER:</div>
-        <div style="padding:4px 8px;border-right:1px solid #ddd;">${gc?gc.name:job.gcName||'—'}<br>${gc&&gc.street?gc.street+'<br>'+gc.city:''}</div>
-        <div style="padding:4px 8px;border-right:1px solid #ddd;font-weight:bold;color:#555;">JOB #:</div>
-        <div style="padding:4px 8px;font-weight:bold;">${job.num||'—'}</div>
-
-        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;">ATTN:</div>
-        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;">${contact?contact.first+' '+contact.last:job.contactName||'—'}</div>
-        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;">DATE:</div>
-        <div style="padding:4px 8px;border-top:1px solid #ddd;">
-          <input type="date" id="corf-date" value="${cor.date||''}"
-            style="border:none;font-size:10px;font-family:Arial;width:100%;outline:none;background:transparent;">
+      <!-- Info Grid — all fields editable -->
+      <div style="display:grid;grid-template-columns:80px 1fr 80px 150px;border-bottom:1px solid #ddd;font-size:10px;">
+        <div style="padding:5px 8px;border-right:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">CUSTOMER:</div>
+        <div style="padding:4px 8px;border-right:1px solid #ddd;">
+          <input id="corf-customer" value="${(cor.overrideCustomer||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')}"
+            placeholder="Customer name"
+            style="${editStyle}font-weight:500;">
+          <input id="corf-customer-addr" value="${(cor.overrideAddr||gc&&gc.street&&gc.street+', '+gc.city||'').replace(/"/g,'&quot;')}"
+            placeholder="Address"
+            style="${editStyle}color:#555;margin-top:1px;">
+        </div>
+        <div style="padding:5px 8px;border-right:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">JOB #:</div>
+        <div style="padding:4px 8px;display:flex;align-items:center;">
+          <input id="corf-jobnum" value="${(cor.overrideJobNum||job.num||'').replace(/"/g,'&quot;')}"
+            placeholder="Job #" style="${editStyle}font-weight:bold;">
         </div>
 
-        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;">PROJECT:</div>
-        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;grid-column:2/3;">${job.name}<br><span style="font-weight:normal;">${[job.address,job.city,job.zip].filter(Boolean).join(', ')}</span></div>
-        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;"></div>
-        <div style="padding:4px 8px;border-top:1px solid #ddd;"></div>
+        <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">ATTN:</div>
+        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;display:flex;align-items:center;">
+          <input id="corf-attn" value="${(cor.overrideAttn||contact&&contact.first+' '+contact.last||job.contactName||'').replace(/"/g,'&quot;')}"
+            placeholder="Contact name" style="${editStyle}">
+        </div>
+        <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">DATE:</div>
+        <div style="padding:4px 8px;border-top:1px solid #ddd;display:flex;align-items:center;">
+          <input type="date" id="corf-date" value="${cor.date||''}" style="${editStyle}">
+        </div>
+
+        <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">PROJECT:</div>
+        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;grid-column:2/3;">
+          <input id="corf-project" value="${(cor.overrideProject||job.name||'').replace(/"/g,'&quot;')}"
+            placeholder="Project name" style="${editStyle}font-weight:bold;">
+          <input id="corf-project-addr" value="${(cor.overrideProjectAddr||[job.address,job.city,job.zip].filter(Boolean).join(', ')||'').replace(/"/g,'&quot;')}"
+            placeholder="Project address" style="${editStyle}color:#555;margin-top:1px;">
+        </div>
+        <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;">PHONE #:<br>FAX #:</div>
+        <div style="padding:4px 8px;border-top:1px solid #ddd;">
+          <input id="corf-phone" value="${(cor.overridePhone||gc&&gc.phone||'').replace(/"/g,'&quot;')}"
+            placeholder="Phone" style="${editStyle}">
+          <input id="corf-fax" value="${(cor.overrideFax||'').replace(/"/g,'&quot;')}"
+            placeholder="Fax" style="${editStyle}color:#555;margin-top:1px;">
+        </div>
+
+        <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">JOBSITE PHONE:</div>
+        <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;display:flex;align-items:center;">
+          <input id="corf-jobsite-phone" value="${(cor.overrideJobsitePhone||'').replace(/"/g,'&quot;')}"
+            placeholder="Jobsite phone" style="${editStyle}">
+        </div>
+        <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">JOBSITE FAX:</div>
+        <div style="padding:4px 8px;border-top:1px solid #ddd;display:flex;align-items:center;">
+          <input id="corf-jobsite-fax" value="${(cor.overrideJobsiteFax||'').replace(/"/g,'&quot;')}"
+            placeholder="Jobsite fax" style="${editStyle}">
+        </div>
       </div>
 
-      <!-- Description of work -->
+      <!-- Description -->
       <div style="padding:6px 10px;border-bottom:1px solid #ddd;font-size:10px;">
         <div style="color:#555;margin-bottom:3px;">In regard to the above stated project, we submit the following cost.</div>
         <div style="display:flex;align-items:flex-start;gap:6px;">
-          <span style="font-weight:bold;white-space:nowrap;">Description of work:</span>
+          <span style="font-weight:bold;white-space:nowrap;padding-top:2px;">Description of work:</span>
           <input id="corf-desc" value="${(cor.desc||'').replace(/"/g,'&quot;')}" placeholder="Describe the change order work..."
-            style="flex:1;border:none;border-bottom:1px solid #ccc;font-size:10px;font-family:Arial;outline:none;padding:1px 4px;background:transparent;">
+            style="flex:1;border:none;border-bottom:1px solid #bbb;font-size:10px;font-family:Arial;outline:none;padding:1px 4px;background:transparent;">
         </div>
       </div>
 
-      <!-- LABOR Section -->
+      <!-- LABOR -->
       <div style="padding:6px 10px;border-bottom:1px solid #ddd;">
         <div style="font-weight:bold;font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Labor:</div>
         <table style="width:100%;border-collapse:collapse;">
           ${lineTableHeader}
-          <tbody id="corf-labor-tbody">
-            ${laborLines.map((line,li)=>renderLaborRow(line, lines.indexOf(line))).join('')}
+          <tbody>
+            ${laborLines.map((line,li)=>renderRow(line, lines.indexOf(line), true)).join('')}
           </tbody>
         </table>
-        <!-- Add labor presets -->
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-          ${LABOR_PRESETS.map(p=>`<button onclick="corAddPresetLine('${job.id}',${corIdx},'labor','${p.key}','${p.label.replace(/'/g,"\\'")}',${p.rate})"
-            style="font-size:9px;padding:2px 7px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">${p.label.split('(')[0].trim()}</button>`).join('')}
+        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
           <button onclick="corAddCustomLine('${job.id}',${corIdx},'labor')"
-            style="font-size:9px;padding:2px 7px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;cursor:pointer;">+ Custom</button>
+            style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">+ Custom Labor</button>
         </div>
-        <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #ddd;">
-          Labor Total: <span style="color:${laborTotal<0?'#CC0000':'#000'};">$${Math.abs(laborTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+        <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;">
+          Labor Subtotal: <span style="color:${laborTotal<0?'#CC0000':'#000'};">$${Math.abs(laborTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
         </div>
       </div>
 
-      <!-- MATERIALS Section -->
+      <!-- MATERIALS -->
       <div style="padding:6px 10px;border-bottom:1px solid #ddd;">
         <div style="font-weight:bold;font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Materials:</div>
         <table style="width:100%;border-collapse:collapse;">
           ${lineTableHeader}
-          <tbody id="corf-material-tbody">
-            ${materialLines.map((line,li)=>renderMaterialRow(line, lines.indexOf(line))).join('')}
+          <tbody>
+            ${matLines.map((line,li)=>renderRow(line, lines.indexOf(line), false)).join('')}
           </tbody>
         </table>
-        <!-- Add material presets -->
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-          ${MATERIAL_PRESETS.map(p=>`<button onclick="corAddPresetLine('${job.id}',${corIdx},'material','${p.key}','${p.label.replace(/'/g,"\\'")}',${p.rate})"
-            style="font-size:9px;padding:2px 7px;background:#F0FFF4;border:1px solid #B2DFCA;border-radius:3px;cursor:pointer;color:#1E5C3A;">${p.label.split('(')[0].trim()}</button>`).join('')}
+        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
           <button onclick="corAddCustomLine('${job.id}',${corIdx},'material')"
-            style="font-size:9px;padding:2px 7px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;cursor:pointer;">+ Custom</button>
+            style="font-size:9px;padding:2px 8px;background:#F0FFF4;border:1px solid #B2DFCA;border-radius:3px;cursor:pointer;color:#1E5C3A;">+ Custom Material</button>
         </div>
-        <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #ddd;">
-          Materials Total: <span style="color:${materialTotal<0?'#CC0000':'#000'};">$${Math.abs(materialTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+        <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;">
+          Materials Subtotal: <span style="color:${matTotal<0?'#CC0000':'#000'};">$${Math.abs(matTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
         </div>
       </div>
 
       <!-- Grand Total -->
       <div style="padding:8px 10px;border-bottom:1px solid #ddd;display:flex;justify-content:flex-end;align-items:center;gap:16px;">
         <span style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;">TOTAL:</span>
-        <span style="font-size:16px;font-weight:bold;color:${grandTotal<0?'#CC0000':'#CC0000'};" id="corf-grand-total">$${Math.abs(grandTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+        <span style="font-size:16px;font-weight:bold;color:#CC0000;" id="corf-grand-total">$${Math.abs(grandTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
       </div>
 
-      <!-- Customer Response section -->
+      <!-- Customer Response -->
       <div style="padding:6px 10px;border-bottom:1px solid #ddd;background:#FAFFF0;font-size:10px;">
         <div style="font-weight:bold;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;color:#555;">Customer Response</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
@@ -6877,24 +6791,21 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
           </div>
         </div>
         ${cor.custAmount ? `<div style="text-align:right;margin-top:6px;font-size:10px;font-weight:bold;color:${(cor.custAmount-grandTotal)<0?'#CC0000':'var(--green)'};">
-          Diff: $${Math.abs(cor.custAmount-grandTotal).toLocaleString('en-US',{minimumFractionDigits:2})} ${(cor.custAmount-grandTotal)<0?'short':'over'}
-        </div>` : ''}
+          Diff: $${Math.abs(cor.custAmount-grandTotal).toLocaleString('en-US',{minimumFractionDigits:2})} ${(cor.custAmount-grandTotal)<0?'short':'over'}</div>` : ''}
       </div>
 
-      <!-- Footer note -->
+      <!-- Footer + Sig -->
       <div style="padding:6px 10px;font-size:9px;color:#555;border-bottom:1px solid #ddd;">
         Please favor us with a Change Order in the following amount at your earliest possible convenience.<br>
         Materials will be ordered upon approval of this COR (excluding field EWO tickets).
       </div>
-
-      <!-- Signature -->
       <div style="padding:14px 10px;display:flex;justify-content:space-between;align-items:flex-end;">
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="corf-void" ${cor.void?'checked':''} style="accent-color:#CC0000;">
           <label for="corf-void" style="font-size:10px;color:#CC0000;font-weight:bold;cursor:pointer;">Mark as VOID</label>
         </div>
         <div style="text-align:center;">
-          <div style="border-top:1px solid #000;width:200px;padding-top:4px;font-size:10px;">
+          <div style="border-top:1px solid #000;width:220px;padding-top:4px;font-size:10px;">
             ${pm?pm.first+' '+pm.last:'Project Manager'}<br>Project Manager
           </div>
         </div>
@@ -6902,6 +6813,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     </div>
   </div>`;
 }
+
 
 // ──── COR FORM SUPPORT FUNCTIONS ────
 
@@ -6953,62 +6865,130 @@ function saveCORForm(jobId, corIdx){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
   const cor = job.cors[corIdx];
-  // Read all form fields
-  const dateEl = document.getElementById('corf-date');
-  const descEl = document.getElementById('corf-desc');
-  const custNumEl = document.getElementById('corf-cust-num');
-  const custDateEl = document.getElementById('corf-cust-date');
-  const custAmtEl = document.getElementById('corf-cust-amt');
-  const voidEl = document.getElementById('corf-void');
-  if(dateEl) cor.date = dateEl.value;
-  if(descEl) cor.desc = descEl.value;
-  if(custNumEl) cor.custCONum = custNumEl.value;
-  if(custDateEl) cor.custDate = custDateEl.value;
-  if(custAmtEl) cor.custAmount = parseFloat(custAmtEl.value)||0;
-  if(voidEl) cor.void = voidEl.checked;
+  const gv=(id)=>{ const el=document.getElementById(id); return el?el.value:''; };
+  // Core fields
+  cor.date       = gv('corf-date');
+  cor.desc       = gv('corf-desc');
+  cor.custCONum  = gv('corf-cust-num');
+  cor.custDate   = gv('corf-cust-date');
+  cor.custAmount = parseFloat(gv('corf-cust-amt'))||0;
+  const voidEl   = document.getElementById('corf-void');
+  cor.void       = voidEl ? voidEl.checked : false;
+  // Editable override fields
+  cor.overrideCustomer     = gv('corf-customer');
+  cor.overrideAddr         = gv('corf-customer-addr');
+  cor.overrideJobNum       = gv('corf-jobnum');
+  cor.overrideAttn         = gv('corf-attn');
+  cor.overrideProject      = gv('corf-project');
+  cor.overrideProjectAddr  = gv('corf-project-addr');
+  cor.overridePhone        = gv('corf-phone');
+  cor.overrideFax          = gv('corf-fax');
+  cor.overrideJobsitePhone = gv('corf-jobsite-phone');
+  cor.overrideJobsiteFax   = gv('corf-jobsite-fax');
   // Recalculate total from lines
   const lines = cor.lines||[];
+  // Re-calc sundries before saving
+  const regLine = lines.find(l=>l.key==='regular');
+  const otLine  = lines.find(l=>l.key==='overtime');
+  const straightOT = (regLine?(regLine.qty||0)*(regLine.rate||0):0)
+                   + (otLine?(otLine.qty||0)*(otLine.rate||0):0);
+  const sundriesLine = lines.find(l=>l.key==='sundries');
+  if(sundriesLine && sundriesLine.autoCalc!==false){
+    sundriesLine.rate = Math.round(straightOT*0.08*100)/100;
+    sundriesLine.qty  = 1;
+  }
   cor.total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
   saveJobs();
   showSaved('✓ COR '+( corIdx+1)+' saved');
-  // Refresh the form
   openCORForm(jobId, corIdx);
 }
 
 
-// Format dollar value with cents — always 2 decimal places
-function fmtMoney(v){
-  if(v===null||v===undefined||v==='')return '$0.00';
-  const n=parseFloat(v)||0;
-  return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+function populateJobContacts(gcId, selectedId){
+  const sel = document.getElementById('j-contact');
+  if(!sel) return;
+  const cts = DB.contacts.filter(c=>parseInt(c.gcId)===parseInt(gcId));
+  if(!cts.length){ sel.innerHTML='<option value="">— no contacts for this GC —</option>'; return; }
+  const byRole={};
+  cts.forEach(c=>{ if(!byRole[c.role])byRole[c.role]=[]; byRole[c.role].push(c); });
+  sel.innerHTML='<option value="">— select contact —</option>';
+  Object.entries(byRole).forEach(([role,cs])=>{
+    sel.innerHTML+=`<optgroup label="${role}">${cs.map(c=>`<option value="${c.id}">${c.first} ${c.last}</option>`).join('')}</optgroup>`;
+  });
+  if(selectedId) sel.value=selectedId;
 }
 
-// SOV month line onblur — saves and re-renders just the month container
-function sovMonthLineBlur(jobId, mi, li, field, val){
-  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
-  if(!job.sovMonths||!job.sovMonths[mi]) return;
-  if(!job.sovMonths[mi].lines) job.sovMonths[mi].lines=[];
-  while(job.sovMonths[mi].lines.length<=li) job.sovMonths[mi].lines.push({});
-  job.sovMonths[mi].lines[li][field]=val;
-  saveJobs();
-  // Re-render just the months container (not whole page)
-  const container=document.getElementById('sov-months-container-'+jobId);
-  if(container) container.innerHTML=(job.sovMonths||[]).map((month,idx)=>renderSOVMonth(job,month,idx)).join('');
+// Toggle visibility helper
+function toggleEl(id){
+  const el=document.getElementById(id); if(!el)return;
+  const chevron=document.getElementById(id.replace('-panel-','-chevron-'));
+  const isHidden=el.style.display==='none';
+  el.style.display=isHidden?'block':'none';
+  if(chevron)chevron.textContent=isHidden?'▲':'▼';
 }
 
-// When user types a % for This Application — converts to $ and saves
-function sovMonthPctBlur(jobId, mi, li, pct){
-  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
-  const sovLine=job.sov&&job.sov[li];
-  if(!sovLine||!sovLine.value) return;
-  const dollarAmt=Math.round(sovLine.value*pct/100*100)/100; // round to cents
-  if(!job.sovMonths||!job.sovMonths[mi]) return;
-  if(!job.sovMonths[mi].lines) job.sovMonths[mi].lines=[];
-  while(job.sovMonths[mi].lines.length<=li) job.sovMonths[mi].lines.push({});
-  job.sovMonths[mi].lines[li]['thisAppPlace']=dollarAmt;
+// Save rate settings and re-apply to current COR lines
+function saveCORRates(jobId, corIdx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.corRates)job.corRates={};
+  const g=(id)=>{ const el=document.getElementById(id+'-'+jobId); return el?parseFloat(el.value)||0:0; };
+  job.corRates.regular  = g('crate-regular');
+  job.corRates.overtime = g('crate-overtime');
+  job.corRates.premium  = g('crate-premium');
+  job.corRates.flat     = g('crate-flat');
+  job.corRates.enamel   = g('crate-enamel');
+  job.corRates.dtm      = g('crate-dtm');
+  // Update matching lines in this COR
+  const cor=job.cors&&job.cors[corIdx];
+  if(cor&&cor.lines){
+    const rateMap={regular:'regular',overtime:'overtime',premium:'premium',flat:'flat',enamel:'enamel',dtm:'dtm'};
+    cor.lines.forEach(l=>{
+      if(rateMap[l.key]) l.rate=job.corRates[l.key]||l.rate;
+    });
+  }
   saveJobs();
-  const container=document.getElementById('sov-months-container-'+jobId);
-  if(container) container.innerHTML=(job.sovMonths||[]).map((month,idx)=>renderSOVMonth(job,month,idx)).join('');
+  showSaved('✓ Rates saved');
+  openCORForm(jobId, corIdx);
+}
+
+// Override openNewCOR to auto-populate ALL standard lines with current job rates
+function openNewCOR(jobId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors) job.cors = [];
+  if(!job.corRates) job.corRates = {};
+  const R = {
+    regular:  job.corRates.regular  || 89.24,
+    overtime: job.corRates.overtime || 99.54,
+    premium:  job.corRates.premium  || 86.30,
+    flat:     job.corRates.flat     || 40.77,
+    enamel:   job.corRates.enamel   || 45.68,
+    dtm:      job.corRates.dtm      || 55.50,
+  };
+  const newCOR = {
+    date: new Date().toISOString().split('T')[0],
+    desc: '',
+    lines: [
+      // Labor — all 3, qty=0 so they show but total $0
+      {category:'labor', key:'regular',  label:'Hours (regular time) @',               rate:R.regular,  qty:0, type:'add'},
+      {category:'labor', key:'overtime', label:'Hours (over time) @',                  rate:R.overtime, qty:0, type:'add'},
+      {category:'labor', key:'premium',  label:'Hours (premium time contract work) @', rate:R.premium,  qty:0, type:'add'},
+      // Materials — all 4
+      {category:'material', key:'flat',     label:'Gallons of flat paint @',    rate:R.flat,   qty:0, type:'add'},
+      {category:'material', key:'enamel',   label:'Gallons of enamel paint @',  rate:R.enamel, qty:0, type:'add'},
+      {category:'material', key:'dtm',      label:'Gallons of DTM paint @',     rate:R.dtm,    qty:0, type:'add'},
+      {category:'material', key:'sundries', label:'Sundries',                   rate:0,        qty:1, type:'add', autoCalc:true},
+    ],
+    total: 0,
+    custCONum: '', custDate: '', custAmount: 0, void: false
+  };
+  job.cors.push(newCOR);
+  saveJobs();
+  COR_ACTIVE_JOB_ID = jobId;
+  COR_ACTIVE_IDX = job.cors.length - 1;
+  CUR_JOB_ID = jobId;
+  CUR_JOB_TAB = 'cor';
+  NAV.screen = 'jobdetail';
+  render();
 }
 </script>
 </body>
