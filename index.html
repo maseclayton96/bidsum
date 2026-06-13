@@ -4307,16 +4307,20 @@ function renderStatusRow(jobId, type, row, idx){
     <td><input class="status-input" value="${col3}" oninput="updateStatusField('${jobId}','${type}',${idx},'color',this.value)"></td>
     ${f(isPaint?'ddsOrdered':'samplesOrdered', isPaint?row.ddsOrdered:row.samplesOrdered, 'MM/DD/YY')}
     ${f(isPaint?'ddsReceived':'samplesReceived', isPaint?row.ddsReceived:row.samplesReceived, 'MM/DD/YY')}
-    <td><input class="status-input ${approvedClass}" value="${approvedVal}" placeholder="Approved/Rejected" oninput="updateStatusField('${jobId}','${type}',${idx},'approved',this.value);updateApprovedStyle(this)" style="width:100%;"></td>
+    <td><select class="status-input ${approvedClass}" onchange="updateStatusField('${jobId}','${type}',${idx},'approved',this.value);updateApprovedStyle(this)" style="width:100%;cursor:pointer;">
+      <option value="" ${!approvedVal?'selected':''}>Pending</option>
+      <option value="APPROVED" ${approvedVal==='APPROVED'?'selected':''}>Approved</option>
+      <option value="REJECTED" ${approvedVal==='REJECTED'?'selected':''}>Rejected</option>
+    </select></td>
     ${f(isPaint?'paintOrdered':'wcOrdered', isPaint?row.paintOrdered:row.wcOrdered, 'MM/DD/YY')}
     ${f('estDelivery', row.estDelivery, 'MM/DD/YY')}
     <td><button class="btn-sm" onclick="removeStatusItem('${jobId}','${type}',${idx})">×</button></td>
   </tr>`;
 }
 
-function updateApprovedStyle(input){
-  const v = input.value.toUpperCase();
-  input.className = 'status-input ' + (v==='APPROVED'?'status-approved':v==='REJECTED'?'status-rejected':'');
+function updateApprovedStyle(el){
+  const v = (el.value||'').toUpperCase();
+  el.className = 'status-input ' + (v==='APPROVED'?'status-approved':v==='REJECTED'?'status-rejected':'');
 }
 function updateStatusField(jobId, type, idx, field, val){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
@@ -4350,1013 +4354,10 @@ function togglePlansHighlighted(jobId, val){
 // ══════════════════════════════════════════════════════════════
 // COR LOG TAB
 // ══════════════════════════════════════════════════════════════
-function renderCORLog(job, coHdr, coAddr, coPhone, ct){
-  const cors = job.cors||[];
-  const origContract = job.value||0;
-  return `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;">
-      <!-- COR Summary Header -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Base Contract</div>
-          <div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(origContract)}</div>
-        </div>
-        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Awarded</div>
-          <div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div>
-        </div>
-        <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3F6E;">Revised Contract</div>
-          <div style="font-size:18px;font-weight:800;margin-top:4px;color:#1B3F6E;">${fmtVal(jobContract(job))}</div>
-        </div>
-        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Requested</div>
-          <div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(ct.req)}</div>
-        </div>
-        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Changes Awarded</div>
-          <div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div>
-        </div>
-        <div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC0000;">Changes Outstanding</div>
-          <div style="font-size:18px;font-weight:800;margin-top:4px;color:#CC0000;">${fmtVal(ct.outstanding)}</div>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text3);">${cors.length} change order${cors.length!==1?'s':''}</div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'))">Print / PDF</button>
-          <button class="btn-sm-primary" onclick="openNewCOR('${job.id}')">+ New COR</button>
-        </div>
-      </div>
-      <!-- COR Table -->
-      <div style="overflow-x:auto;">
-        <div class="cor-row cor-header" style="font-size:10px;">
-          <div>COR #</div><div>Date</div><div>Description</div><div>Amount</div>
-          <div>Cust CO#</div><div>Cust Date</div><div>Cust Amt</div><div>Diff</div><div>Status</div>
-        </div>
-        ${cors.length ? cors.map((cor,i)=>{
-          const diff = (cor.custAmount||0) - cor.total;
-          const rowCls = cor.void ? 'cor-void' : '';
-          return `<div class="cor-row ${rowCls}" style="${cor.void?'opacity:.4;':''}">
-            <div class="cor-num-link" onclick="openCORDetail('${job.id}',${i})">${i+1}</div>
-            <div>${fmtDate(cor.date)}</div>
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${cor.desc||''}">${cor.void?'<span style="color:#CC0000;font-weight:700;">VOID</span> ':''} ${cor.desc||'—'}</div>
-            <div style="font-weight:600;">${fmtVal(cor.total)}</div>
-            <div>${cor.custCONum||'—'}</div>
-            <div>${fmtDate(cor.custDate)}</div>
-            <div>${cor.custAmount?fmtVal(cor.custAmount):'—'}</div>
-            <div style="color:${diff===0?'var(--text3)':diff<0?'#CC0000':'var(--green)'}">${cor.custAmount?fmtVal(Math.abs(diff)):'—'}</div>
-            <div>${cor.void?'<span style="font-size:10px;background:#FFEAEA;color:#CC0000;padding:2px 6px;border-radius:4px;font-weight:700;">VOID</span>':cor.custAmount?'<span style="font-size:10px;background:#D9EFE3;color:#1E5C3A;padding:2px 6px;border-radius:4px;font-weight:700;">Awarded</span>':'<span style="font-size:10px;background:var(--bg3);color:var(--text3);padding:2px 6px;border-radius:4px;font-weight:700;">Pending</span>'}</div>
-          </div>`;
-        }).join('') : `<div style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">No CORs yet — click + New COR to add one</div>`}
-      </div>
-    </div>`;
-}
 
-// ══════════════════════════════════════════════════════════════
-// COR DETAIL MODAL
-// ══════════════════════════════════════════════════════════════
-function openNewCOR(jobId){
-  CUR_JOB_ID = jobId;
-  CUR_COR_IDX = null;
-  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const corNum = (job.cors||[]).length + 1;
-  document.getElementById('cor-modal-title').textContent = 'COR #' + corNum;
-  document.getElementById('cor-num').value = corNum;
-  document.getElementById('cor-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('cor-desc').value = '';
-  document.getElementById('cor-void').checked = false;
-  document.getElementById('cor-lines-container').innerHTML = '';
-  addCORLine(); // start with one blank line
-  updateCORTotal();
-  openModal('cor');
-}
+// renderCORLog replaced below
 
-function openCORDetail(jobId, corIdx){
-  CUR_JOB_ID = jobId; CUR_COR_IDX = corIdx;
-  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const cor = (job.cors||[])[corIdx]; if(!cor) return;
-  document.getElementById('cor-modal-title').textContent = 'COR #' + (corIdx+1);
-  document.getElementById('cor-num').value = corIdx+1;
-  document.getElementById('cor-date').value = cor.date||'';
-  document.getElementById('cor-desc').value = cor.desc||'';
-  document.getElementById('cor-void').checked = cor.void||false;
-  const container = document.getElementById('cor-lines-container');
-  container.innerHTML = '';
-  (cor.lines||[]).forEach(()=>addCORLine());
-  (cor.lines||[]).forEach((line,i)=>{
-    const row = container.querySelectorAll('.cor-line-row')[i];
-    if(!row) return;
-    row.querySelector('.cor-qty').value = line.qty||'';
-    row.querySelector('.cor-linedesc').value = line.desc||'';
-    row.querySelector('.cor-unit').value = line.unit||'';
-    row.querySelector('.cor-type').value = line.type||'add';
-    row.querySelector('.cor-amt').value = line.amount||'';
-  });
-  updateCORTotal();
-  // Also populate customer COR fields
-  document.getElementById('cor-cust-num') && (document.getElementById('cor-cust-num').value = cor.custCONum||'');
-  document.getElementById('cor-cust-date') && (document.getElementById('cor-cust-date').value = cor.custDate||'');
-  document.getElementById('cor-cust-amt') && (document.getElementById('cor-cust-amt').value = cor.custAmount||'');
-  openModal('cor');
-}
-
-function addCORLine(){
-  const container = document.getElementById('cor-lines-container');
-  const idx = container.querySelectorAll('.cor-line-row').length;
-  const div = document.createElement('div');
-  div.className = 'cor-line-row';
-  div.style.cssText = 'display:grid;grid-template-columns:60px 1fr 90px 80px 90px 36px;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);';
-  div.innerHTML = `
-    <input class="sub-input cor-qty" placeholder="Qty/Unit" style="font-size:12px;">
-    <input class="sub-input cor-linedesc" placeholder="Description of work" style="font-size:12px;">
-    <input class="sub-input cor-unit" placeholder="Unit $" style="font-size:12px;" oninput="updateCORTotal()">
-    <select class="cor-type" style="font-size:12px;border:none;border-bottom:1px solid var(--border);background:transparent;padding:3px;font-family:var(--font);outline:none;" onchange="updateCORTotal()">
-      <option value="add">ADD</option><option value="deduct">DEDUCT</option>
-    </select>
-    <input class="sub-input cor-amt" placeholder="Amount" style="font-size:12px;font-weight:600;" oninput="updateCORTotal()">
-    <button class="btn-sm" onclick="this.closest('.cor-line-row').remove();updateCORTotal()">×</button>`;
-  container.appendChild(div);
-}
-
-function updateCORTotal(){
-  const rows = document.querySelectorAll('.cor-line-row');
-  let total = 0;
-  rows.forEach(row=>{
-    const amt = parseFloat(row.querySelector('.cor-amt').value)||0;
-    const type = row.querySelector('.cor-type').value;
-    total += type==='add' ? amt : -amt;
-  });
-  const el = document.getElementById('cor-total-display');
-  if(el) el.textContent = (total>=0?'$':'-$') + Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:0});
-  if(document.getElementById('cor-void')?.checked){
-    if(el) el.textContent = 'VOID';
-  }
-}
-
-function saveCOR(){
-  const job = JOBS.find(j=>j.id===CUR_JOB_ID); if(!job) return;
-  if(!job.cors) job.cors=[];
-  const rows = document.querySelectorAll('.cor-line-row');
-  const lines = [...rows].map(row=>({
-    qty: row.querySelector('.cor-qty').value,
-    desc: row.querySelector('.cor-linedesc').value,
-    unit: parseFloat(row.querySelector('.cor-unit').value)||0,
-    type: row.querySelector('.cor-type').value,
-    amount: parseFloat(row.querySelector('.cor-amt').value)||0
-  })).filter(l=>l.desc||l.amount);
-  const total = lines.reduce((s,l)=>s+(l.type==='add'?l.amount:-l.amount),0);
-  const cor = {
-    date: document.getElementById('cor-date').value,
-    desc: document.getElementById('cor-desc').value.trim(),
-    lines, total: Math.abs(total),
-    type: total>=0?'add':'deduct',
-    void: document.getElementById('cor-void').checked,
-    custCONum: (document.getElementById('cor-cust-num')||{}).value||'',
-    custDate: (document.getElementById('cor-cust-date')||{}).value||'',
-    custAmount: parseFloat((document.getElementById('cor-cust-amt')||{}).value)||0
-  };
-  if(CUR_COR_IDX!==null) job.cors[CUR_COR_IDX]=cor;
-  else job.cors.push(cor);
-  saveJobs(); closeModal('cor'); openJobDetail(CUR_JOB_ID,'corlog');
-}
-
-// ══════════════════════════════════════════════════════════════
-// JOB CREATE / EDIT
-// ══════════════════════════════════════════════════════════════
-function onJobCompanyChange(){
-  const company = document.getElementById('j-company').value;
-  if(EDIT_JOB_ID===null){
-    document.getElementById('j-num').value = nextJobNum(company);
-  }
-}
-function openNewJobModal(){
-  EDIT_JOB_ID = null;
-  document.getElementById('job-modal-title').textContent = 'New Job';
-  document.getElementById('btn-delete-job').style.display = 'none';
-  ['j-name','j-address','j-city','j-zip','j-notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('j-value').value='0';
-  document.getElementById('j-status').value='Active';
-  document.getElementById('j-company').value=NAV.jobCompany||'Bonas';
-  document.getElementById('j-start').value=new Date().toISOString().split('T')[0];
-  document.getElementById('j-end').value='';
-  document.getElementById('j-num').value=nextJobNum('Bonas');
-  const gcSel=document.getElementById('j-gc');
-  gcSel.innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
-  document.getElementById('j-contact').innerHTML='<option value="">— select contact —</option>';
-  gcSel.onchange=function(){ populateJobContacts(this.value); };
-  document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
-  document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
-  openModal('job');
-}
-function populateJobContacts(gcId){
-  const contacts = DB.contacts.filter(c=>parseInt(c.gcId)===parseInt(gcId));
-  document.getElementById('j-contact').innerHTML='<option value="">— select contact —</option>'+contacts.map(c=>`<option value="${c.id}">${c.first} ${c.last}${c.role?' ('+c.role+')':''}</option>`).join('');
-}
-function openEditJob(jobId){
-  EDIT_JOB_ID = jobId;
-  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  document.getElementById('job-modal-title').textContent = 'Edit Job';
-  document.getElementById('btn-delete-job').style.display = 'block';
-  document.getElementById('j-num').value=job.num||'';
-  document.getElementById('j-company').value=job.company||'Bonas';
-  document.getElementById('j-name').value=job.name||'';
-  document.getElementById('j-address').value=job.address||'';
-  document.getElementById('j-city').value=job.city||'';
-  document.getElementById('j-zip').value=job.zip||'';
-  document.getElementById('j-value').value=job.value||'0';
-  document.getElementById('j-status').value=job.status||'Active';
-  document.getElementById('j-start').value=job.start||'';
-  document.getElementById('j-end').value=job.end||'';
-  document.getElementById('j-notes').value=job.notes||'';
-  const gcSel=document.getElementById('j-gc');
-  gcSel.innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
-  gcSel.value=job.gcId||'';
-  gcSel.onchange=function(){ populateJobContacts(this.value); };
-  populateJobContacts(job.gcId);
-  document.getElementById('j-contact').value=job.contactId||'';
-  document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
-  document.getElementById('j-pm').value=job.pmId||'';
-  document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
-  document.getElementById('j-super').value=job.superId||'';
-  openModal('job');
-}
-function saveJob(){
-  const name=document.getElementById('j-name').value.trim();
-  if(!name){alert('Job name required.');return;}
-  // Ensure JOBS array is current before adding
-  loadJobs();
-  const gcId=parseInt(document.getElementById('j-gc').value)||null;
-  const gc=gcId?DB.gcs.find(g=>parseInt(g.id)===gcId):null;
-  const contactId=parseInt(document.getElementById('j-contact').value)||null;
-  const contact=contactId?DB.contacts.find(c=>parseInt(c.id)===contactId):null;
-  const existing = EDIT_JOB_ID ? JOBS.find(j=>j.id===EDIT_JOB_ID) : null;
-  const job={
-    id:EDIT_JOB_ID||('job-'+Date.now()),
-    bidId:existing?existing.bidId:null,
-    num:document.getElementById('j-num').value.trim(),
-    company:document.getElementById('j-company').value,
-    name,gcId,gcName:gc?gc.name:'',
-    contactId,contactName:contact?contact.first+' '+contact.last:'',
-    pmId:parseInt(document.getElementById('j-pm').value)||null,
-    superId:parseInt(document.getElementById('j-super').value)||null,
-    foremanId:parseInt(document.getElementById('j-foreman').value)||null,
-    coordId:parseInt(document.getElementById('j-coord').value)||null,
-    address:document.getElementById('j-address').value.trim(),
-    city:document.getElementById('j-city').value.trim(),
-    zip:document.getElementById('j-zip').value.trim(),
-    value:parseFloat(document.getElementById('j-value').value)||0,
-    status:document.getElementById('j-status').value,
-    start:document.getElementById('j-start').value,
-    end:document.getElementById('j-end').value,
-    notes:document.getElementById('j-notes').value.trim(),
-    classCode:document.getElementById('j-class')?document.getElementById('j-class').value.trim():'',
-    prelimClosed:document.getElementById('j-prelim')?document.getElementById('j-prelim').checked:false,
-    costs:existing?existing.costs:[],
-    submittalPaint:existing?existing.submittalPaint:[],
-    submittalWC:existing?existing.submittalWC:[],
-    statusPaint:existing?existing.statusPaint:null,
-    statusWC:existing?existing.statusWC:null,
-    cors:existing?existing.cors:[],
-    plansHighlighted:existing?existing.plansHighlighted:false
-  };
-  if(EDIT_JOB_ID){ const idx=JOBS.findIndex(j=>j.id===EDIT_JOB_ID); if(idx>=0)JOBS[idx]=job; }
-  else JOBS.push(job);
-  saveJobs(); closeModal('job');
-  const savedCompany=document.getElementById('j-company')?document.getElementById('j-company').value:null;
-  if(savedCompany)NAV.jobCompany=savedCompany;
-  if(!NAV.jobCompany)NAV.jobCompany='Bonas';
-  if(EDIT_JOB_ID&&CUR_JOB_ID===EDIT_JOB_ID) openJobDetail(EDIT_JOB_ID);
-  else renderJobs();
-}
-function deleteJob(){
-  if(!confirm('Delete this job?')) return;
-  JOBS=JOBS.filter(j=>j.id!==EDIT_JOB_ID);
-  saveJobs(); closeModal('job'); renderJobs();
-}
-// Costs
-function openAddCost(jobId){
-  CUR_JOB_ID=jobId;
-  ['c-amount','c-notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('c-category').value='Labor';
-  document.getElementById('c-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('cost-modal-title').textContent='Add Cost';
-  openModal('cost');
-}
-function saveCost(){
-  const amount=parseFloat(document.getElementById('c-amount').value)||0;
-  if(!amount){alert('Enter an amount.');return;}
-  const job=JOBS.find(j=>j.id===CUR_JOB_ID); if(!job) return;
-  if(!job.costs)job.costs=[];
-  job.costs.push({category:document.getElementById('c-category').value,amount,date:document.getElementById('c-date').value,notes:document.getElementById('c-notes').value.trim()});
-  saveJobs(); closeModal('cost');
-  if(CUR_JOB_ID) openJobDetail(CUR_JOB_ID,'overview');
-}
-function deleteCostEntry(jobId,idx){
-  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
-  job.costs.splice(idx,1); saveJobs(); openJobDetail(jobId,'overview');
-}
-// ── Add SUP to member type options ──
-function addSuptToMemberModal(){
-  const typeEl=document.getElementById('m-type');
-  if(typeEl&&![...typeEl.options].find(o=>o.value==='SUP')){
-    const opt=document.createElement('option');
-    opt.value='SUP';opt.textContent='Superintendent';
-    typeEl.appendChild(opt);
-  }
-}
-
-
-function openMyProfile(){NAV.screen='myprofile';render();}
-function renderMyProfile(){
-  if(!SESSION.user)return;
-  const m=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id))||SESSION.user;
-  document.getElementById('app').innerHTML=`
-    <div style="max-width:560px;">
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:28px;box-shadow:var(--shadow);margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:18px;margin-bottom:24px;">
-          <div style="${memberAvatarStyle(m)}width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
-          <div>
-            <div style="font-size:22px;font-weight:700;">${m.first} ${m.last}</div>
-            <div style="font-size:13px;color:var(--text3);margin-top:2px;">${m.title||''} · ${m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='PC'?'Project Coordinator':m.type==='FOR'?'Foreman':m.type==='SUP'?'Superintendent':m.type==='ACC'?'Accounting':m.type==='ACCMGR'?'Accounting Manager':'Member'}</div>
-            <div style="margin-top:4px;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;${m.role==='manager'?'background:#FFEAEA;color:#CC0000;':'background:var(--bg3);color:var(--text3);'}">${m.role==='manager'?'Manager':'Employee'}</span></div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;">
-          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Email</div><div style="font-size:13px;">${m.email||'—'}</div></div>
-          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Phone</div><div style="font-size:13px;">${m.phone||'—'}</div></div>
-          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Initials</div><div style="font-size:13px;font-weight:600;">${m.initials||'—'}</div></div>
-          ${m.type==='PM'?`<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Bid Series</div><div style="font-size:13px;">${m.series||'—'}</div></div>`:''}
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn-primary" onclick="openMemberEditForSelf()">Edit Profile</button>
-          <button class="btn" onclick="openChangePinModal()">Change PIN</button>
-        </div>
-      </div>
-      ${SESSION.user.role==='manager'?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);"><div style="font-size:13px;font-weight:700;margin-bottom:12px;">Manager Tools</div><button class="btn-primary" onclick="openManagerPanel()">Team Access Management</button></div>`:''}
-    </div>`;
-}
-function openMemberEditForSelf(){
-  const m=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id));
-  if(!m)return;
-  NAV.memberId=m.id;
-  openMemberEdit();
-}
-
-function syncJobsFromBids(){
-  // Update any jobs linked to bids where bid data has changed
-  let changed = false;
-  JOBS.forEach(job=>{
-    if(!job.bidId) return;
-    const bid = DB.bids.find(b=>parseInt(b.id)===parseInt(job.bidId));
-    if(!bid) return;
-    if(bid.company && bid.company !== job.company){
-      job.company = bid.company;
-      job.gcId = bid.gcId;
-      job.gcName = bid.gcName;
-      job.value = bid.value;
-      changed = true;
-    }
-  });
-  if(changed) saveJobs();
-}
-// ═══════════════════════════════════════ ACCOUNTING ═════════════════════════════════════
-// Labor rates stored in localStorage: [{class:'PT', regular:45, overtime:67.5}]
-let LABOR_RATES = [];
-let IMPORT_DATA = []; // parsed CSV rows ready to preview
-let IMPORT_JOB_ID = null; // null = bulk, otherwise single job id
-
-function loadLaborRates(){
-  try{ const s=localStorage.getItem('bidsum-labor-rates'); if(s)LABOR_RATES=JSON.parse(s); }catch(e){ LABOR_RATES=[]; }
-  // Defaults if empty
-  if(!LABOR_RATES.length){
-    LABOR_RATES=[
-      {class:'PT',regular:45,overtime:67.5},
-      {class:'PWBASIC',regular:55,overtime:82.5},
-      {class:'FLR',regular:48,overtime:72},
-    ];
-  }
-}
-function saveLaborRates(){
-  try{ localStorage.setItem('bidsum-labor-rates',JSON.stringify(LABOR_RATES)); }catch(e){}
-}
-function getRateForClass(cls, isOT){
-  const r=LABOR_RATES.find(x=>x.class.toUpperCase()===cls.toUpperCase());
-  if(!r)return 0;
-  return isOT?(r.overtime||r.regular*1.5):(r.regular||0);
-}
-
-// ── Accounting Landing ──
-function goAccounting(){NAV.screen='accounting';render();}
-function goAdmin(){NAV.screen='manager';ADMIN_TAB='users';render();}
-function goRoleMatrix(){NAV.screen='manager';ADMIN_TAB='roles';render();}
-function renderAccounting(){
-  loadJobs();loadLaborRates();
-  const isAccMgr=SESSION.user&&(SESSION.user.type==='ACCMGR'||SESSION.user.role==='manager');
-  document.getElementById('app').innerHTML=`
-    <div style="font-size:22px;font-weight:700;margin-bottom:20px;">Accounting</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
-      <div class="acc-nav-card" onclick="openCostImport()">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Bulk Cost Import</div>
-        <div style="font-size:12px;color:var(--text3);">Import a Computer Ease CSV across all jobs at once</div>
-      </div>
-      <div class="acc-nav-card" onclick="openLaborRates()">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Labor Rates</div>
-        <div style="font-size:12px;color:var(--text3);">Set hourly rates per class code (PT, PWBASIC, FLR…)</div>
-      </div>
-      ${isAccMgr?`<div class="acc-nav-card" onclick="openManagerPanel()">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Team Access</div>
-        <div style="font-size:12px;color:var(--text3);">Assign roles and manage accounting team access</div>
-      </div>`:'<div></div>'}
-    </div>
-    <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">Recent Imports</div></div>
-    ${renderImportHistory()}
-  `;
-}
-
-function renderImportHistory(){
-  // Collect all import records from all jobs
-  const allImports=[];
-  JOBS.forEach(job=>{
-    (job.payrollImports||[]).forEach(imp=>{
-      allImports.push({...imp,jobNum:job.num,jobName:job.name,jobId:job.id});
-    });
-  });
-  allImports.sort((a,b)=>new Date(b.importedAt)-new Date(a.importedAt));
-  if(!allImports.length)return`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:32px;"><div class="empty-text" style="font-size:13px;">No cost imports yet</div></div>`;
-  return`<div class="jobs-list-table"><table style="width:100%;"><thead><tr>
-    <th>Job #</th><th>Job Name</th><th>Import Date</th><th style="text-align:right;">Rows</th>
-    <th style="text-align:right;">Total Hours</th><th style="text-align:right;">Total Cost</th>
-  </tr></thead><tbody>
-    ${allImports.slice(0,20).map(imp=>`<tr>
-      <td><span class="job-num">${imp.jobNum||'—'}</span></td>
-      <td style="font-weight:500;">${imp.jobName}</td>
-      <td style="font-size:12px;color:var(--text2);">${new Date(imp.importedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
-      <td style="text-align:right;">${imp.rows}</td>
-      <td style="text-align:right;">${(imp.totalHours||0).toFixed(1)}</td>
-      <td style="text-align:right;font-weight:600;">${fmtVal(imp.totalCost||0)}</td>
-    </tr>`).join('')}
-  </tbody></table></div>`;
-}
-
-// ── Labor Rates Modal ──
-function openLaborRates(){
-  loadLaborRates();
-  renderRatesContainer();
-  openModal('rates');
-}
-function renderRatesContainer(){
-  document.getElementById('rates-container').innerHTML=LABOR_RATES.map((r,i)=>`
-    <div class="rate-row">
-      <input class="rate-input" value="${r.class}" placeholder="Class code" oninput="LABOR_RATES[${i}].class=this.value" style="width:80px;font-weight:700;">
-      <div style="flex:1;display:flex;gap:10px;align-items:center;">
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em;">Regular $/hr</div>
-          <input class="rate-input" type="number" value="${r.regular}" oninput="LABOR_RATES[${i}].regular=parseFloat(this.value)||0"></div>
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em;">Overtime $/hr</div>
-          <input class="rate-input" type="number" value="${r.overtime||''}" placeholder="1.5× auto" oninput="LABOR_RATES[${i}].overtime=parseFloat(this.value)||0"></div>
-      </div>
-      <button class="btn-sm" onclick="LABOR_RATES.splice(${i},1);renderRatesContainer()">×</button>
-    </div>`).join('');
-}
-function addRateRow(){
-  LABOR_RATES.push({class:'',regular:0,overtime:0});
-  renderRatesContainer();
-}
-function saveRates(){
-  saveLaborRates();
-  closeModal('rates');
-  showSaved('✓ Labor rates saved');
-}
-
-// ── CSV Import ──
-function openCostImport(jobId){
-  IMPORT_JOB_ID=jobId||null;
-  const title=jobId?'Import Cost for This Job':'Bulk Cost Import';
-  document.getElementById('import-modal-title').textContent=title;
-  resetImport();
-  openModal('import');
-}
-function resetImport(){
-  IMPORT_DATA=[];
-  document.getElementById('import-step-1').style.display='block';
-  document.getElementById('import-step-2').style.display='none';
-  document.getElementById('import-file-input').value='';
-  document.getElementById('import-drop-zone').classList.remove('drag-over');
-}
-function onImportDrop(e){
-  e.preventDefault();
-  document.getElementById('import-drop-zone').classList.remove('drag-over');
-  const file=e.dataTransfer.files[0];
-  if(file)parseImportCSV(file);
-}
-function onImportFileSelect(e){
-  const file=e.target.files[0];
-  if(file)parseImportCSV(file);
-}
-function parseImportCSV(file){
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    loadLaborRates();
-    const text=ev.target.result;
-    const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
-    if(!lines.length){alert('Empty file.');return;}
-    // Parse header
-    const headers=lines[0].toLowerCase().split(',').map(h=>h.trim());
-    const col=name=>headers.indexOf(name);
-    const rows=[];
-    for(let i=1;i<lines.length;i++){
-      const vals=lines[i].split(',').map(v=>v.trim());
-      if(vals.length<6)continue;
-      const costcode=vals[col('costcode')]||'';
-      const parts=costcode.split('.');
-      const jobNum=parts[0];
-      const phase=parts[1]||'1';
-      const cls=vals[col('class')]||'';
-      const typeStr=(vals[col('type')]||'').toLowerCase();
-      const isOT=typeStr.includes('over');
-      const hours=parseFloat(vals[col('hours')])||0;
-      const rate=getRateForClass(cls,isOT);
-      const csvAmt=parseFloat(vals[col('amount')])||0;
-      const amount=csvAmt||Math.round(hours*rate*100)/100;
-      // Match to a job
-      const job=JOBS.find(j=>String(j.num)===String(jobNum));
-      rows.push({
-        date:vals[col('date')]||'',
-        emp:vals[col('emp')]||'',
-        cls,
-        jobNum,phase,
-        costtype:vals[col('costtype')]||'',
-        typeStr,isOT,
-        hours,rate,amount,
-        job:job||null,
-        include:true
-      });
-    }
-    IMPORT_DATA=rows;
-    // If single job mode, filter to that job
-    if(IMPORT_JOB_ID){
-      const job=JOBS.find(j=>j.id===IMPORT_JOB_ID);
-      if(job){
-        IMPORT_DATA=rows.filter(r=>String(r.jobNum)===String(job.num));
-        if(!IMPORT_DATA.length){
-          alert('No rows in this CSV match job #'+job.num);
-          return;
-        }
-      }
-    }
-    renderImportPreview();
-  };
-  reader.readAsText(file);
-}
-
-function renderImportPreview(){
-  document.getElementById('import-step-1').style.display='none';
-  document.getElementById('import-step-2').style.display='block';
-  const matched=IMPORT_DATA.filter(r=>r.job).length;
-  const unmatched=IMPORT_DATA.filter(r=>!r.job).length;
-  const totalHrs=IMPORT_DATA.reduce((s,r)=>s+r.hours,0);
-  const totalAmt=IMPORT_DATA.reduce((s,r)=>s+r.amount,0);
-  document.getElementById('import-summary').textContent=
-    `${IMPORT_DATA.length} rows · ${matched} matched to jobs · ${totalHrs.toFixed(1)} hrs · Est. ${fmtVal(totalAmt)}`;
-  if(unmatched){
-    const nums=[...new Set(IMPORT_DATA.filter(r=>!r.job).map(r=>r.jobNum))].join(', ');
-    const warn=document.getElementById('import-unmatched-warn');
-    warn.style.display='block';
-    warn.textContent=`${unmatched} rows did not match any job and will be skipped. Unknown job numbers: ${nums}`;
-  }
-  const container=document.getElementById('import-rows-container');
-  container.innerHTML=IMPORT_DATA.map((r,i)=>`
-    <div class="import-row ${r.job?'':'import-unmatched'}" style="${!r.job?'opacity:.5;':''}">
-      <div><input type="checkbox" ${r.include?'checked':''} onchange="IMPORT_DATA[${i}].include=this.checked" style="accent-color:#CC0000;"></div>
-      <div style="font-size:11px;">${r.date}</div>
-      <div style="font-size:11px;">${r.emp}</div>
-      <div style="font-size:11px;font-weight:600;">${r.cls}</div>
-      <div style="font-size:11px;${r.job?'color:var(--green);font-weight:600;':'color:#CC0000;'}">
-        ${r.job?'#'+r.jobNum:'#'+r.jobNum+' ?'}
-      </div>
-      <div style="font-size:11px;">Ph.${r.phase}</div>
-      <div style="font-size:11px;">${r.isOT?'OT':'REG'}</div>
-      <div style="font-size:11px;font-weight:600;">${r.hours}h</div>
-      <div style="font-size:11px;color:var(--text3);">$${r.rate}/hr</div>
-      <div style="font-size:11px;font-weight:700;">${fmtVal(r.amount)}</div>
-    </div>`).join('');
-}
-
-function confirmImport(){
-  const toImport=IMPORT_DATA.filter(r=>r.include&&r.job);
-  if(!toImport.length){alert('No matched rows selected.');return;}
-  // Group by job
-  const byJob={};
-  toImport.forEach(r=>{
-    if(!byJob[r.job.id])byJob[r.job.id]=[];
-    byJob[r.job.id].push(r);
-  });
-  let totalJobs=0;let totalRows=0;let totalCost=0;
-  Object.entries(byJob).forEach(([jobId,rows])=>{
-    const job=JOBS.find(j=>j.id===jobId);
-    if(!job)return;
-    if(!job.costs)job.costs=[];
-    if(!job.payrollImports)job.payrollImports=[];
-    const totalHours=rows.reduce((s,r)=>s+r.hours,0);
-    const total=rows.reduce((s,r)=>s+r.amount,0);
-    // Group by date+class for cleaner cost entries
-    const byDateClass={};
-    rows.forEach(r=>{
-      const key=r.date+'|'+r.cls+'|'+(r.isOT?'OT':'REG');
-      if(!byDateClass[key])byDateClass[key]={date:r.date,cls:r.cls,isOT:r.isOT,hours:0,amount:0,emps:new Set()};
-      byDateClass[key].hours+=r.hours;
-      byDateClass[key].amount+=r.amount;
-      byDateClass[key].emps.add(r.emp);
-    });
-    Object.values(byDateClass).forEach(entry=>{
-      job.costs.push({
-        category:entry.isOT?'Overtime Labor':'Labor',
-        amount:Math.round(entry.amount*100)/100,
-        date:new Date(entry.date).toISOString().split('T')[0]||entry.date,
-        notes:`CE Import: ${entry.cls} ${entry.isOT?'OT':'REG'} · ${entry.hours.toFixed(1)}hrs · ${[...entry.emps].join(', ')}`
-      });
-    });
-    // Record import history
-    job.payrollImports.push({
-      importedAt:new Date().toISOString(),
-      rows:rows.length,totalHours,totalCost:total,
-      importedBy:SESSION.user?SESSION.user.first+' '+SESSION.user.last:'Unknown'
-    });
-    totalJobs++;totalRows+=rows.length;totalCost+=total;
-  });
-  saveJobs();
-  closeModal('import');
-  alert(`Import complete: ${totalRows} rows imported to ${totalJobs} job${totalJobs!==1?'s':''} · Total cost: ${fmtVal(totalCost)}`);
-  // Refresh current view
-  if(NAV.screen==='accounting')renderAccounting();
-  else if(NAV.screen==='jobdetail'&&CUR_JOB_ID){openJobDetail(CUR_JOB_ID,'overview');}
-}
-
-// ── Role helpers ──
-function isAccounting(user){
-  if(!user)return false;
-  return user.type==='ACC'||user.type==='ACCMGR';
-}
-function isFieldRole(user){
-  if(!user)return false;
-  return ['SUP','PC','FOR'].includes(user.type);
-}
-function isAccManager(user){
-  if(!user)return false;
-  return user.type==='ACCMGR'||user.role==='manager';
-}
-function canEditBids(user){
-  if(!user)return false;
-  return !isAccounting(user)||user.role==='manager';
-}
-
-
-// ═══════════════════════════════════════ COST BREAKDOWN ══════════════════════════════════
-const COST_CATEGORIES = [
-  'Labor','Overtime Labor','Fringes','Materials','Committed Materials',
-  'Subcontracts','Equipment Rental','Job Supplies','Other Job Costs'
-];
-
-function jobTotalCosts(job){
-  return (job.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
-}
-function jobGP(job){
-  return jobContract(job) - jobTotalCosts(job);
-}
-function jobCORTotals(job){
-  const cors=job.cors||[];
-  const req=cors.filter(c=>!c.void).reduce((s,c)=>s+(c.total||0),0);
-  const awd=cors.filter(c=>!c.void&&c.custAmount).reduce((s,c)=>s+(c.custAmount||0),0);
-  return{req, awd, outstanding:req-awd};
-}
-
-function jobCostByCategory(job, category){
-  return (job.costs||[]).filter(c=>c.category===category).reduce((s,c)=>s+(c.amount||0),0);
-}
-
-function renderCostBreakdown(job){
-  const cats = COST_CATEGORIES;
-  const cors = job.cors||[];
-  const openCORs = cors.filter(c=>!c.void&&!c.custAmount&&c.total>0);
-  const receivedCORs = cors.filter(c=>!c.void&&c.custAmount&&c.custAmount>0);
-  const openCORTotal = openCORs.reduce((s,c)=>s+c.total,0);
-  const receivedCORTotal = receivedCORs.reduce((s,c)=>s+(c.custAmount||0),0);
-  const totalCosts = jobTotalCosts(job);
-  const rows = cats.map(cat=>{
-    const amt = jobCostByCategory(job, cat);
-    const entries = (job.costs||[]).filter(c=>c.category===cat);
-    return{cat,amt,entries};
-  }).filter(r=>r.amt>0||true); // show all categories
-
-  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;">
-    <table style="width:100%;">
-      <thead><tr style="background:var(--bg3);">
-        <th style="width:200px;">Category</th>
-        <th style="text-align:right;width:120px;">Amount</th>
-        <th style="text-align:right;width:80px;">% of Total</th>
-        <th></th>
-      </tr></thead>
-      <tbody>
-        ${rows.map((r,i)=>`<tr style="${r.amt>0?'':'opacity:.4;'}">
-          <td style="font-weight:${r.amt>0?'600':'400'};font-size:13px;">${r.cat}</td>
-          <td style="text-align:right;font-weight:${r.amt>0?'700':'400'};font-size:13px;color:${r.amt>0?'#CC0000':'var(--text3)'};">${r.amt>0?fmtVal(r.amt):'—'}</td>
-          <td style="text-align:right;font-size:12px;color:var(--text3);">${totalCosts&&r.amt?Math.round(r.amt/totalCosts*100)+'%':'—'}</td>
-          <td style="text-align:right;">
-            ${r.entries.length?`<button class="btn-sm" onclick="toggleCostDetail('detail-${i}-${job.id.replace(/[^a-z0-9]/gi,'')}')" style="font-size:10px;">▾ ${r.entries.length}</button>`:''}
-          </td>
-        </tr>
-        ${r.entries.length?`<tr id="detail-${i}-${job.id.replace(/[^a-z0-9]/gi,'')}" style="display:none;"><td colspan="4" style="padding:0 0 8px 16px;">
-          <table style="width:100%;font-size:11px;"><tbody>
-            ${r.entries.map((e,ei)=>`<tr><td style="color:var(--text2);padding:3px 8px;">${fmtDate(e.date)}</td><td style="padding:3px 8px;">${e.notes||'—'}</td><td style="text-align:right;padding:3px 8px;font-weight:600;">${fmtVal(e.amount)}</td><td style="padding:3px 8px;"><button class="btn-sm" onclick="deleteCostEntry('${job.id}',${(job.costs||[]).indexOf(e)})">×</button></td></tr>`).join('')}
-          </tbody></table>
-        </td></tr>`:''}
-        `).join('')}
-        <!-- Divider -->
-        <tr><td colspan="4" style="padding:0;"><div style="height:2px;background:var(--border);margin:4px 0;"></div></td></tr>
-        <!-- Change Orders -->
-        <tr style="${openCORTotal?'':'opacity:.4;'}">
-          <td style="font-weight:600;font-size:13px;color:#CC0000;">Change Orders — Open</td>
-          <td style="text-align:right;font-weight:700;font-size:13px;color:#CC0000;">${openCORTotal?fmtVal(openCORTotal):'—'}</td>
-          <td style="text-align:right;font-size:12px;color:var(--text3);">${openCORs.length?openCORs.length+' COR'+( openCORs.length!==1?'s':''):'—'}</td>
-          <td></td>
-        </tr>
-        <tr style="${receivedCORTotal?'':'opacity:.4;'}">
-          <td style="font-weight:600;font-size:13px;color:var(--green);">Change Orders — Received</td>
-          <td style="text-align:right;font-weight:700;font-size:13px;color:var(--green);">${receivedCORTotal?fmtVal(receivedCORTotal):'—'}</td>
-          <td style="text-align:right;font-size:12px;color:var(--text3);">${receivedCORs.length?receivedCORs.length+' COR'+(receivedCORs.length!==1?'s':''):'—'}</td>
-          <td></td>
-        </tr>
-        <!-- Total row -->
-        <tr style="background:var(--bg3);"><td colspan="4" style="padding:0;"></td></tr>
-        <tr style="background:var(--bg3);">
-          <td style="font-weight:700;font-size:13px;padding:10px 12px;">Total Job Costs</td>
-          <td style="text-align:right;font-weight:800;font-size:15px;color:#CC0000;padding:10px 12px;">${fmtVal(totalCosts)}</td>
-          <td colspan="2"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>`;
-}
-
-function toggleCostDetail(id){
-  const el=document.getElementById(id);
-  if(el)el.style.display=el.style.display==='none'?'table-row':'none';
-}
-
-// ═══════════════════════════════════════ COMPANY LANDING ══════════════════════════════════
-
-function updateJobField(jobId, field, val){
-  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
-  job[field]=val;saveJobs();
-}
-function togglePrelim(jobId){
-  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
-  job.prelimClosed=!job.prelimClosed;saveJobs();
-  renderCompanyJobList(NAV.jobCompany);
-}
-function openVisibleJob(idx){
-  const job = VISIBLE_JOBS[idx];
-  if(!job){ console.error('openVisibleJob: no job at index',idx); return; }
-  console.log('[openVisibleJob] opening job:',job.name,'id:',job.id);
-  NAV.jobCompany = job.company||'Bonas';
-  CUR_JOB_ID = job.id;
-  CUR_JOB_TAB = 'overview';
-  NAV.screen = 'jobdetail';
-  render();
-}
-function renderCompanyJobList(company){
-  VISIBLE_JOBS = []; // reset on each render
-  // Foreman: only show their assigned jobs
-  if(SESSION.user&&SESSION.user.type==='FOR'){
-    loadJobs();
-    const myJobs=JOBS.filter(j=>j.company===company&&(parseInt(j.pmId)===parseInt(SESSION.user.id)||parseInt(j.superId)===parseInt(SESSION.user.id)));
-    renderFormanJobList(company,myJobs);
-    return;
-  }
-  loadJobs();
-  const jobs = JOBS.filter(j=>j.company===company).sort((a,b)=>parseInt(a.num||0)-parseInt(b.num||0));
-  const active = jobs.filter(j=>j.status==='Active');
-  const onHold = jobs.filter(j=>j.status==='On Hold');
-  const complete = jobs.filter(j=>j.status==='Complete');
-  const coHdr = company==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
-  const totalContract = jobs.reduce((s,j)=>s+jobContract(j),0);
-  const totalOpenCORs = jobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s2,c)=>s2+c.total,0)),0);
-
-  const renderSection = (title, sectionJobs, showEmpty) => {
-    if(!sectionJobs.length && !showEmpty) return '';
-    return`<div style="margin-bottom:24px;">
-      <div class="section-hd" style="margin-bottom:10px;">
-        <div class="section-title">${title} <span style="color:var(--text3);font-weight:400;font-size:12px;">${sectionJobs.length} job${sectionJobs.length!==1?'s':''}</span></div>
-      </div>
-      ${sectionJobs.length?`<div class="job-list-table" style="overflow-x:auto;">
-        <table style="width:100%;min-width:1100px;">
-          <thead><tr>
-            <th style="width:68px;">Job #</th>
-            <th style="width:38px;">PM</th>
-            <th style="min-width:160px;">Job Name</th>
-            <th style="width:160px;">Address</th>
-            <th style="width:90px;">City</th>
-            <th style="width:54px;">Zip</th>
-            <th style="width:140px;">GC / Customer</th>
-            <th style="width:120px;">Contact</th>
-            <th style="text-align:right;width:90px;">Contract</th>
-            <th style="text-align:right;width:90px;">Open CORs</th>
-            <th style="width:70px;">Class</th>
-            <th style="width:80px;">Prelim</th>
-            <th style="width:80px;">Status</th>
-          </tr></thead>
-          <tbody>
-            ${sectionJobs.map(job=>{
-              const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
-              const ini=pm?(pm.initials||(pm.first[0]+pm.last[0]).toUpperCase()):'—';
-              const contact=DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
-              const openCOR=(job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0).reduce((s,c)=>s+c.total,0);
-              const sc=job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active';
-              const prelimBadge=job.prelimClosed?'<span style="font-size:10px;background:#E8F7EE;color:var(--green);padding:2px 6px;border-radius:20px;font-weight:700;">Closed</span>':'<span style="font-size:10px;background:#FFF0F0;color:#CC0000;padding:2px 6px;border-radius:20px;font-weight:700;">Open</span>';
-              VISIBLE_JOBS.push(job);
-              const _idx=VISIBLE_JOBS.length-1;
-              return`<tr style="cursor:pointer;" onclick="openVisibleJob(${_idx})">
-                <td><span class="job-num">${job.num||'—'}</span></td>
-                <td style="font-size:11px;font-weight:700;">${ini}</td>
-                <td style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.name}</td>
-                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.address||'—'}</td>
-                <td style="font-size:11px;">${job.city||'—'}</td>
-                <td style="font-size:11px;">${job.zip||'—'}</td>
-                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.gcName||'—'}</td>
-                <td style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${contact?contact.first+' '+contact.last:job.contactName||'—'}</td>
-                <td style="text-align:right;font-weight:600;">${fmtVal(jobContract(job))}</td>
-                <td style="text-align:right;font-weight:600;color:${openCOR?'#CC0000':'var(--text3)'};">${openCOR?fmtVal(openCOR):'—'}</td>
-                <td><input type="text" value="${job.classCode||''}" placeholder="Class" onclick="event.stopPropagation()" onchange="updateJobField('${job.id}','classCode',this.value)" style="width:60px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;font-family:var(--font);background:var(--bg);"></td>
-                <td>${prelimBadge}</td>
-                <td><span class="job-status-badge ${sc}">${job.status}</span></td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>`:`<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);">No ${title.toLowerCase()} jobs</div>`}
-    </div>`;
-  };
-
-  document.getElementById('app').innerHTML=`
-    <!-- Header -->
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-      <div>
-        <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;">${coHdr}</div>
-        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${jobs.length} total jobs · ${active.length} active</div>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;text-align:center;min-width:90px;">
-          <div style="font-size:18px;font-weight:700;">${fmtVal(totalContract)}</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Total Contract</div>
-        </div>
-        <div style="background:#FFEAEA;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 16px;text-align:center;min-width:90px;">
-          <div style="font-size:18px;font-weight:700;color:#CC0000;">${fmtVal(totalOpenCORs)}</div>
-          <div style="font-size:10px;color:#CC0000;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Open CORs</div>
-        </div>
-      </div>
-    </div>
-    ${renderSection('Active Jobs', active, true)}
-    ${renderSection('On Hold', onHold, false)}
-    ${renderSection('Complete', complete, false)}
-  `;
-}
-
-// ═══════════════════════════════════════ TEAM PAGE ════════════════════════════════════════
-function goTeam(){NAV.screen='team';render();}
-function renderTeam(){
-  const byType = {
-    PM: DB.members.filter(m=>m.type==='PM'&&m.active!==false),
-    EST: DB.members.filter(m=>m.type==='EST'&&m.active!==false),
-    PC: DB.members.filter(m=>m.type==='PC'&&m.active!==false),
-    FOR: DB.members.filter(m=>m.type==='FOR'&&m.active!==false),
-    SUP: DB.members.filter(m=>m.type==='SUP'&&m.active!==false),
-    ACC: DB.members.filter(m=>(m.type==='ACC'||m.type==='ACCMGR')&&m.active!==false),
-    inactive: DB.members.filter(m=>m.active===false)
-  };
-  const isAdmin = SESSION.user&&(SESSION.user.role==='manager'||SESSION.user.type==='ACCMGR');
-
-  const renderMemberSection = (title, members) => {
-    if(!members.length) return '';
-    return`<div style="margin-bottom:28px;">
-      <div class="section-hd" style="margin-bottom:14px;"><div class="section-title">${title}</div></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
-        ${members.map(m=>{
-          const typeLabel=m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='SUP'?'Superintendent':m.type==='ACCMGR'?'Accounting Manager':m.type==='ACC'?'Accounting':'Member';
-          const myBids=DB.bids.filter(b=>parseInt(b.memberId)===parseInt(m.id));
-          const awarded=myBids.filter(b=>b.status==='Awarded');
-          const lastLogin=m.lastLogin?new Date(m.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
-          return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px;box-shadow:var(--shadow);">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-              <div style="${memberAvatarStyle(m)}width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${m.initials||(m.first[0]+m.last[0]).toUpperCase()}</div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:14px;font-weight:700;">${m.first} ${m.last}</div>
-                <div style="font-size:11px;color:var(--text3);margin-top:1px;">${m.title||typeLabel}</div>
-                <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">
-                  <span class="${m.role==='manager'?'badge-manager':'badge-employee'}" style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;">${m.role==='manager'?'Manager':'Employee'}</span>
-                  ${m.type==='PM'&&m.series?`<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--bg3);color:var(--text3);">${m.series}s</span>`:''}
-                </div>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:14px;">
-              <div><span style="color:var(--text3);">Email: </span>${m.email||'—'}</div>
-              <div><span style="color:var(--text3);">Phone: </span>${m.phone||'—'}</div>
-              ${m.type==='PM'||m.type==='EST'?`<div><span style="color:var(--text3);">Bids: </span>${myBids.length}</div><div><span style="color:var(--text3);">Wins: </span>${awarded.length}</div>`:''}
-              <div style="grid-column:1/-1;"><span style="color:var(--text3);">Last login: </span>${lastLogin}</div>
-            </div>
-            ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn-sm" onclick="openMemberEditById(${m.id})">Edit</button>
-              ${isAdmin?`<button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>`:''}
-              ${isAdmin&&parseInt(m.id)!==parseInt(SESSION.user.id)?`<button class="btn-sm" onclick="mgrToggleRole(${m.id})">${m.role==='manager'?'→ Employee':'→ Manager'}</button>`:''}
-            </div>`:''}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  };
-
-  document.getElementById('app').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div style="font-size:22px;font-weight:700;">Team</div>
-      ${isAdmin?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add member</button>`:''}
-    </div>
-    ${renderMemberSection('Project Managers', byType.PM)}
-    ${renderMemberSection('Estimators', byType.EST)}
-    ${renderMemberSection('Project Coordinators', byType.PC)}
-    ${renderMemberSection('Foremen', byType.FOR)}
-    ${renderMemberSection('Superintendents', byType.SUP)}
-    ${renderMemberSection('Accounting', byType.ACC)}
-    ${byType.inactive.length?renderMemberSection('Inactive', byType.inactive):''}
-  `;
-}
-
-function openMemberEditById(id){
-  NAV.memberId=id;
-  openMemberEdit();
-}
-
-// ═══════════════════════════════════════ SOV ═════════════════════════════════════════════
-// Schedule of Values — contract line items, % complete, billed to date, balance
-function renderSOV(job){
-  if(!job.sov) job.sov = [];
-  const contract = jobContract(job);
-  const totalSOVValue = job.sov.reduce((s,l)=>s+(l.value||0),0);
-  const totalBilled = job.sov.reduce((s,l)=>s+((l.value||0)*(l.pctComplete||0)/100),0);
-  const totalBalance = totalSOVValue - totalBilled;
-
-  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-weight:700;font-size:14px;">Schedule of Values</div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-sm" onclick="addSOVLine('${job.id}')">+ Add line</button>
-        <button class="btn-sm-primary" onclick="saveSOV('${job.id}')">Save</button>
-      </div>
-    </div>
-    <!-- Summary -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract Value</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(contract)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">SOV Total</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:${Math.abs(totalSOVValue-contract)>1?'#CC0000':'inherit'};">${fmtVal(totalSOVValue)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Billed to Date</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:var(--green);">${fmtVal(totalBilled)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Balance</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(totalBalance)}</div></div>
-    </div>
-    ${Math.abs(totalSOVValue-contract)>1?`<div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:8px 14px;font-size:12px;color:#CC0000;margin-bottom:14px;">SOV total (${fmtVal(totalSOVValue)}) does not match contract (${fmtVal(contract)}). Difference: ${fmtVal(Math.abs(totalSOVValue-contract))}</div>`:''}
-    <!-- Table -->
-    <div style="overflow-x:auto;">
-      <table style="width:100%;min-width:700px;">
-        <thead><tr style="background:var(--bg3);">
-          <th style="width:40px;">#</th>
-          <th>Description</th>
-          <th style="width:110px;text-align:right;">Scheduled Value</th>
-          <th style="width:90px;text-align:center;">% Complete</th>
-          <th style="width:110px;text-align:right;">Billed to Date</th>
-          <th style="width:110px;text-align:right;">Balance</th>
-          <th style="width:36px;"></th>
-        </tr></thead>
-        <tbody id="sov-tbody-${job.id.replace(/[^a-z0-9]/gi,'')}">${
-          job.sov.length ? job.sov.map((line,i)=>{
-            const billed = (line.value||0)*(line.pctComplete||0)/100;
-            const bal = (line.value||0)-billed;
-            const pct = line.pctComplete||0;
-            return`<tr>
-              <td style="color:var(--text3);font-size:12px;">${i+1}</td>
-              <td><input class="sub-input" value="${line.desc||''}" placeholder="Line item description" oninput="SOV_TEMP['${job.id}'][${i}].desc=this.value" style="width:100%;font-size:13px;"></td>
-              <td style="text-align:right;"><input class="sub-input" type="number" value="${line.value||''}" placeholder="0" oninput="SOV_TEMP['${job.id}'][${i}].value=parseFloat(this.value)||0;updateSOVRow(this,${i},'${job.id}')" style="text-align:right;width:100%;font-size:13px;font-weight:600;"></td>
-              <td style="text-align:center;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <input type="range" min="0" max="100" value="${pct}" oninput="this.nextElementSibling.textContent=this.value+'%';SOV_TEMP['${job.id}'][${i}].pctComplete=parseInt(this.value);updateSOVRow(this,${i},'${job.id}')" style="flex:1;accent-color:#CC0000;">
-                  <span style="font-size:12px;font-weight:700;min-width:36px;">${pct}%</span>
-                </div>
-              </td>
-              <td style="text-align:right;font-weight:600;color:var(--green);">${fmtVal(billed)}</td>
-              <td style="text-align:right;color:${bal>0?'var(--text)':'var(--green)'};">${fmtVal(bal)}</td>
-              <td><button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})">×</button></td>
-            </tr>`;
-          }).join('') : `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">No SOV lines yet — click + Add line to build the schedule of values</td></tr>`
-        }</tbody>
-      </table>
-    </div>
-  </div>`;
-}
+// renderSOV replaced below
 
 let SOV_TEMP = {};
 
@@ -5874,70 +4875,9 @@ function saveBudget(jobId){
 }
 
 // ══ DOCUMENTS TAB ══
-function renderDocumentsTab(job){
-  if(!job.documents)job.documents=[];
-  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-      <div style="font-size:14px;font-weight:700;">Documents</div>
-      <label class="btn-sm-primary" style="cursor:pointer;">
-        + Upload File
-        <input type="file" multiple style="display:none;" onchange="uploadJobDocs('${job.id}',this)">
-      </label>
-    </div>
-    <div class="import-zone" id="doc-drop-zone-${job.id.replace(/[^a-z0-9]/gi,'')}"
-      ondragover="event.preventDefault();this.classList.add('drag-over')"
-      ondragleave="this.classList.remove('drag-over')"
-      ondrop="onDocDrop(event,'${job.id}')">
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Drop files here</div>
-      <div style="font-size:12px;color:var(--text3);">PDF, Word, Excel, Images — any file type</div>
-    </div>
-    ${job.documents.length?`
-    <div style="margin-top:16px;">
-      <table style="width:100%;"><thead><tr style="background:var(--bg3);">
-        <th style="padding:8px 12px;text-align:left;">File Name</th>
-        <th style="padding:8px 12px;text-align:left;width:100px;">Size</th>
-        <th style="padding:8px 12px;text-align:left;width:120px;">Uploaded</th>
-        <th style="padding:8px 12px;width:100px;"></th>
-      </tr></thead><tbody>
-        ${job.documents.map((doc,i)=>`<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:10px 12px;font-weight:500;font-size:13px;">${doc.name}</td>
-          <td style="padding:10px 12px;font-size:12px;color:var(--text3);">${formatFileSize(doc.size)}</td>
-          <td style="padding:10px 12px;font-size:12px;color:var(--text3);">${doc.uploadedAt?new Date(doc.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
-          <td style="padding:10px 12px;display:flex;gap:6px;">
-            <button class="btn-sm" onclick="openDocFile('${job.id}',${i})">View</button>
-            <button class="btn-sm" style="color:#CC0000;" onclick="deleteJobDoc('${job.id}',${i})">×</button>
-          </td>
-        </tr>`).join('')}
-      </tbody></table>
-    </div>`:`<div style="margin-top:16px;text-align:center;color:var(--text3);font-size:13px;padding:20px;">No documents uploaded yet</div>`}
-  </div>`;
-}
 
-function onDocDrop(e,jobId){
-  e.preventDefault();
-  const zone=e.currentTarget;if(zone)zone.classList.remove('drag-over');
-  const files=[...e.dataTransfer.files];
-  processDocFiles(jobId,files);
-}
-function uploadJobDocs(jobId,input){
-  const files=[...input.files];
-  processDocFiles(jobId,files);
-  input.value='';
-}
-function processDocFiles(jobId,files){
-  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
-  if(!job.documents)job.documents=[];
-  let loaded=0;
-  files.forEach(file=>{
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      job.documents.push({name:file.name,size:file.size,uploadedAt:new Date().toISOString(),dataUrl:ev.target.result});
-      loaded++;
-      if(loaded===files.length){saveJobs();openJobDetail(jobId,'documents');}
-    };
-    reader.readAsDataURL(file);
-  });
-}
+// renderDocumentsTab replaced below
+
 function openDocFile(jobId,idx){
   const job=JOBS.find(j=>j.id===jobId);if(!job||!job.documents[idx])return;
   openPDFData(job.documents[idx]);
@@ -6377,6 +5317,430 @@ function syncStatusFromSubmittalAuto(jobId){
   });
   saveJobs();
 }
+// ═══════════════════════════════════════ COR LOG REBUILD ════════════════════════════════
+// Pre-built 50 rows, add 1/5/10, numerical order, VOID toggle per row
+
+function renderCORLog(job, coHdr, coAddr, coPhone, ct){
+  if(!job.cors) job.cors = [];
+  const origContract = job.value||0;
+  const revisedContract = jobContract(job);
+
+  // Ensure minimum 50 rows
+  const COR_MIN = 50;
+  const displayCors = [...job.cors];
+  while(displayCors.length < COR_MIN) displayCors.push(null); // null = empty row
+
+  const today = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
+    <!-- Summary -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Base Contract</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(origContract)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div></div>
+      <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3F6E;">Revised Contract</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#1B3F6E;">${fmtVal(revisedContract)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Requested</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(ct.req)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Changes Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div></div>
+      <div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC0000;">Changes Outstanding</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#CC0000;">${fmtVal(ct.outstanding)}</div></div>
+    </div>
+    <!-- Actions -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span style="font-size:12px;color:var(--text3);">Add rows:</span>
+        <button class="btn-sm" onclick="addCORRows('${job.id}',1)">+1</button>
+        <button class="btn-sm" onclick="addCORRows('${job.id}',5)">+5</button>
+        <button class="btn-sm" onclick="addCORRows('${job.id}',10)">+10</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'))">Print / PDF</button>
+        <button class="btn-sm-primary" onclick="openNewCOR('${job.id}')">+ New COR</button>
+      </div>
+    </div>
+    <!-- Table -->
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:var(--bg3);">
+            <th style="padding:7px 8px;border:1px solid var(--border);width:54px;text-align:center;">COR #</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:90px;">Date</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);">Description</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:90px;text-align:right;">Amount</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:75px;text-align:center;">Cust CO#</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:85px;">Cust Date</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:90px;text-align:right;">Cust Amt</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:80px;text-align:right;">Diff</th>
+            <th style="padding:7px 8px;border:1px solid var(--border);width:55px;text-align:center;">VOID</th>
+          </tr>
+        </thead>
+        <tbody id="cor-log-tbody-${job.id}">
+          ${displayCors.map((cor,i)=>{
+            const rowNum=i+1;
+            const isVoid=cor&&cor.void;
+            const isActive=cor&&!cor.void&&cor.total>0;
+            const diff=cor?(cor.custAmount||0)-cor.total:0;
+            const rowBg=isVoid?'opacity:.4;':isActive?'':'';
+            return`<tr style="${rowBg}${isVoid?'text-decoration:line-through;':''}background:${i%2===0?'var(--bg2)':'var(--bg3)'};" id="cor-row-${job.id}-${i}">
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;font-weight:700;color:${isActive?'#CC0000':'var(--text3)'};">
+                ${isActive?`<span class="cor-num-link" onclick="openCORDetail('${job.id}',${i})">${rowNum}</span>`:rowNum}
+              </td>
+              <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;">${cor?fmtDate(cor.date)||'':''}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${isVoid?'<span style="color:#CC0000;font-weight:700;">VOID</span> ':''}${cor?cor.desc||'':''}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:600;">${cor&&cor.total?fmtVal(cor.total):'$0'}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;font-size:11px;">${cor?cor.custCONum||'':''}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;">${cor?fmtDate(cor.custDate)||'':''}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;">${cor&&cor.custAmount?fmtVal(cor.custAmount):'$0'}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;color:${diff===0?'var(--text3)':diff<0?'#CC0000':'var(--green)'};">${cor&&cor.custAmount?fmtVal(Math.abs(diff)):'$0'}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
+                ${cor&&cor.total>0?`<input type="checkbox" ${isVoid?'checked':''} onchange="toggleCORVoid('${job.id}',${i},this.checked)" style="accent-color:#CC0000;cursor:pointer;" title="Mark as VOID">`:''}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function addCORRows(jobId, count){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.cors)job.cors=[];
+  // Rows are virtual (null-padded in display) — just update the display min
+  if(!job.corRowCount)job.corRowCount=50;
+  job.corRowCount+=count;
+  saveJobs();
+  openJobDetail(jobId,'corlog');
+}
+
+// Override renderCORLog to use corRowCount
+function getCORDisplayRows(job){
+  const min=Math.max(50,job.corRowCount||50);
+  const display=[...(job.cors||[])];
+  while(display.length<min)display.push(null);
+  return display;
+}
+
+function toggleCORVoid(jobId,idx,checked){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(job.cors&&job.cors[idx])job.cors[idx].void=checked;
+  saveJobs();
+  openJobDetail(jobId,'corlog');
+}
+
+// ═══════════════════════════════════════ SOV REBUILD ════════════════════════════════════
+// 12 months collapsed, each month expands to full AIA-style grid
+// Columns: Item# | Description | Scheduled Value | Prev Apps | This App Place | This App Materials | Total Stored | % Complete | Balance | Retention
+
+function renderSOV(job){
+  if(!job.sov)job.sov=[];
+  if(!job.sovMonths)job.sovMonths=initSOVMonths();
+  const contract=jobContract(job);
+  const totalScheduled=job.sov.reduce((s,l)=>s+(l.value||0),0);
+  const totalBilled=job.sov.reduce((s,l)=>s+((l.value||0)*(l.pctComplete||0)/100),0);
+  const balance=totalScheduled-totalBilled;
+
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;">Schedule of Values</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="addSOVMonth('${job.id}')">+ Add Month</button>
+        <button class="btn-sm-primary" onclick="printSOV('${job.id}')">Print / PDF</button>
+      </div>
+    </div>
+    <!-- Summary -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(contract)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">SOV Total</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:${Math.abs(totalScheduled-contract)>1?'#CC0000':'var(--text)'};">${fmtVal(totalScheduled)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Billed to Date</div><div style="font-size:18px;font-weight:700;margin-top:4px;color:var(--green);">${fmtVal(totalBilled)}</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Balance</div><div style="font-size:18px;font-weight:700;margin-top:4px;">${fmtVal(balance)}</div></div>
+    </div>
+    <!-- Line items (shared across months) -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <span>SOV Line Items</span>
+        <button class="btn-sm" onclick="addSOVLine('${job.id}')">+ Add Line</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:500px;">
+          <thead><tr style="background:var(--bg3);">
+            <th style="padding:6px 8px;border:1px solid var(--border);width:40px;">Item #</th>
+            <th style="padding:6px 8px;border:1px solid var(--border);">Description of Work</th>
+            <th style="padding:6px 8px;border:1px solid var(--border);width:120px;text-align:right;">Scheduled Value</th>
+            <th style="padding:6px 8px;border:1px solid var(--border);width:36px;"></th>
+          </tr></thead>
+          <tbody>
+            ${job.sov.map((line,i)=>`<tr style="background:${i%2===0?'var(--bg2)':'var(--bg3)'};">
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">${i+1}</td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" value="${line.desc||''}" placeholder="Description" oninput="SOV_LINE_UPDATE('${job.id}',${i},'desc',this.value)" style="width:100%;"></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${line.value||''}" placeholder="$0" oninput="SOV_LINE_UPDATE('${job.id}',${i},'value',parseFloat(this.value)||0)" style="width:100%;text-align:right;"></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;"><button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})" style="padding:1px 5px;">×</button></td>
+            </tr>`).join('')}
+            ${!job.sov.length?`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);border:1px solid var(--border);">No SOV lines yet — click + Add Line</td></tr>`:''}
+            <tr style="background:var(--bg3);font-weight:700;">
+              <td colspan="2" style="padding:7px 8px;border:1px solid var(--border);text-align:right;">TOTAL</td>
+              <td style="padding:7px 8px;border:1px solid var(--border);text-align:right;font-size:13px;">${fmtVal(totalScheduled)}</td>
+              <td style="border:1px solid var(--border);"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Monthly Applications -->
+    <div style="font-size:12px;font-weight:700;margin-bottom:10px;">Monthly Applications</div>
+    <div id="sov-months-container-${job.id}">
+      ${(job.sovMonths||[]).map((month,mi)=>renderSOVMonth(job,month,mi)).join('')}
+    </div>
+  </div>`;
+}
+
+function initSOVMonths(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const yr=new Date().getFullYear();
+  return months.map((m,i)=>({
+    name:`${m} ${yr}`,
+    appNum:i+1,
+    periodFrom:'',periodTo:'',
+    collapsed:true,
+    lines:[], // per-line billing data: {prevApps, thisAppPlace, thisAppMat, stored, retention}
+  }));
+}
+
+function renderSOVMonth(job,month,mi){
+  const sovLines=job.sov||[];
+  const monthLines=month.lines||[];
+  // Ensure month lines match SOV lines
+  while(monthLines.length<sovLines.length)monthLines.push({prevApps:0,thisAppPlace:0,thisAppMat:0,stored:0,retention:0});
+  month.lines=monthLines;
+
+  const totalScheduled=sovLines.reduce((s,l)=>s+(l.value||0),0);
+  const totalPrev=monthLines.reduce((s,l)=>s+(l.prevApps||0),0);
+  const totalPlace=monthLines.reduce((s,l)=>s+(l.thisAppPlace||0),0);
+  const totalMat=monthLines.reduce((s,l)=>s+(l.thisAppMat||0),0);
+  const totalStored=monthLines.reduce((s,l)=>s+(l.stored||0),0);
+  const totalCompleted=totalPrev+totalPlace+totalMat+totalStored;
+  const totalBalance=totalScheduled-totalCompleted;
+  const totalRetention=monthLines.reduce((s,l)=>s+(l.retention||0),0);
+  const pctComplete=totalScheduled?Math.round(totalCompleted/totalScheduled*100):0;
+
+  return`<div style="border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;">
+    <!-- Month Header (always visible) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);cursor:pointer;" onclick="toggleSOVMonth('${job.id}',${mi})">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:14px;color:var(--text3);">${month.collapsed?'▶':'▼'}</span>
+        <div>
+          <div style="font-weight:700;font-size:13px;">${month.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">— App #${month.appNum}</span></div>
+          <div style="font-size:11px;color:var(--text3);">${totalCompleted>0?`Billed: ${fmtVal(totalCompleted)} (${pctComplete}% complete)`:'No billing entered'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${totalCompleted>0?`<span style="font-size:12px;font-weight:700;color:var(--green);">${fmtVal(totalCompleted)}</span>`:''}
+        <button class="btn-sm" onclick="event.stopPropagation();removeSOVMonth('${job.id}',${mi})" style="color:#CC0000;">×</button>
+      </div>
+    </div>
+    ${!month.collapsed?`
+    <!-- Expanded AIA-style grid -->
+    <div style="padding:14px;overflow-x:auto;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div><label style="font-size:10px;color:var(--text3);text-transform:uppercase;">Application #</label>
+          <input class="sub-input" type="number" value="${month.appNum}" oninput="updateSOVMonthField('${job.id}',${mi},'appNum',parseInt(this.value)||1)" style="width:80px;margin-top:2px;"></div>
+        <div><label style="font-size:10px;color:var(--text3);text-transform:uppercase;">Period From</label>
+          <input class="sub-input" type="date" value="${month.periodFrom||''}" oninput="updateSOVMonthField('${job.id}',${mi},'periodFrom',this.value)" style="width:130px;margin-top:2px;"></div>
+        <div><label style="font-size:10px;color:var(--text3);text-transform:uppercase;">Period To</label>
+          <input class="sub-input" type="date" value="${month.periodTo||''}" oninput="updateSOVMonthField('${job.id}',${mi},'periodTo',this.value)" style="width:130px;margin-top:2px;"></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:900px;">
+        <thead>
+          <tr style="background:var(--bg3);">
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:40px;">Item #</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);">Description of Work</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Scheduled Value</th>
+            <th colspan="2" style="padding:5px 6px;border:1px solid var(--border);text-align:center;">Work Completed to Date</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:80px;text-align:right;">Total Stored &amp; Completed</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:60px;text-align:center;">% Complete</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:80px;text-align:right;">Balance to Finish</th>
+            <th rowspan="2" style="padding:5px 6px;border:1px solid var(--border);width:80px;text-align:right;">Retention</th>
+          </tr>
+          <tr style="background:var(--bg3);">
+            <th style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">Prev Apps</th>
+            <th style="padding:5px 6px;border:1px solid var(--border);width:90px;text-align:right;">This Application</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sovLines.map((line,li)=>{
+            const ml=monthLines[li]||{};
+            const prev=ml.prevApps||0;
+            const thisApp=(ml.thisAppPlace||0)+(ml.thisAppMat||0);
+            const stored=ml.stored||0;
+            const total=prev+thisApp+stored;
+            const pct=line.value?Math.round(total/line.value*100):0;
+            const bal=(line.value||0)-total;
+            const ret=ml.retention||0;
+            return`<tr style="background:${li%2===0?'var(--bg2)':'var(--bg3)'};">
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;color:var(--text3);">${li+1}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);font-size:10px;">${line.desc||''}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;">${fmtVal(line.value)}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${prev||''}" placeholder="$0" oninput="updateSOVMonthLine('${job.id}',${mi},${li},'prevApps',parseFloat(this.value)||0)" style="width:80px;text-align:right;"></td>
+              <td style="padding:4px 6px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${ml.thisAppPlace||''}" placeholder="$0" oninput="updateSOVMonthLine('${job.id}',${mi},${li},'thisAppPlace',parseFloat(this.value)||0)" style="width:80px;text-align:right;"></td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;font-weight:600;">${fmtVal(total)}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:center;font-weight:600;color:${pct>=100?'var(--green)':'var(--text)'};">${pct}%</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);text-align:right;">${fmtVal(bal)}</td>
+              <td style="padding:4px 6px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${ret||''}" placeholder="$0" oninput="updateSOVMonthLine('${job.id}',${mi},${li},'retention',parseFloat(this.value)||0)" style="width:70px;text-align:right;"></td>
+            </tr>`;
+          }).join('')}
+          <!-- Totals row -->
+          <tr style="background:var(--bg3);font-weight:700;">
+            <td colspan="2" style="padding:6px 8px;border:1px solid var(--border);text-align:right;">TOTALS:</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalScheduled)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalPrev)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalPlace+totalMat)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalCompleted)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">${pctComplete}%</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalBalance)}</td>
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:right;">${fmtVal(totalRetention)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`:''}
+  </div>`;
+}
+
+function toggleSOVMonth(jobId,mi){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sovMonths)return;
+  job.sovMonths[mi].collapsed=!job.sovMonths[mi].collapsed;
+  saveJobs();openJobDetail(jobId,'sov');
+}
+function addSOVMonth(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sovMonths)job.sovMonths=initSOVMonths();
+  const yr=new Date().getFullYear();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const nextNum=job.sovMonths.length+1;
+  const mIdx=(nextNum-1)%12;
+  job.sovMonths.push({name:`${months[mIdx]} ${yr}`,appNum:nextNum,periodFrom:'',periodTo:'',collapsed:true,lines:[]});
+  saveJobs();openJobDetail(jobId,'sov');
+}
+function removeSOVMonth(jobId,mi){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Remove this month?'))return;
+  job.sovMonths.splice(mi,1);
+  saveJobs();openJobDetail(jobId,'sov');
+}
+function updateSOVMonthField(jobId,mi,field,val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(job.sovMonths&&job.sovMonths[mi])job.sovMonths[mi][field]=val;
+  saveJobs();
+}
+function updateSOVMonthLine(jobId,mi,li,field,val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sovMonths||!job.sovMonths[mi])return;
+  if(!job.sovMonths[mi].lines)job.sovMonths[mi].lines=[];
+  while(job.sovMonths[mi].lines.length<=li)job.sovMonths[mi].lines.push({});
+  job.sovMonths[mi].lines[li][field]=val;
+  saveJobs();
+}
+function SOV_LINE_UPDATE(jobId,idx,field,val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sov)job.sov=[];
+  if(job.sov[idx])job.sov[idx][field]=val;
+  saveJobs();
+}
+
+// ═══════════════════════════════════════ DOCUMENTS WITH FOLDERS ══════════════════════════
+function renderDocumentsTab(job){
+  if(!job.documents)job.documents=[];
+  if(!job.docFolders)job.docFolders=['General','Submittals','Change Orders','Contracts','Photos'];
+  const activeFolder=job._activeDocFolder||'General';
+
+  return`<div style="display:grid;grid-template-columns:180px 1fr;gap:16px;">
+    <!-- Folder sidebar -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:12px;box-shadow:var(--shadow);">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:10px;">Folders</div>
+      ${job.docFolders.map((folder,fi)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:var(--r);cursor:pointer;margin-bottom:4px;background:${activeFolder===folder?'#FFEAEA':'transparent'};color:${activeFolder===folder?'#CC0000':'var(--text)'};font-size:13px;font-weight:${activeFolder===folder?'700':'400'};"
+        onclick="setDocFolder('${job.id}','${folder.replace(/'/g,"\\'")}')">
+        <span>📁 ${folder}</span>
+        <span style="font-size:10px;color:var(--text3);">${(job.documents||[]).filter(d=>d.folder===folder).length}</span>
+      </div>`).join('')}
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+        <button class="sub-add-btn" onclick="addDocFolder('${job.id}')" style="font-size:11px;">+ New folder</button>
+      </div>
+    </div>
+    <!-- Document list -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px;box-shadow:var(--shadow);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;">📁 ${activeFolder}</div>
+        <label class="btn-sm-primary" style="cursor:pointer;">
+          + Upload
+          <input type="file" multiple style="display:none;" onchange="uploadJobDocs('${job.id}',this,'${activeFolder.replace(/'/g,"\\'")}')">
+        </label>
+      </div>
+      <div class="import-zone" id="doc-drop-zone-${job.id.replace(/[^a-z0-9]/gi,'')}"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="onDocDrop(event,'${job.id}','${activeFolder.replace(/'/g,"\\'")}')">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Drop files here</div>
+        <div style="font-size:12px;color:var(--text3);">Any file type — PDF, Word, Excel, Images</div>
+      </div>
+      ${(job.documents||[]).filter(d=>d.folder===activeFolder||(!d.folder&&activeFolder==='General')).length?`
+      <table style="width:100%;margin-top:14px;"><thead><tr style="background:var(--bg3);">
+        <th style="padding:7px 10px;text-align:left;font-size:11px;">File Name</th>
+        <th style="padding:7px 10px;text-align:left;width:80px;font-size:11px;">Size</th>
+        <th style="padding:7px 10px;text-align:left;width:110px;font-size:11px;">Uploaded</th>
+        <th style="padding:7px 10px;width:90px;font-size:11px;"></th>
+      </tr></thead><tbody>
+        ${(job.documents||[]).map((doc,i)=>doc.folder===activeFolder||(!doc.folder&&activeFolder==='General')?`<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 10px;font-weight:500;font-size:13px;">${doc.name}</td>
+          <td style="padding:8px 10px;font-size:12px;color:var(--text3);">${formatFileSize(doc.size)}</td>
+          <td style="padding:8px 10px;font-size:12px;color:var(--text3);">${doc.uploadedAt?new Date(doc.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+          <td style="padding:8px 10px;display:flex;gap:6px;">
+            <button class="btn-sm" onclick="openDocFile('${job.id}',${i})">View</button>
+            <button class="btn-sm" style="color:#CC0000;" onclick="deleteJobDoc('${job.id}',${i})">×</button>
+          </td>
+        </tr>`:'').join('')}
+      </tbody></table>`:`<div style="margin-top:16px;text-align:center;color:var(--text3);font-size:13px;padding:20px;">No files in this folder yet</div>`}
+    </div>
+  </div>`;
+}
+
+function setDocFolder(jobId,folder){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job._activeDocFolder=folder;
+  saveJobs();openJobDetail(jobId,'documents');
+}
+function addDocFolder(jobId){
+  const name=prompt('Folder name:');if(!name||!name.trim())return;
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.docFolders)job.docFolders=['General'];
+  if(job.docFolders.includes(name.trim())){alert('Folder already exists.');return;}
+  job.docFolders.push(name.trim());
+  job._activeDocFolder=name.trim();
+  saveJobs();openJobDetail(jobId,'documents');
+}
+// Update uploadJobDocs to accept folder param
+function uploadJobDocs(jobId,input,folder){
+  const files=[...input.files];
+  processDocFiles(jobId,files,folder||'General');
+  input.value='';
+}
+function onDocDrop(e,jobId,folder){
+  e.preventDefault();
+  const zone=e.currentTarget;if(zone)zone.classList.remove('drag-over');
+  processDocFiles(jobId,[...e.dataTransfer.files],folder||'General');
+}
+function processDocFiles(jobId,files,folder){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.documents)job.documents=[];
+  let loaded=0;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      job.documents.push({name:file.name,size:file.size,folder:folder||'General',uploadedAt:new Date().toISOString(),dataUrl:ev.target.result});
+      loaded++;
+      if(loaded===files.length){saveJobs();openJobDetail(jobId,'documents');}
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
 </script>
