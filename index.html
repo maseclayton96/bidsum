@@ -5741,6 +5741,30 @@ function processDocFiles(jobId,files,folder){
   });
 }
 
+
+function syncJobsFromBids(){
+  // Update any jobs linked to bids where bid company/GC has changed
+  let changed = false;
+  JOBS.forEach(job=>{
+    if(!job.bidId) return;
+    const bid = DB.bids.find(b=>parseInt(b.id)===parseInt(job.bidId));
+    if(!bid) return;
+    if(bid.company && bid.company !== job.company){
+      job.company = bid.company;
+      changed = true;
+    }
+    if(bid.gcId && bid.gcId !== job.gcId){
+      job.gcId = bid.gcId;
+      job.gcName = bid.gcName||job.gcName;
+      changed = true;
+    }
+    if(bid.value && bid.value !== job.value){
+      job.value = bid.value;
+      changed = true;
+    }
+  });
+  if(changed) saveJobs();
+}
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
 </script>
