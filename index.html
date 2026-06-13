@@ -1099,19 +1099,17 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
       <div class="fg"><label>Notes</label>
         <textarea id="j-notes" autocomplete="off" placeholder="Scope summary, key notes..." style="min-height:56px;"></textarea>
       </div>
-      ${SESSION.user&&SESSION.user.role==='manager'?`
-      <div style="border-top:2px solid #CC0000;margin:14px 0 10px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#CC0000;background:var(--bg2);padding:0 8px;">Admin Only</span>
+      <div id="j-admin-section" style="display:none;">
+        <div style="border-top:2px solid #CC0000;margin:14px 0 10px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#CC0000;background:var(--bg2);padding:0 8px;">Admin Only</span>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Class / Type</label><input id="j-class" autocomplete="off" placeholder="Painting, WC"></div>
+          <div class="fg"><label style="display:flex;align-items:center;gap:8px;margin-top:22px;cursor:pointer;">
+            <input type="checkbox" id="j-prelim" style="accent-color:#CC0000;width:16px;height:16px;"> Prelim Closed
+          </label></div>
+        </div>
       </div>
-      <div class="frow">
-        <div class="fg"><label>Class / Type</label><input id="j-class" autocomplete="off" placeholder="Painting, WC"></div>
-        <div class="fg"><label style="display:flex;align-items:center;gap:8px;margin-top:22px;cursor:pointer;">
-          <input type="checkbox" id="j-prelim" style="accent-color:#CC0000;width:16px;height:16px;"> Prelim Closed
-        </label></div>
-      </div>`:`
-      <input type="hidden" id="j-class" value="">
-      <input type="hidden" id="j-prelim-val" value="">
-      `}
     </div>
     <div class="modal-foot">
       <button class="btn-danger" id="btn-delete-job" style="display:none;" onclick="deleteJob()">Delete</button>
@@ -4045,7 +4043,7 @@ function saveJob(){
     company:document.getElementById('j-company').value,
     notes:document.getElementById('j-notes').value.trim(),
     classCode:document.getElementById('j-class')?document.getElementById('j-class').value.trim():'',
-    prelimClosed:document.getElementById('j-prelim')&&document.getElementById('j-prelim').type!=='hidden'?document.getElementById('j-prelim').checked:false,
+    prelimClosed:document.getElementById('j-prelim')?document.getElementById('j-prelim').checked:false,
     costs:EDIT_JOB?EDIT_JOB.costs:[],
     changeOrders:EDIT_JOB?EDIT_JOB.changeOrders:[]
   };
@@ -5512,7 +5510,7 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
             const rowBg=isVoid?'opacity:.4;':isActive?'':'';
             return`<tr style="${rowBg}${isVoid?'text-decoration:line-through;':''}background:${i%2===0?'var(--bg2)':'var(--bg3)'};" id="cor-row-${job.id}-${i}">
               <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;font-weight:700;color:${isActive?'#CC0000':'var(--text3)'};">
-                ${isActive?`<span class="cor-num-link" onclick="openCORDetail('${job.id}',${i})">${rowNum}</span>`:rowNum}
+                ${isActive?`<span class="cor-num-link" onclick="openCORDetail('${job.id}',${i})">${rowNum}</span> <button class="btn-sm" onclick="event.stopPropagation();printCOR('${job.id}',${i})" style="padding:1px 5px;font-size:9px;">⎙</button>`:rowNum}
               </td>
               <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;">${cor?fmtDate(cor.date)||'':''}</td>
               <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -6109,8 +6107,10 @@ function openEditJob(jobId){
   document.getElementById('j-start').value=job.start||'';
   document.getElementById('j-end').value=job.end||'';
   document.getElementById('j-notes').value=job.notes||'';
+  const _adminSec=document.getElementById('j-admin-section');
+  if(_adminSec)_adminSec.style.display=(SESSION.user&&SESSION.user.role==='manager')?'block':'none';
   if(document.getElementById('j-class'))document.getElementById('j-class').value=job.classCode||'';
-  if(document.getElementById('j-prelim')&&document.getElementById('j-prelim').type!=='hidden')document.getElementById('j-prelim').checked=job.prelimClosed||false;
+  if(document.getElementById('j-prelim'))document.getElementById('j-prelim').checked=job.prelimClosed||false;
   const gcSel=document.getElementById('j-gc');
   gcSel.innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
   gcSel.value=job.gcId||'';
@@ -6197,6 +6197,132 @@ function renderImportHistory(){
       <td style="text-align:right;font-weight:600;">${fmtVal(imp.totalCost||0)}</td>
     </tr>`).join('')}
   </tbody></table></div>`;
+}
+
+function compressDocImage(dataUrl, maxWidth, quality, callback){
+  const img = new Image();
+  img.onload = function(){
+    const canvas = document.createElement('canvas');
+    let w = img.width, h = img.height;
+    if(w > maxWidth){ h = Math.round(h*maxWidth/w); w = maxWidth; }
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    callback(canvas.toDataURL('image/jpeg', quality||0.75));
+  };
+  img.src = dataUrl;
+}
+
+function printCOR(jobId, corIdx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const cor=(job.cors||[])[corIdx];if(!cor)return;
+  const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const contact=DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
+  const coPhone=job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
+  const coFax=job.company==='ACI'?'Fax (714) 701-1361':'Fax (714) 668-5251';
+  const logoSrc=getCompanyLogo(job.company||'Bonas');
+  const today=new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
+  const corNum=corIdx+1;
+  const lines=cor.lines||[];
+  const total=lines.reduce((s,l)=>s+(l.type==='add'?l.amount:-l.amount),0);
+
+  const lineRows=lines.map(l=>{
+    const sign=l.type==='add'?'ADD:':'DEDUCT:';
+    const signColor=l.type==='add'?'#000':'#CC0000';
+    return`<tr>
+      <td style="padding:3px 6px;font-size:10px;">${l.qty||''}</td>
+      <td style="padding:3px 6px;font-size:10px;">${l.desc||''}</td>
+      <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.unit?'@ $'+l.unit.toFixed(2):''}</td>
+      <td style="padding:3px 6px;font-size:10px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
+      <td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:600;">$${Math.abs(l.amount||0).toLocaleString('en-US',{minimumFractionDigits:0})}</td>
+    </tr>`;
+  }).join('');
+
+  const printHTML=`<!DOCTYPE html><html><head>
+    <title>COR #${corNum} — ${job.name}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:16px;color:#000;}
+      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px;}
+      .co-block{display:flex;align-items:center;gap:12px;}
+      .co-name{font-size:16px;font-weight:bold;letter-spacing:.5px;}
+      .co-sub{font-size:9px;color:#333;margin-top:1px;}
+      .right-block{text-align:right;font-size:10px;}
+      .doc-title{font-size:13px;font-weight:bold;text-align:center;margin:8px 0 2px;}
+      .cor-num{font-size:12px;font-weight:bold;text-align:center;margin-bottom:10px;}
+      .info-table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px;}
+      .info-table td{padding:2px 4px;vertical-align:top;}
+      .info-label{font-weight:bold;width:80px;}
+      .info-divider{border-top:1px solid #999;margin:6px 0;}
+      .line-table{width:100%;border-collapse:collapse;margin:6px 0 10px;}
+      .line-table td{padding:2px 6px;vertical-align:top;}
+      .total-row{display:flex;justify-content:flex-end;border-top:1px solid #000;padding-top:6px;margin-top:4px;}
+      .total-label{font-weight:bold;font-size:12px;margin-right:20px;}
+      .total-val{font-weight:bold;font-size:13px;min-width:80px;text-align:right;}
+      .footer-note{font-size:9px;color:#555;margin-top:10px;border-top:1px solid #ccc;padding-top:6px;}
+      .sig{margin-top:24px;}
+      .sig-line{border-top:1px solid #000;width:200px;padding-top:4px;font-size:10px;}
+      @media print{body{padding:8px;}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div class="co-block">
+        ${logoSrc?`<img src="${logoSrc}" style="width:48px;height:48px;object-fit:contain;" alt="">`:''}
+        <div>
+          <div class="co-name">${coHdr}</div>
+          <div class="co-sub">PAINTING AND WALLCOVERING CONTRACTORS</div>
+          <div class="co-sub">${coAddr} &nbsp; ${coPhone} • ${coFax}</div>
+        </div>
+      </div>
+      <div class="right-block">
+        <div style="font-weight:bold;">CHANGE ORDER REQUEST</div>
+      </div>
+    </div>
+    <div class="doc-title">CHANGE ORDER REQUEST</div>
+    <div class="cor-num"># ${corNum}</div>
+    <table class="info-table">
+      <tr>
+        <td class="info-label">CUSTOMER:</td>
+        <td colspan="3">${gc?gc.name:job.gcName||'—'}<br>${gc&&gc.street?gc.street+', '+gc.city:''}
+        </td>
+        <td style="width:80px;font-weight:bold;text-align:right;">JOB #:</td>
+        <td style="font-weight:bold;">${job.num||'—'}</td>
+      </tr>
+      <tr>
+        <td class="info-label">ATTN:</td>
+        <td colspan="3">${contact?contact.first+' '+contact.last:job.contactName||'—'}</td>
+        <td style="font-weight:bold;text-align:right;">DATE:</td>
+        <td>${fmtDate(cor.date)||today}</td>
+      </tr>
+      <tr><td colspan="6"><div class="info-divider"></div></td></tr>
+      <tr>
+        <td class="info-label">PROJECT:</td>
+        <td colspan="5"><strong>${job.name}</strong><br>${job.address||''} ${job.city?job.city+', CA':''}${job.zip?' '+job.zip:''}</td>
+      </tr>
+    </table>
+    <div class="info-divider"></div>
+    <div style="font-size:10px;margin:8px 0;">In regard to the above stated project, we submit the following cost.</div>
+    ${cor.desc?`<div style="font-size:10px;margin-bottom:6px;"><strong>Description of work:</strong> ${cor.desc}</div>`:''}
+    <table class="line-table">
+      ${lineRows}
+    </table>
+    <div class="total-row">
+      <span class="total-label">TOTAL:</span>
+      <span class="total-val">$${Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:0})}</span>
+    </div>
+    <div class="footer-note">
+      Please favor us with a Change Order in the following amount at your earliest possible convenience.<br>
+      Materials will be ordered upon approval of this COR (excluding field EWO tickets).
+    </div>
+    <div class="sig">
+      <div class="sig-line">${pm?pm.first+' '+pm.last:'Project Manager'}<br>Project Manager</div>
+    </div>
+  </body></html>`;
+  const win=window.open('','_blank','width=800,height:900');
+  win.document.write(printHTML);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
