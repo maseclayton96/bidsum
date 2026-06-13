@@ -1422,7 +1422,7 @@ function showErr(e){console.error(e);const ind=document.getElementById('autosave
 // ═══════════════════════════════════════ NAVIGATION ══════════════════════════════════
 function goLanding(){NAV={screen:'landing',memberId:null,gcId:null,memberTab:'bids',gcTab:'contacts'};render();}
 function goHome(){NAV={screen:'home',memberId:null,gcId:null,memberTab:'bids',gcTab:'contacts'};render();}
-function goPMHome(){NAV.screen='pmhome';render();}
+function goPMHome(){window._VIEW_AS_PM_ID=null;NAV.screen='pmhome';render();}
 function goMember(id,tab){NAV.screen='member';NAV.memberId=parseInt(id);NAV.memberTab=tab||'bids';NAV.gcId=null;render();}
 function goGC(gcId,fromMemberId){NAV.screen='gc';NAV.gcId=parseInt(gcId);NAV.gcTab='contacts';if(fromMemberId!=null)NAV.memberId=parseInt(fromMemberId);render();}
 function setMemberTab(t){NAV.memberTab=t;render();}
@@ -6096,6 +6096,7 @@ function renderTeam(){
             ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn-sm" onclick="openMemberEditById(${m.id})">Edit</button>
               <button class="btn-sm" onclick="mgrResetPin(${m.id})">Reset PIN</button>
+              ${m.type==='PM'?`<button class="btn-sm" style="background:var(--blue);color:#fff;border-color:var(--blue);" onclick="viewPMHome(${m.id})">⌂ Home</button>`:''}
               ${parseInt(m.id)!==parseInt(SESSION.user.id)?`<button class="btn-sm" onclick="mgrToggleRole(${m.id})">${m.role==='manager'?'→ Employee':'→ Manager'}</button>`:''}
             </div>`:''}
           </div>`;
@@ -7154,9 +7155,17 @@ function renderPMHome(){
   const isManager = user&&user.role==='manager';
   const now = new Date();
 
-  const myId = user?parseInt(user.id):null;
+  // Manager can view a specific PM's dashboard via viewPMHome()
+  const viewAsPMId = isManager && window._VIEW_AS_PM_ID ? window._VIEW_AS_PM_ID : null;
+  const viewAsPM = viewAsPMId ? DB.members.find(m=>parseInt(m.id)===viewAsPMId) : null;
+
+  const myId = viewAsPMId || (user?parseInt(user.id):null);
   const allJobs = JOBS;
-  const myJobs = isManager ? allJobs : allJobs.filter(j=>parseInt(j.pmId)===myId||parseInt(j.superId)===myId||parseInt(j.foremanId)===myId||parseInt(j.coordId)===myId);
+  // If manager is viewing a specific PM: filter to that PM's jobs
+  // If manager viewing own dashboard: show all
+  // If PM: show own jobs
+  const showAll = isManager && !viewAsPMId;
+  const myJobs = showAll ? allJobs : allJobs.filter(j=>parseInt(j.pmId)===myId||parseInt(j.superId)===myId||parseInt(j.foremanId)===myId||parseInt(j.coordId)===myId);
 
   const activeJobs = myJobs.filter(j=>j.status==='Active');
   const holdJobs   = myJobs.filter(j=>j.status==='On Hold');
@@ -7213,7 +7222,7 @@ function renderPMHome(){
         +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
         +'<div style="font-size:11px;color:var(--text3);">'+(job.gcName||'—')+' \u00b7 '+(job.city||'')+'</div></td>'
         +'<td style="padding:9px 12px;"><span style="font-size:11px;background:var(--bg3);border-radius:4px;padding:2px 6px;font-weight:600;">'+job.company+'</span></td>'
-        +(isManager?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
+        +(showAll?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
         +'<td style="padding:9px 12px;text-align:right;font-weight:700;">'+fmtVal(jobContract(job))+'</td>'
         +'<td style="padding:9px 12px;text-align:right;font-weight:700;color:'+(openCOR>0?'#CC0000':'var(--text3)')+';">'+(openCOR>0?fmtVal(openCOR):'—')+'</td>'
         +'</tr>';
@@ -7229,7 +7238,7 @@ function renderPMHome(){
         +'<td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">'+(job.num||'—')+'</span></td>'
         +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
         +'<div style="font-size:11px;color:var(--text3);">'+(cor.desc||'No description')+'</div></td>'
-        +(isManager?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
+        +(showAll?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
         +'<td style="padding:9px 12px;text-align:right;font-weight:700;color:#CC0000;">'+fmtVal(cor.total)+'</td>'
         +'<td style="padding:9px 12px;font-size:11px;color:var(--text3);">'+(cor.date?fmtDate(cor.date):'—')+'</td>'
         +'<td style="padding:9px 12px;font-size:11px;color:'+(days>30?'#CC0000':days>14?'#CC7000':'var(--text3)')+';">'+(days!==null?days+'d ago':'—')+'</td>'
@@ -7239,7 +7248,9 @@ function renderPMHome(){
   const tS = 'width:100%;border-collapse:collapse;font-size:12px;';
   const th = 'padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);white-space:nowrap;';
   const thR = th+'text-align:right;';
-  const pageTitle = isManager?'Project Manager Home':('My Jobs \u2014 '+(user?user.first+' '+user.last:''));
+  const pageTitle = viewAsPM
+    ? 'Dashboard — '+viewAsPM.first+' '+viewAsPM.last
+    : isManager ? 'Project Manager Home' : ('My Jobs — '+(user?user.first+' '+user.last:''));
   const pageSub   = isManager
     ? new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
     : myJobs.length+' job'+(myJobs.length!==1?'s':'')+' assigned \u00b7 '+activeJobs.length+' active';
@@ -7248,6 +7259,7 @@ function renderPMHome(){
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">'
     +'<div><div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">'+pageTitle+'</div>'
     +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">'+pageSub+'</div></div>'
+    +(viewAsPM?'<button class="btn-sm" onclick="window._VIEW_AS_PM_ID=null;render()">← Back to My Dashboard</button>':'')
     +'<button class="btn-sm" onclick="goJobs()">View All Jobs</button></div>'
 
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">'
@@ -7255,7 +7267,7 @@ function renderPMHome(){
     +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract Value</div><div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">'+fmtVal(totalContract)+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">Active: '+fmtVal(activeContract)+'</div></div>'
     +'<div style="background:#FFF8F0;border:1px solid #FFDDAA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC7000;">Open CORs</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:#CC7000;">'+openCORs.length+'</div><div style="font-size:11px;color:#CC7000;margin-top:3px;">'+fmtVal(totalOpenCOR)+' pending</div></div>'
     +'<div style="background:#F0FFF4;border:1px solid #B2DFCA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);">CORs Awarded</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--green);">'+rcvdCORs.length+'</div><div style="font-size:11px;color:var(--green);margin-top:3px;">'+fmtVal(totalRcvd)+' received</div></div>'
-    +(isManager
+    +(showAll
       ?'<div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);">Bonas</div><div style="font-size:22px;font-weight:800;margin-top:6px;color:var(--blue);">'+fmtVal(bonasContract)+'</div><div style="font-size:11px;color:var(--blue);margin-top:3px;">'+allJobs.filter(j=>j.company==='Bonas'&&j.status==='Active').length+' active</div></div>'
        +'<div style="background:#F5F0FF;border:1px solid #D0B8F0;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--purple);">ACI</div><div style="font-size:22px;font-weight:800;margin-top:6px;color:var(--purple);">'+fmtVal(aciContract)+'</div><div style="font-size:11px;color:var(--purple);margin-top:3px;">'+allJobs.filter(j=>j.company==='ACI'&&j.status==='Active').length+' active</div></div>'
       :'')
@@ -7281,12 +7293,12 @@ function renderPMHome(){
       ?'<div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table style="'+tS+'">'
        +'<thead><tr style="background:var(--bg3);">'
        +'<th style="'+th+'width:55px;">Job #</th><th style="'+th+'">Job / COR</th>'
-       +(isManager?'<th style="'+th+'width:32px;">PM</th>':'')
+       +(showAll?'<th style="'+th+'width:32px;">PM</th>':'')
        +'<th style="'+thR+'width:80px;">Amount</th><th style="'+th+'width:65px;">Date</th><th style="'+th+'width:50px;">Age</th>'
        +'</tr></thead><tbody>'+corRows+'</tbody></table></div>'
       :'<div style="padding:24px;text-align:center;color:var(--text3);">No open CORs \u2014 great work!</div>')
     +'</div>'
-    +(isManager&&pmRowsHtml
+    +(showAll&&pmRowsHtml
       ?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
        +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);"><div style="font-size:14px;font-weight:700;">By Project Manager</div></div>'
        +'<table style="'+tS+'"><thead><tr style="background:var(--bg3);">'
@@ -7297,3 +7309,18 @@ function renderPMHome(){
     +'</div>'
     +'</div>';
 }
+
+function viewPMHome(memberId){
+  // Temporarily switch session view to that PM's perspective
+  // Store who the manager is so they can return
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(memberId));
+  if(!pm){ alert('PM not found'); return; }
+  // We don't actually switch sessions - instead we open the PM home
+  // filtered to that PM's jobs
+  window._VIEW_AS_PM_ID = parseInt(memberId);
+  NAV.screen = 'pmhome';
+  render();
+}
+</script>
+</body>
+</html>
