@@ -6023,6 +6023,17 @@ function jobTotalCosts(job){
   return (job.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
 }
 
+function jobCORTotals(job){
+  const cors=job.cors||[];
+  const req=cors.filter(c=>!c.void).reduce((s,c)=>s+(c.total||0),0);
+  const awd=cors.filter(c=>!c.void&&c.custAmount).reduce((s,c)=>s+(c.custAmount||0),0);
+  return{req,awd,outstanding:req-awd};
+}
+function jobGP(job){return jobContract(job)-jobTotalCosts(job);}
+function jobCostByCategory(job,category){
+  return(job.costs||[]).filter(c=>c.category===category).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+}
+
 function onJobCompanyChange(){
   const company=document.getElementById('j-company').value;
   const numEl=document.getElementById('j-num');
@@ -6053,6 +6064,139 @@ function importFromBid(bidId){
   }, 100);
   // Store bid link
   window._IMPORT_BID_ID = parseInt(bidId);
+}
+
+// ═══ CRITICAL JOB FUNCTIONS RESTORED ═══
+
+function renderCostBreakdown(job){
+  const cats=['Labor','Overtime Labor','Fringes','Materials','Committed Materials','Subcontracts','Equipment Rental','Job Supplies','Other Job Costs'];
+  const cors=job.cors||[];
+  const openCORs=cors.filter(c=>!c.void&&!c.custAmount&&c.total>0);
+  const rcvdCORs=cors.filter(c=>!c.void&&c.custAmount>0);
+  const openCORTotal=openCORs.reduce((s,c)=>s+c.total,0);
+  const rcvdCORTotal=rcvdCORs.reduce((s,c)=>s+(c.custAmount||0),0);
+  const totalCosts=jobTotalCosts(job);
+  return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;">
+    <table style="width:100%;"><thead><tr style="background:var(--bg3);">
+      <th style="padding:8px 12px;text-align:left;">Category</th>
+      <th style="text-align:right;width:120px;padding:8px 12px;">Amount</th>
+      <th style="text-align:right;width:80px;padding:8px 12px;">% of Total</th>
+    </tr></thead><tbody>
+    ${cats.map(cat=>{const amt=jobCostByCategory(job,cat);return`<tr style="${amt>0?'':'opacity:.4;'}border-bottom:1px solid var(--border);">
+      <td style="padding:8px 12px;font-weight:${amt>0?'600':'400'};font-size:13px;">${cat}</td>
+      <td style="padding:8px 12px;text-align:right;font-weight:${amt>0?'700':'400'};color:${amt>0?'#CC0000':'var(--text3)'};">${amt>0?fmtVal(amt):'—'}</td>
+      <td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--text3);">${totalCosts&&amt?Math.round(amt/totalCosts*100)+'%':'—'}</td>
+    </tr>`;}).join('')}
+    <tr style="border-top:1px solid var(--border);"><td style="padding:8px 12px;font-weight:600;color:#CC0000;">Change Orders — Open</td><td style="padding:8px 12px;text-align:right;font-weight:700;color:#CC0000;">${openCORTotal?fmtVal(openCORTotal):'—'}</td><td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--text3);">${openCORs.length?openCORs.length+' COR':''}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600;color:var(--green);">Change Orders — Received</td><td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--green);">${rcvdCORTotal?fmtVal(rcvdCORTotal):'—'}</td><td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--text3);">${rcvdCORs.length?rcvdCORs.length+' COR':''}</td></tr>
+    <tr style="background:var(--bg3);"><td style="padding:10px 12px;font-weight:700;">Total Job Costs</td><td style="padding:10px 12px;text-align:right;font-weight:800;font-size:15px;color:#CC0000;">${fmtVal(totalCosts)}</td><td></td></tr>
+    </tbody></table>
+  </div>`;
+}
+
+function openEditJob(jobId){
+  EDIT_JOB_ID=jobId;
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  document.getElementById('job-modal-title').textContent='Edit Job';
+  document.getElementById('btn-delete-job').style.display='block';
+  document.getElementById('j-num').value=job.num||'';
+  document.getElementById('j-company').value=job.company||'Bonas';
+  document.getElementById('j-name').value=job.name||'';
+  document.getElementById('j-address').value=job.address||'';
+  document.getElementById('j-city').value=job.city||'';
+  document.getElementById('j-zip').value=job.zip||'';
+  document.getElementById('j-value').value=job.value||'0';
+  document.getElementById('j-start').value=job.start||'';
+  document.getElementById('j-end').value=job.end||'';
+  document.getElementById('j-notes').value=job.notes||'';
+  if(document.getElementById('j-class'))document.getElementById('j-class').value=job.classCode||'';
+  if(document.getElementById('j-prelim')&&document.getElementById('j-prelim').type!=='hidden')document.getElementById('j-prelim').checked=job.prelimClosed||false;
+  const gcSel=document.getElementById('j-gc');
+  gcSel.innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
+  gcSel.value=job.gcId||'';
+  gcSel.onchange=function(){populateJobContacts(this.value);};
+  populateJobContacts(job.gcId);
+  setTimeout(()=>{const cs=document.getElementById('j-contact');if(cs)cs.value=job.contactId||'';},100);
+  document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  document.getElementById('j-pm').value=job.pmId||'';
+  document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
+  document.getElementById('j-super').value=job.superId||'';
+  if(document.getElementById('j-foreman'))document.getElementById('j-foreman').value=job.foremanId||'';
+  if(document.getElementById('j-coord'))document.getElementById('j-coord').value=job.coordId||'';
+  openModal('job');
+}
+
+function deleteJob(){
+  if(!confirm('Delete this job? This cannot be undone.'))return;
+  JOBS=JOBS.filter(j=>j.id!==EDIT_JOB_ID);
+  saveJobs();closeModal('job');renderJobs();
+}
+
+function openAddCost(jobId){
+  CUR_JOB_ID=jobId;
+  ['c-amount','c-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const cat=document.getElementById('c-category');if(cat)cat.value='Labor';
+  const dt=document.getElementById('c-date');if(dt)dt.value=new Date().toISOString().split('T')[0];
+  const t=document.getElementById('cost-modal-title');if(t)t.textContent='Add Cost';
+  openModal('cost');
+}
+
+function saveCost(){
+  const amtEl=document.getElementById('c-amount');
+  const amount=parseFloat(amtEl?amtEl.value:0)||0;
+  if(!amount){alert('Enter an amount.');return;}
+  const job=JOBS.find(j=>j.id===CUR_JOB_ID);if(!job)return;
+  if(!job.costs)job.costs=[];
+  job.costs.push({
+    category:(document.getElementById('c-category')||{}).value||'Labor',
+    amount,
+    date:(document.getElementById('c-date')||{}).value||'',
+    notes:(document.getElementById('c-notes')||{}).value||''
+  });
+  saveJobs();closeModal('cost');
+  if(CUR_JOB_ID)openJobDetail(CUR_JOB_ID,'overview');
+}
+
+function deleteCostEntry(jobId,idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  job.costs.splice(idx,1);saveJobs();openJobDetail(jobId,'overview');
+}
+
+function openCostImport(jobId){
+  CUR_JOB_ID=jobId||null;
+  const title=jobId?'Import Cost for This Job':'Bulk Cost Import';
+  const t=document.getElementById('import-modal-title');if(t)t.textContent=title;
+  resetImport();openModal('import');
+}
+
+function openBulkImport(jobId){openCostImport(jobId);}
+
+function openLaborRates(){
+  loadLaborRates();renderRatesContainer();openModal('rates');
+}
+
+function renderImportHistory(){
+  const allImports=[];
+  JOBS.forEach(job=>{
+    (job.payrollImports||[]).forEach(imp=>{
+      allImports.push({...imp,jobNum:job.num,jobName:job.name,jobId:job.id});
+    });
+  });
+  allImports.sort((a,b)=>new Date(b.importedAt)-new Date(a.importedAt));
+  if(!allImports.length)return`<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:32px;"><div class="empty-text" style="font-size:13px;">No cost imports yet</div></div>`;
+  return`<div class="job-list-table"><table style="width:100%;"><thead><tr>
+    <th>Job #</th><th>Job Name</th><th>Import Date</th><th style="text-align:right;">Rows</th>
+    <th style="text-align:right;">Total Hours</th><th style="text-align:right;">Total Cost</th>
+  </tr></thead><tbody>
+    ${allImports.slice(0,20).map(imp=>`<tr>
+      <td><span class="job-num">${imp.jobNum||'—'}</span></td>
+      <td style="font-weight:500;">${imp.jobName}</td>
+      <td style="font-size:12px;color:var(--text2);">${new Date(imp.importedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+      <td style="text-align:right;">${imp.rows}</td>
+      <td style="text-align:right;">${(imp.totalHours||0).toFixed(1)}</td>
+      <td style="text-align:right;font-weight:600;">${fmtVal(imp.totalCost||0)}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
