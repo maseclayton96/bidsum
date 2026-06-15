@@ -940,7 +940,8 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 <div class="modal-overlay" id="modal-bid" autocomplete="off">
  <div class="modal" style="width:560px;">
  <div class="modal-head">
- <div style="display:flex;align-items:center;gap:10px;"><div class="modal-title" id="bid-modal-title">New bid</div><span id="autosave-indicator" style="font-size:11px;color:var(--green);font-weight:500;opacity:0;transition:opacity .4s;"></span></div>
+ <div style="display:flex;align-items:center;gap:10px;"><div class="modal-title" id="bid-modal-title">New bid</div><span id="autosave-indicator" style="font-size:11px;color:var(--green);font-weight:500;opacity:0;transition:opacity .4s;">
+     <button id="undo-btn" onclick="undoLast()" disabled style="font-size:11px;padding:3px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;opacity:.35;margin-left:6px;" title="Nothing to undo">↩ Undo</button></span></div>
  <div class="modal-close" onclick="closeModal('bid')">✕</div>
  </div>
  <div class="modal-body">
@@ -4145,7 +4146,7 @@ function saveJob(){
     if(_idx>=0)JOBS[_idx]=job; else JOBS.push(job);
   } else JOBS.push(job);
   EDIT_JOB_ID=null;
-  saveJobs();closeModal('job');renderJobs();window._IMPORT_BID_ID=null;
+  saveJobs('Edit job: '+(job.name||'new'));closeModal('job');renderJobs();window._IMPORT_BID_ID=null;
 }
 
 // Cost entry
@@ -4174,7 +4175,7 @@ function nextJobNum(company){
 }
 
 // ── Persist ──
-function saveJobs(){ try{ localStorage.setItem('bidsum-jobs', JSON.stringify(JOBS)); }catch(e){} }
+function saveJobs(undoLabel){ if(undoLabel&&typeof pushUndo==='function') pushUndo(undoLabel); try{ localStorage.setItem('bidsum-jobs', JSON.stringify(JOBS)); }catch(e){} }
 function loadJobs(){
   try{ const s = localStorage.getItem('bidsum-jobs'); if(s) JOBS = JSON.parse(s); }catch(e){ JOBS=[]; }
   autoCreateFromBids();
@@ -4339,7 +4340,8 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
   return `
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px;">
       <button class="btn-sm" onclick="openManageSpecifiers('${job.id}')">Specifiers</button>
-      <button class="btn-sm-primary" onclick="printSubmittal(JOBS.find(j=>j.id==='${job.id}'))">Print / PDF</button>
+      <button class="btn-sm-primary" onclick="printSubmittal(JOBS.find(j=>j.id==='${job.id}'))">Print / Submittal</button>
+      <button class="btn-sm" onclick="printOrder(JOBS.find(j=>j.id==='${job.id}'))">Order / PDF</button>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
@@ -4436,9 +4438,14 @@ function toggleSubIncluded(jobId, type, idx, checked){
 
 function updateSubField(jobId, type, idx, field, val){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.submittalPaint)job.submittalPaint=[];
+  if(!job.submittalWC)job.submittalWC=[];
   const arr = type==='paint' ? job.submittalPaint : job.submittalWC;
-  if(arr[idx]) arr[idx][field] = val;
+  // If the row doesn't exist yet (was a blank padding row), create it
+  while(arr.length<=idx) arr.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',orderNote:'',included:false});
+  arr[idx][field] = val;
   saveJobs();
+  showSaved();
 }
 
 function addSubItem(jobId, type){
@@ -5480,8 +5487,9 @@ function openManageSpecifiers(jobId){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
   if(!job.specifiers)job.specifiers=[];
   const html=`
-    <div class="fg"><label>Name</label><input id="sp-name" autocomplete="off" placeholder="Jane Smith"></div>
+    <div class="fg"><label>Specifier</label><input id="sp-name" autocomplete="off" placeholder="Jane Smith"></div>
     <div class="fg"><label>Company</label><input id="sp-company" autocomplete="off" placeholder="Design Studio"></div>
+    <div class="fg"><label>Location</label><input id="sp-location" autocomplete="off" placeholder="City, State"></div>
     <div class="fg"><label>Email</label><input id="sp-email" autocomplete="off" placeholder="jane@studio.com"></div>
     <div class="fg"><label>Phone</label><input id="sp-phone" autocomplete="off" placeholder="(714) 555-0000"></div>
   `;
@@ -5491,6 +5499,7 @@ function openManageSpecifiers(jobId){
     job.specifiers.push({
       name,
       company:document.getElementById('sp-company').value.trim(),
+      location:document.getElementById('sp-location')?document.getElementById('sp-location').value.trim():'',
       email:document.getElementById('sp-email').value.trim(),
       phone:document.getElementById('sp-phone').value.trim(),
     });
@@ -7029,8 +7038,8 @@ function saveCORForm(jobId, corIdx){
     sundriesLine.qty  = 1;
   }
   cor.total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
-  saveJobs();
-  showSaved('✓ COR '+( corIdx+1)+' saved');
+  saveJobs('COR '+(corIdx+1)+' edit');
+  showSaved('✓ COR '+(corIdx+1)+' saved');
   openCORForm(jobId, corIdx);
 }
 
@@ -7335,7 +7344,7 @@ function closeJob(jobId){
   if(!confirm('Close "'+job.name+'"?\n\nThis will move it to the Closed list and remove it from active COR tracking. You can reopen it at any time.'))return;
   job.status='Closed';
   job.closedDate=new Date().toISOString().split('T')[0];
-  saveJobs();
+  saveJobs('Close job: '+job.name);
   openJobDetail(jobId,'overview');
 }
 
@@ -7416,6 +7425,149 @@ function renderClosedSection(closedJobs){
   ].join('');
 }
 
+
+function printOrder(job){
+  if(!job){return;}
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive \u2022 Costa Mesa \u2022 CA \u2022 92626';
+  const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
+  const today = new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
+  const logoSrc = getCompanyLogo(job.company||'Bonas');
+  const paint = (job.submittalPaint||[]).filter(r=>r.manufacturer||r.color||r.num||r.orderNote);
+  const wc = (job.submittalWC||[]).filter(r=>r.manufacturer||r.color||r.num||r.orderNote);
+
+  const paintRows = paint.length ? paint.map(r=>`<tr>
+    <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;">${r.num||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;font-weight:${r.included?'bold':'normal'};">${r.manufacturer||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;">${r.color||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;">${r.finish||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;background:#FFFDE7;">${r.orderNote||''}</td>
+  </tr>`).join('') : '<tr><td colspan="5" style="padding:8px;border:1px solid #ccc;color:#888;text-align:center;">No paint items</td></tr>';
+
+  const wcRows = wc.length ? wc.map(r=>`<tr>
+    <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;">${r.num||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;font-weight:${r.included?'bold':'normal'};">${r.manufacturer||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;">${r.color||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;">${r.leadTime||''}</td>
+    <td style="padding:4px 8px;border:1px solid #ccc;background:#FFFDE7;">${r.orderNote||''}</td>
+  </tr>`).join('') : '<tr><td colspan="5" style="padding:8px;border:1px solid #ccc;color:#888;text-align:center;">No wallcovering items</td></tr>';
+
+  const html = `<!DOCTYPE html><html><head><title>Order Sheet \u2014 ${job.name}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:20px;color:#000;}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+    th{padding:5px 8px;background:#f0f0f0;border:1px solid #ccc;text-align:left;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;}
+    td{padding:4px 8px;border:1px solid #ccc;font-size:11px;}
+    .order-col{background:#FFFDE7;}
+    h3{font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px;border-bottom:1px solid #ccc;padding-bottom:4px;}
+    @media print{body{padding:8px;}}
+  </style></head><body>
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:14px;">
+      ${logoSrc?`<img src="${logoSrc}" style="width:48px;height:48px;object-fit:contain;">`:''}
+      <div>
+        <div style="font-size:15px;font-weight:bold;">${coHdr}</div>
+        <div style="font-size:9px;color:#555;">PAINTING AND WALLCOVERING CONTRACTORS</div>
+        <div style="font-size:9px;color:#555;">${coAddr} \u00b7 ${coPhone}</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:14px;font-weight:bold;">ORDER SHEET</div>
+      <div style="font-size:10px;margin-top:3px;"><strong>Job:</strong> ${job.name}</div>
+      <div style="font-size:10px;"><strong>Job #:</strong> ${job.num||'\u2014'}</div>
+      <div style="font-size:10px;"><strong>GC:</strong> ${gc?gc.name:job.gcName||'\u2014'}</div>
+      <div style="font-size:10px;"><strong>PM:</strong> ${pm?pm.first+' '+pm.last:'\u2014'}</div>
+      <div style="font-size:10px;"><strong>Date:</strong> ${today}</div>
+    </div>
+  </div>
+
+  <h3>Paint</h3>
+  <table>
+    <thead><tr>
+      <th style="width:50px;">#</th>
+      <th>Manufacturer</th>
+      <th>Color</th>
+      <th>Finish</th>
+      <th class="order-col">Order Notes</th>
+    </tr></thead>
+    <tbody>${paintRows}</tbody>
+  </table>
+
+  <h3>Wallcovering</h3>
+  <table>
+    <thead><tr>
+      <th style="width:50px;">#</th>
+      <th>Manufacturer</th>
+      <th>Pattern / Color</th>
+      <th>Lead Time</th>
+      <th class="order-col">Order Notes</th>
+    </tr></thead>
+    <tbody>${wcRows}</tbody>
+  </table>
+
+  <div style="margin-top:24px;font-size:9px;color:#777;text-align:center;">
+    Printed ${today} \u00b7 ${coHdr} \u00b7 Confidential
+  </div>
+  </body></html>`;
+
+  const w = window.open('','_blank','width=800,height=700');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+// ── Global Undo Stack ──────────────────────────────────────
+const UNDO_STACK = [];
+const UNDO_MAX = 20;
+
+function pushUndo(label){
+  UNDO_STACK.push({
+    label: label||'Change',
+    jobs: JSON.stringify(JOBS),
+  });
+  if(UNDO_STACK.length > UNDO_MAX) UNDO_STACK.shift();
+  updateUndoBtn();
+}
+
+function undoLast(){
+  if(!UNDO_STACK.length) return;
+  const state = UNDO_STACK.pop();
+  try{
+    const restored = JSON.parse(state.jobs);
+    JOBS.length=0;
+    restored.forEach(j=>JOBS.push(j));
+    saveJobs();
+    render();
+    showSaved('\u21a9 Undid: '+state.label);
+  }catch(e){ console.error('Undo failed',e); }
+  updateUndoBtn();
+}
+
+function updateUndoBtn(){
+  const btn = document.getElementById('undo-btn');
+  if(!btn) return;
+  const last = UNDO_STACK[UNDO_STACK.length-1];
+  btn.disabled = !UNDO_STACK.length;
+  btn.title = last ? 'Undo: '+last.label : 'Nothing to undo';
+  btn.style.opacity = UNDO_STACK.length ? '1' : '0.35';
+}
+
+// Hook into saveJobs to capture state before every save
+const _origSaveJobs = typeof saveJobs === 'function' ? saveJobs : null;
+
+// Ctrl+Z undo shortcut
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){
+    // Only if not in a text field
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if(tag==='INPUT'||tag==='TEXTAREA') return;
+    e.preventDefault();
+    undoLast();
+  }
+});
 </script>
 </body>
 </html>
