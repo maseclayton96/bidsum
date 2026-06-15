@@ -3728,8 +3728,9 @@ function renderManagerScreen(){
    <div style="display:flex;gap:8px;margin-bottom:18px;">
      <button class="btn ${ADMIN_TAB==='users'?'btn-primary':''}" onclick="ADMIN_TAB='users';renderManagerScreen()">Team Access</button>
      <button class="btn ${ADMIN_TAB==='roles'?'btn-primary':''}" onclick="ADMIN_TAB='roles';renderManagerScreen()">Role Matrix</button>
+     <button class="btn ${ADMIN_TAB==='corrates'?'btn-primary':''}" onclick="ADMIN_TAB='corrates';renderManagerScreen()">COR Rates</button>
    </div>
-   ${ADMIN_TAB==='roles'?`<div id="role-matrix-container"></div>`:`
+   ${ADMIN_TAB==='corrates'?renderGlobalCORRates():ADMIN_TAB==='roles'?`<div id="role-matrix-container"></div>`:`
    <div class="mgr-panel">
      <div class="mgr-panel-title" style="display:flex;align-items:center;justify-content:space-between;">
        <span>Team Access Management</span>
@@ -4695,7 +4696,7 @@ function renderRoleMatrix(){
   const PERM_TEXT =   ['var(--text3)','#7A5800','var(--green)'];
 
   document.getElementById('app').innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <div>
         <div style="font-size:22px;font-weight:700;">Role Matrix</div>
         <div style="font-size:13px;color:var(--text3);margin-top:2px;">Define what each role can access. Click a cell to cycle through None → View → Full.</div>
@@ -4706,7 +4707,7 @@ function renderRoleMatrix(){
       </div>
     </div>
     <!-- Legend -->
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
       ${PERM_LABELS.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px;font-size:12px;">
         <div style="width:18px;height:18px;border-radius:4px;background:${PERM_COLORS[i]};border:1px solid var(--border);"></div>
         <span>${l}</span>
@@ -4715,12 +4716,11 @@ function renderRoleMatrix(){
     </div>
     <!-- Matrix table -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);">
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
           <thead>
             <tr style="background:var(--bg3);">
-              <th style="padding:8px 10px;text-align:left;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);min-width:130px;">Role</th>
-              ${MODULES.map(m=>`<th style="padding:12px 16px;text-align:center;font-size:12px;font-weight:700;border-bottom:2px solid var(--border);border-left:1px solid var(--border);min-width:110px;">
+              <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:700;border-bottom:2px solid var(--border);min-width:120px;">Role</th>
+              ${MODULES.map(m=>`<th style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;border-bottom:2px solid var(--border);border-left:1px solid var(--border);min-width:90px;">
                 <div>${m.label}</div>
                 <div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;">${m.desc}</div>
               </th>`).join('')}
@@ -4729,12 +4729,12 @@ function renderRoleMatrix(){
           <tbody>
             ${ROLES.map((role,ri)=>{
               const perms = ROLE_MATRIX[role.id]||DEFAULT_ROLE_MATRIX[role.id]||{};
-              return`<tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:12px 16px;font-weight:700;font-size:13px;">${role.label}</td>
+              return`<tr style="border-bottom:1px solid var(--border);height:44px;">
+                <td style="padding:7px 12px;font-weight:700;font-size:12px;">${role.label}</td>
                 ${MODULES.map(mod=>{
                   const p=perms[mod.id]||0;
-                  return`<td style="padding:8px;text-align:center;border-left:1px solid var(--border);">
-                    <button onclick="cyclePermission('${role.id}','${mod.id}')" style="background:${PERM_COLORS[p]};color:${PERM_TEXT[p]};border:1px solid var(--border);border-radius:var(--r);padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);min-width:58px;transition:all .15s;" id="perm-${role.id}-${mod.id}">
+                  return`<td style="padding:4px 6px;text-align:center;border-left:1px solid var(--border);">
+                    <button onclick="cyclePermission('${role.id}','${mod.id}')" style="background:${PERM_COLORS[p]};color:${PERM_TEXT[p]};border:1px solid var(--border);border-radius:var(--r);padding:3px 6px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);min-width:50px;transition:all .15s;" id="perm-${role.id}-${mod.id}">
                       ${PERM_LABELS[p]}
                     </button>
                   </td>`;
@@ -4743,7 +4743,6 @@ function renderRoleMatrix(){
             }).join('')}
           </tbody>
         </table>
-      </div>
     </div>`;
 }
 
@@ -6632,13 +6631,14 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
 
   // Get job-level rates (with defaults matching the paper form)
   if(!job.corRates) job.corRates = {};
+  // Use per-job rates → global defaults → factory defaults
   const R = {
-    regular:  job.corRates.regular  || 89.24,
-    overtime: job.corRates.overtime || 99.54,
-    premium:  job.corRates.premium  || 86.30,
-    flat:     job.corRates.flat     || 40.77,
-    enamel:   job.corRates.enamel   || 45.68,
-    dtm:      job.corRates.dtm      || 55.50,
+    regular:  getEffectiveCORRate(job,'regular'),
+    overtime: getEffectiveCORRate(job,'overtime'),
+    premium:  getEffectiveCORRate(job,'premium'),
+    flat:     getEffectiveCORRate(job,'flat'),
+    enamel:   getEffectiveCORRate(job,'enamel'),
+    dtm:      getEffectiveCORRate(job,'dtm'),
   };
 
   // Labor lines by key
@@ -6721,9 +6721,10 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
       style="${editStyle}${type==='date'?'':''}">`;
 
   return`
-  <div style="max-width:820px;margin:0 auto;">
-    <!-- Rate Settings Banner (collapsible) -->
-    <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;margin-bottom:10px;">
+  <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start;">
+  <!-- LEFT: Nav + Paper Form -->
+  <div>
+    <!-- Rates moved to right sidebar -->
       <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleEl('cor-rates-panel-${job.id}')">
         <span style="font-size:12px;font-weight:700;color:#1B3F6E;">⚙ Job Hourly &amp; Material Rates <span style="font-weight:400;font-size:11px;">(click to edit — these set all auto-fill rates)</span></span>
         <span style="font-size:11px;color:#1B3F6E;" id="cor-rates-chevron-${job.id}">▼</span>
@@ -6951,7 +6952,43 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
         </div>
       </div>
     </div>
-  </div>`;
+  </div>
+  </div>
+
+  <!-- RIGHT: Job Rates Panel (not printed) -->
+  <div class="no-print" style="position:sticky;top:16px;">
+    <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--rlg);padding:14px;">
+      <div style="font-size:12px;font-weight:700;color:#1B3F6E;margin-bottom:4px;">⚙ Job Rates</div>
+      <div style="font-size:10px;color:#4A7AAE;margin-bottom:10px;">Per-job override · not printed</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        ${['regular','overtime','premium'].map(k=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <label style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;">${{regular:'Regular',overtime:'Overtime',premium:'Premium'}[k]}</label>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <span style="font-size:10px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R[k]}" id="crate-${k}-${job.id}"
+              style="width:72px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;text-align:right;">
+          </div>
+        </div>`).join('')}
+      </div>
+      <div style="border-top:1px solid #C0D8EE;margin:8px 0;"></div>
+      <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:7px;">Materials</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        ${['flat','enamel','dtm'].map(k=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <label style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;">${{flat:'Flat',enamel:'Enamel',dtm:'DTM'}[k]}</label>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <span style="font-size:10px;color:#888;">$</span>
+            <input type="number" step="0.01" value="${R[k]}" id="crate-${k}-${job.id}"
+              style="width:72px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;text-align:right;">
+          </div>
+        </div>`).join('')}
+      </div>
+      <div style="font-size:9px;color:#4A7AAE;margin-top:6px;">📌 Sundries = 8% of regular+OT</div>
+      <button class="btn-sm-primary" onclick="saveCORRates('${job.id}',${corIdx})" style="width:100%;margin-top:10px;">Save &amp; Apply to COR</button>
+    </div>
+  </div>
+</div>`;
 }
 
 
@@ -7097,12 +7134,12 @@ function openNewCOR(jobId){
   if(!job.cors) job.cors = [];
   if(!job.corRates) job.corRates = {};
   const R = {
-    regular:  job.corRates.regular  || 89.24,
-    overtime: job.corRates.overtime || 99.54,
-    premium:  job.corRates.premium  || 86.30,
-    flat:     job.corRates.flat     || 40.77,
-    enamel:   job.corRates.enamel   || 45.68,
-    dtm:      job.corRates.dtm      || 55.50,
+    regular:  getEffectiveCORRate(job,'regular'),
+    overtime: getEffectiveCORRate(job,'overtime'),
+    premium:  getEffectiveCORRate(job,'premium'),
+    flat:     getEffectiveCORRate(job,'flat'),
+    enamel:   getEffectiveCORRate(job,'enamel'),
+    dtm:      getEffectiveCORRate(job,'dtm'),
   };
   const newCOR = {
     date: new Date().toISOString().split('T')[0],
@@ -7573,6 +7610,82 @@ function fmtMoney(v){
   if(v===null||v===undefined||v==='')return '$0.00';
   const n=parseFloat(v)||0;
   return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// ── Global Default COR Rates (stored in localStorage) ──────────────────
+function loadGlobalCORRates(){
+  try{
+    const saved = localStorage.getItem('bidsum-global-cor-rates');
+    return saved ? JSON.parse(saved) : {};
+  }catch(e){ return {}; }
+}
+function saveGlobalCORRates(rates){
+  try{ localStorage.setItem('bidsum-global-cor-rates', JSON.stringify(rates)); }catch(e){}
+}
+function getEffectiveCORRate(job, key){
+  const defaults = { regular:89.24, overtime:99.54, premium:86.30, flat:40.77, enamel:45.68, dtm:55.50 };
+  const global = loadGlobalCORRates();
+  const jobRate = job&&job.corRates&&job.corRates[key]!=null ? job.corRates[key] : null;
+  return jobRate != null ? jobRate : (global[key]!=null ? global[key] : defaults[key]);
+}
+
+function renderGlobalCORRates(){
+  const G = loadGlobalCORRates();
+  const DEF = { regular:89.24, overtime:99.54, premium:86.30, flat:40.77, enamel:45.68, dtm:55.50 };
+  const rateRow = (key, label, unit) =>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);">'
+    +'<div><div style="font-weight:600;font-size:13px;">'+label+'</div>'
+    +'<div style="font-size:11px;color:var(--text3);">Default: $'+DEF[key].toFixed(2)+' / '+unit+'</div></div>'
+    +'<div style="display:flex;align-items:center;gap:6px;">'
+    +'<span style="font-size:12px;color:var(--text3);">$</span>'
+    +'<input type="number" id="gcr-'+key+'" value="'+(G[key]!=null?G[key]:DEF[key])+'" step="0.01" min="0"'
+    +' style="width:90px;border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;font-size:13px;font-family:var(--font);text-align:right;">'
+    +'<span style="font-size:11px;color:var(--text3);">/ '+unit+'</span>'
+    +'</div></div>';
+
+  return '<div style="max-width:600px;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">'
+    +'<div><div style="font-size:20px;font-weight:700;">Default COR Rates</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:3px;">These are the fallback rates used when a job has no rates set. Per-job overrides take priority.</div></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn" onclick="saveGlobalCORRatesFromUI()">Save Defaults</button>'
+    +'<button class="btn" onclick="resetGlobalCORRates()" style="color:#CC0000;">Reset to Factory</button>'
+    +'</div></div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);">'
+    +'<div style="padding:10px 14px;background:var(--bg3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Labor</div>'
+    +rateRow('regular','Regular Time','hr')
+    +rateRow('overtime','Overtime','hr')
+    +rateRow('premium','Premium Time','hr')
+    +'<div style="padding:10px 14px;background:var(--bg3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Materials</div>'
+    +rateRow('flat','Flat Paint','gal')
+    +rateRow('enamel','Enamel Paint','gal')
+    +rateRow('dtm','DTM Paint','gal')
+    +'</div>'
+    +'<div style="margin-top:12px;padding:12px 14px;background:#FFF8E0;border:1px solid #FFDDAA;border-radius:var(--r);font-size:12px;color:#7A5800;">'
+    +'📌 Sundries are always calculated as 8% of (Regular + Overtime) labor cost — no rate needed here.'
+    +'</div>'
+    +'</div>';
+}
+
+function saveGlobalCORRatesFromUI(){
+  const keys = ['regular','overtime','premium','flat','enamel','dtm'];
+  const rates = {};
+  let valid = true;
+  keys.forEach(k=>{
+    const el = document.getElementById('gcr-'+k);
+    if(el){ const v=parseFloat(el.value); if(!isNaN(v)&&v>=0)rates[k]=v; else valid=false; }
+  });
+  if(!valid){ alert('Please enter valid dollar amounts for all rates.'); return; }
+  saveGlobalCORRates(rates);
+  showSaved('\u2713 Default COR rates saved');
+}
+
+function resetGlobalCORRates(){
+  if(!confirm('Reset all default COR rates to factory values?')) return;
+  localStorage.removeItem('bidsum-global-cor-rates');
+  ADMIN_TAB='corrates';
+  renderManagerScreen();
+  showSaved('\u2713 Rates reset to defaults');
 }
 </script>
 </body>
