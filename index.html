@@ -7737,6 +7737,59 @@ function saveRatesToJob(jobId, corIdx){
   showSaved('\u2713 Rates saved to job — all new CORs will use these rates');
   openCORForm(jobId, corIdx);
 }
+
+// ── SOV helper functions ─────────────────────────────────────────────────
+
+// Compute first/last day of month from name like "January 2025"
+function sovMonthDates(name){
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const parts=(name||'').split(' ');
+  const mIdx=monthNames.indexOf(parts[0]);
+  const yr=parseInt(parts[1])||new Date().getFullYear();
+  if(mIdx<0)return{from:'',to:''};
+  const from=new Date(yr,mIdx,1);
+  const to=new Date(yr,mIdx+1,0);
+  const pad=n=>String(n).padStart(2,'0');
+  return{
+    from:`${from.getFullYear()}-${pad(from.getMonth()+1)}-${pad(from.getDate())}`,
+    to:`${to.getFullYear()}-${pad(to.getMonth()+1)}-${pad(to.getDate())}`
+  };
+}
+
+// SOV month line onblur — saves and re-renders the months container
+function sovMonthLineBlur(jobId,mi,li,field,val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.sovMonths||!job.sovMonths[mi])return;
+  if(!job.sovMonths[mi].lines)job.sovMonths[mi].lines=[];
+  while(job.sovMonths[mi].lines.length<=li)job.sovMonths[mi].lines.push({});
+  job.sovMonths[mi].lines[li][field]=val;
+  // Auto-recalculate retention
+  const retPct=job.sovMonths[mi].retentionPct!=null?job.sovMonths[mi].retentionPct:10;
+  const ml=job.sovMonths[mi].lines[li];
+  ml.retention=Math.round(((ml.thisAppPlace||0)+(ml.thisAppMat||0))*retPct/100*100)/100;
+  saveJobs();
+  const c=document.getElementById('sov-months-container-'+jobId);
+  if(c)c.innerHTML=(job.sovMonths||[]).map((m,idx)=>renderSOVMonth(job,m,idx)).join('');
+}
+
+// When user types a % for This Application — converts to $ and saves
+function sovMonthPctBlur(jobId,mi,li,pct){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const sovLine=job.sov&&job.sov[li];
+  if(!sovLine||!sovLine.value)return;
+  const dollarAmt=Math.round(sovLine.value*pct/100*100)/100;
+  if(!job.sovMonths||!job.sovMonths[mi])return;
+  if(!job.sovMonths[mi].lines)job.sovMonths[mi].lines=[];
+  while(job.sovMonths[mi].lines.length<=li)job.sovMonths[mi].lines.push({});
+  job.sovMonths[mi].lines[li]['thisAppPlace']=dollarAmt;
+  // Recalculate retention
+  const retPct=job.sovMonths[mi].retentionPct!=null?job.sovMonths[mi].retentionPct:10;
+  const ml=job.sovMonths[mi].lines[li];
+  ml.retention=Math.round(((ml.thisAppPlace||0)+(ml.thisAppMat||0))*retPct/100*100)/100;
+  saveJobs();
+  const c=document.getElementById('sov-months-container-'+jobId);
+  if(c)c.innerHTML=(job.sovMonths||[]).map((m,idx)=>renderSOVMonth(job,m,idx)).join('');
+}
 </script>
 </body>
 </html>
