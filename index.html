@@ -7257,8 +7257,8 @@ function renderPMHome(){
   const th = 'padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);white-space:nowrap;';
   const thR = th+'text-align:right;';
   const pageTitle = viewAsPM
-    ? 'Dashboard — '+viewAsPM.first+' '+viewAsPM.last
-    : isManager ? 'Project Manager Home' : ('My Jobs — '+(user?user.first+' '+user.last:''));
+    ? viewAsPM.first+"'s Dashboard"
+    : (user ? user.first+"'s Dashboard" : 'Dashboard');
   const pageSub   = isManager
     ? new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
     : myJobs.length+' job'+(myJobs.length!==1?'s':'')+' assigned \u00b7 '+activeJobs.length+' active';
@@ -7353,55 +7353,69 @@ function renderClosedSection(closedJobs){
   const totalContract = closedJobs.reduce((s,j)=>s+jobContract(j),0);
   const totalCost     = closedJobs.reduce((s,j)=>s+jobTotalCosts(j),0);
   const totalGP       = totalContract - totalCost;
-  const rows = closedJobs.map(job=>{
-    const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const rows = closedJobs.map(function(job){
+    const pm=DB.members.find(function(m){return parseInt(m.id)===parseInt(job.pmId);});
     const ini=pm?pm.first[0]+pm.last[0]:'—';
     const contract=jobContract(job);
     const cost=jobTotalCosts(job);
     const gp=contract-cost;
     const gpPct=contract?Math.round(gp/contract*100):0;
-    return '<tr style="cursor:pointer;opacity:.85;" onclick="openVisibleJob(\''+job.id+\'\')">'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);"><span class="job-num">'+(job.num||'—')+'</span></td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);font-weight:600;">'+job.name+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;">'+(job.gcName||'—')+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;text-align:center;">'+ini+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;font-weight:600;">'+fmtVal(contract)+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;color:#CC0000;">'+fmtVal(cost)+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:'+(gp>=0?'var(--green)':'#CC0000')+';"> '+fmtVal(Math.abs(gp))+' ('+(gp>=0?'+':'-')+gpPct+'%)</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;color:var(--text3);">'+(job.closedDate?fmtDate(job.closedDate):'—')+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">'
-      +'<button class="btn-sm" style="font-size:10px;padding:2px 7px;" onclick="event.stopPropagation();reopenJob(\''+job.id+\'\')" title="Reopen">↩</button>'
-      +'</td>'
-      +'</tr>';
+    const gpColor=gp>=0?'var(--green)':'#CC0000';
+    const gpStr=(gp>=0?'+':'-')+fmtVal(Math.abs(gp))+' ('+gpPct+'%)';
+    const closedStr=job.closedDate?fmtDate(job.closedDate):'—';
+    return [
+      '<tr style="cursor:pointer;opacity:.85;" onclick="openVisibleJob(\'' + job.id + '\')">',
+      '<td style="padding:6px 8px;border:1px solid var(--border);"><span class="job-num">'+(job.num||'—')+'</span></td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);font-weight:600;">'+job.name+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;">'+(job.gcName||'—')+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;text-align:center;">'+ini+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;font-weight:600;">'+fmtVal(contract)+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;color:#CC0000;">'+fmtVal(cost)+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:'+gpColor+';">'+gpStr+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);font-size:11px;color:var(--text3);">'+closedStr+'</td>',
+      '<td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">',
+      '<button class="btn-sm" style="font-size:10px;padding:2px 7px;" onclick="event.stopPropagation();reopenJob(\'' + job.id + '\')" title="Reopen">↩</button>',
+      '</td></tr>'
+    ].join('');
   }).join('');
 
-  return '<div style="margin-bottom:24px;">'
-    +'<div class="section-hd" style="margin-bottom:10px;">'
-    +'<div class="section-title" style="color:var(--text3);">Closed <span style="font-weight:400;font-size:12px;">'+closedJobs.length+' job'+(closedJobs.length!==1?'s':'')+'</span></div>'
-    +'</div>'
-    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px;padding:12px 16px;display:flex;gap:24px;">'
-    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Total Contract</div><div style="font-size:16px;font-weight:700;margin-top:3px;">'+fmtVal(totalContract)+'</div></div>'
-    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Total Cost</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:#CC0000;">'+fmtVal(totalCost)+'</div></div>'
-    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Gross Profit</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:'+(totalGP>=0?'var(--green)':'#CC0000')+';">'+fmtVal(Math.abs(totalGP))+'</div></div>'
-    +'</div>'
-    +'<div class="job-list-table" style="overflow-x:auto;">'
-    +'<table style="width:100%;border-collapse:collapse;font-size:12px;">'
-    +'<thead><tr style="background:var(--bg3);">'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);width:70px;">Job #</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);">Job Name</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);">GC / Customer</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);width:40px;text-align:center;">PM</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:90px;">Contract</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:90px;">Total Cost</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:100px;">Gross Profit</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);width:90px;">Closed</th>'
-    +'<th style="padding:7px 8px;border:1px solid var(--border);width:40px;"></th>'
-    +'</tr></thead>'
-    +'<tbody>'+rows+'</tbody>'
-    +'</table>'
-    +'</div>'
-    +'</div>';
+  const summaryHtml = [
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px;padding:12px 16px;display:flex;gap:24px;">',
+    '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Total Contract</div><div style="font-size:16px;font-weight:700;margin-top:3px;">'+fmtVal(totalContract)+'</div></div>',
+    '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Total Cost</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:#CC0000;">'+fmtVal(totalCost)+'</div></div>',
+    '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Gross Profit</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:'+(totalGP>=0?'var(--green)':'#CC0000')+';">'+fmtVal(Math.abs(totalGP))+'</div></div>',
+    '</div>'
+  ].join('');
+
+  const tableHtml = [
+    '<div class="job-list-table" style="overflow-x:auto;">',
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;">',
+    '<thead><tr style="background:var(--bg3);">',
+    '<th style="padding:7px 8px;border:1px solid var(--border);width:70px;">Job #</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);">Job Name</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);">GC / Customer</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);width:40px;text-align:center;">PM</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:90px;">Contract</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:90px;">Total Cost</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);text-align:right;width:100px;">Gross Profit</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);width:90px;">Closed</th>',
+    '<th style="padding:7px 8px;border:1px solid var(--border);width:40px;"></th>',
+    '</tr></thead>',
+    '<tbody>'+rows+'</tbody>',
+    '</table></div>'
+  ].join('');
+
+  return [
+    '<div style="margin-bottom:24px;">',
+    '<div class="section-hd" style="margin-bottom:10px;">',
+    '<div class="section-title" style="color:var(--text3);">Closed <span style="font-weight:400;font-size:12px;">'+closedJobs.length+' job'+(closedJobs.length!==1?'s':'')+'</span></div>',
+    '</div>',
+    summaryHtml,
+    tableHtml,
+    '</div>'
+  ].join('');
 }
+
 </script>
 </body>
 </html>
