@@ -4418,11 +4418,11 @@ function renderSubRow(jobId, type, row, idx){
   const col4 = type==='paint' ? row.finish||'' : row.leadTime||'';
   return `<div class="sub-row sub-row-paint ${inc}" id="subrow-${type}-${idx}" style="display:grid;grid-template-columns:28px 60px 1fr 1fr 120px 90px 36px;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${idx%2===0?'var(--bg2)':'var(--bg3)'};">
     <input type="checkbox" class="sub-check" ${row.included?'checked':''} onchange="toggleSubIncluded('${jobId}','${type}',${idx},this.checked)">
-    <input class="sub-input" value="${row.num||''}" placeholder="#" oninput="updateSubField('${jobId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.manufacturer||''}" placeholder="Manufacturer" oninput="updateSubField('${jobId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.color||''}" placeholder="${type==='paint'?'Color':'Pattern / Color'}" oninput="updateSubField('${jobId}','${type}',${idx},'color',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${col4}" placeholder="${type==='paint'?'Finish':'Lead Time'}" oninput="updateSubField('${jobId}','${type}',${idx},'${type==='paint'?'finish':'leadTime'}',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.orderNote||''}" placeholder="Order note" oninput="updateSubField('${jobId}','${type}',${idx},'orderNote',this.value)" style="font-size:11px;color:var(--text2);border-left:2px solid var(--border2);" title="Order notes — screen only, not printed">
+    <input class="sub-input" value="${row.num||''}" placeholder="${idx===0?'#':''}" oninput="updateSubField('${jobId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.manufacturer||''}" placeholder="${idx===0?'Manufacturer':''}" oninput="updateSubField('${jobId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.color||''}" placeholder="${idx===0?(type==='paint'?'Color':'Pattern / Color'):''}" oninput="updateSubField('${jobId}','${type}',${idx},'color',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${col4}" placeholder="${idx===0?(type==='paint'?'Finish':'Lead Time'):''}" oninput="updateSubField('${jobId}','${type}',${idx},'${type==='paint'?'finish':'leadTime'}',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.orderNote||''}" placeholder="${idx===0?'Order note':''}" oninput="updateSubField('${jobId}','${type}',${idx},'orderNote',this.value)" style="font-size:11px;color:var(--text2);border-left:2px solid var(--border2);" title="Order notes — screen only, not printed">
     <button class="btn-sm" style="padding:2px 6px;" onclick="removeSubItem('${jobId}','${type}',${idx})">×</button>
   </div>`;
 }
@@ -5617,7 +5617,7 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
                   ${isVoid?'<span style="color:#CC0000;font-weight:700;">VOID</span> ':''}${cor?cor.desc||'':''}</td>
                 <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:600;color:${isActive?'#CC0000':'var(--text3)'};">${cor&&cor.total?fmtVal(cor.total):'—'}</td>
                 <td style="padding:3px 6px;border:1px solid var(--border);">
-                  ${cor?`<input value="${cor.custCONum||''}" placeholder="CO#"
+                  ${cor?`<input value="${cor.custCONum||''}" placeholder=""
                      oninput="inlineCORUpdate('${jid}',${i},'custCONum',this.value)"
                      style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:center;outline:none;color:var(--text);">`:''}
                 </td>
@@ -5627,7 +5627,7 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
                      style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);outline:none;color:var(--text);">`:''}
                 </td>
                 <td style="padding:3px 6px;border:1px solid var(--border);">
-                  ${cor?`<input type="number" value="${cor.custAmount||''}" placeholder="0"
+                  ${cor?`<input type="number" value="${cor.custAmount||''}" placeholder=""
                      oninput="inlineCORUpdate('${jid}',${i},'custAmount',parseFloat(this.value)||0)"
                      style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:right;outline:none;color:var(--green);font-weight:700;">`:''}
                 </td>
@@ -5718,8 +5718,8 @@ function renderSOV(job){
           <tbody>
             ${job.sov.map((line,i)=>`<tr style="background:${i%2===0?'var(--bg2)':'var(--bg3)'};">
               <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">${i+1}</td>
-              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" value="${line.desc||''}" placeholder="Description" oninput="SOV_LINE_UPDATE('${job.id}',${i},'desc',this.value)" style="width:100%;"></td>
-              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${line.value||''}" placeholder="0.00" step="0.01" oninput="SOV_LINE_UPDATE('${job.id}',${i},'value',parseFloat(this.value)||0)" style="width:100%;text-align:right;"><div style="font-size:10px;color:var(--text3);text-align:right;margin-top:1px;">${line.value?fmtMoney(line.value):''}</div></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" value="${line.desc||''}" placeholder="Description" onblur="SOV_LINE_UPDATE('${job.id}',${i},'desc',this.value)" style="width:100%;"></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${line.value||''}" placeholder="0.00" step="0.01" onblur="SOV_LINE_UPDATE('${job.id}',${i},'value',parseFloat(this.value)||0)" style="width:100%;text-align:right;"><div style="font-size:10px;color:var(--text3);text-align:right;margin-top:1px;">${line.value?fmtMoney(line.value):''}</div></td>
               <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;"><button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})" style="padding:1px 5px;">×</button></td>
             </tr>`).join('')}
             ${!job.sov.length?`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);border:1px solid var(--border);">No SOV lines yet — click + Add Line</td></tr>`:''}
@@ -5955,9 +5955,13 @@ function SOV_LINE_UPDATE(jobId,idx,field,val){
   if(!job.sov)job.sov=[];
   if(job.sov[idx])job.sov[idx][field]=val;
   saveJobs();
-  // Re-render line items table + months in place — no page nav needed
-  const lineWrap=document.getElementById('sov-lines-wrap-'+jobId);
-  if(lineWrap)lineWrap.innerHTML=renderSOVLinesTable(job);
+  // Only re-render months (description/value are saved on blur, not while typing)
+  // Do NOT re-render the line items table — it would destroy focus
+  // Update the fmtMoney display cell below the value input if present
+  if(field==='value'){
+    const dispEl=document.getElementById('sov-val-disp-'+jobId+'-'+idx);
+    if(dispEl)dispEl.textContent=val?fmtMoney(val):'';
+  }
   const mCont=document.getElementById('sov-months-container-'+jobId);
   if(mCont)mCont.innerHTML=(job.sovMonths||[]).map((m,mi)=>renderSOVMonth(job,m,mi)).join('');
 }
@@ -7959,12 +7963,12 @@ function renderSOVLinesTable(job){
         +'<td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">'+(i+1)+'</td>'
         +'<td style="padding:5px 8px;border:1px solid var(--border);">'
         +'<input class="sub-input" value="'+(line.desc||'').replace(/"/g,'&quot;')+'" placeholder="Description"'
-        +' oninput="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'desc\',this.value)" style="width:100%;"></td>'
+        +' onblur="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'desc\',this.value)" style="width:100%;"></td>'
         +'<td style="padding:5px 8px;border:1px solid var(--border);">'
         +'<div style="display:flex;align-items:center;gap:3px;">'
         +'<span style="font-size:11px;color:var(--text3);">$</span>'
         +'<input class="sub-input" type="number" value="'+(line.value||'')+'" placeholder="0.00" step="0.01"'
-        +' oninput="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'value\',parseFloat(this.value)||0)"'
+        +' onblur="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'value\',parseFloat(this.value)||0)"'
         +' style="flex:1;text-align:right;"></div>'
         +(line.value?'<div style="font-size:10px;color:var(--text3);text-align:right;">'+fmtMoney(line.value)+'</div>':'')
         +'</td>'
