@@ -8129,8 +8129,8 @@ function renderProposalTab(job, coHdr, coAddr, coPhone){
   const p_bidNum       = p.bidNum||job.num||'';
   const p_proposalDate = p.proposalDate||'';
   const p_pagesIncluded  = p.pagesIncluded||'1';
-  const p_customerAddr2 = p.customerAddr2||'';
-  const p_projectAddr2  = p.projectAddr2||'';
+  const p_customerAddr2 = p_customerAddr2;
+  const p_projectAddr2  = p_projectAddr2;
 
   return '<div style="max-width:860px;margin:0 auto;">'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">'
@@ -8392,14 +8392,15 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
   const pm      = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;width:100%;';
-
-  const exclusionRows = (p.exclusionLines||[]).map((line,i)=>
-    '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">'
-    +'<input value="'+(line||'').replace(/"/g,'&quot;')+'" oninput="updateProposalLine(\''+job.id+'\',\'exclusionLines\','+i+',this.value)"'
-    +' style="flex:1;border:none;border-bottom:1px solid #ccc;background:transparent;font-size:10px;font-family:Arial;outline:none;padding:1px 2px;">'
-    +'<button onclick="removeProposalLine(\''+job.id+'\',\'exclusionLines\','+i+')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:12px;padding:0 2px;">\xd7</button>'
-    +'</div>'
-  ).join('');
+  // Alias p fields to avoid p.x||'' inside string concat
+  const p_customerName = p.customerName||'';
+  const p_customerAddr = p.customerAddr||'';
+  const p_attn         = p.attn||'';
+  const p_projectName  = p.projectName||job.name||'';
+  const p_projectAddr  = p.projectAddr||[job.address,job.city].filter(Boolean).join(', ')||'';
+  const p_bidNum       = p.bidNum||job.num||'';
+  const p_proposalDate = p.proposalDate||'';
+  const p_pagesIncluded = p.pagesIncluded||'1';
 
   return '<div style="max-width:860px;margin:0 auto;">'
     +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">'
@@ -8408,67 +8409,68 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
     +'</div>'
     +proposalPaper(
       coHeaderHTML(job)
-      +'<div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:16px;">PROPOSAL</div>'
+      +'<div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:16px;">NEW JOB</div>'
 
-      +'<div style="display:grid;grid-template-columns:1fr auto;gap:0 24px;font-size:11px;margin-bottom:14px;">'
-        // LEFT: CUSTOMER / ATTN / PROJECT
+      +'<div style="display:grid;grid-template-columns:1fr auto;gap:0 24px;font-size:11px;margin-bottom:12px;">'
         +'<div>'
-          +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:5px;">'
+          +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:4px;">'
             +'<div style="font-weight:bold;padding:3px 0;">CUSTOMER:</div>'
-            +'<div style="max-width:55%;">'
-              +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;"><input value="'+(p.customerName||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerName\',this.value)" style="'+iS+'font-weight:500;"></div>'
-              +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;margin-top:3px;"><input value="'+(p.customerAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerAddr\',this.value)" style="'+iS+'font-size:10px;"></div>'
-              +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;margin-top:3px;"><input value="'+(p.customerAddr2||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerAddr2\',this.value)" style="'+iS+'font-size:10px;"></div>'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
+              +'<input value="'+(p_customerName||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerName\',this.value)" style="'+iS+'font-weight:500;">'
+              +'<input value="'+(p_customerAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerAddr\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
             +'</div>'
           +'</div>'
-          +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:5px;">'
+          +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:4px;">'
             +'<div style="font-weight:bold;padding:3px 0;">ATTN:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;"><input value="'+(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'attn\',this.value)" style="'+iS+'"></div>'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
+              +'<input value="'+(p_attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'attn\',this.value)" style="'+iS+'">'
+            +'</div>'
           +'</div>'
           +'<div style="display:grid;grid-template-columns:80px 1fr;">'
             +'<div style="font-weight:bold;padding:3px 0;">PROJECT:</div>'
-            +'<div style="max-width:55%;">'
-              +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;"><input value="'+(p.projectName||job.name||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectName\',this.value)" style="'+iS+'font-weight:bold;"></div>'
-              +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;margin-top:3px;"><input value="'+(p.projectAddr||[job.address,job.city].filter(Boolean).join(\', \')||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr\',this.value)" style="'+iS+'font-size:10px;"></div>'
-              +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;margin-top:3px;"><input value="'+(p.projectAddr2||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr2\',this.value)" style="'+iS+'font-size:10px;"></div>'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
+              +'<input value="'+(p_projectName||job.name||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectName\',this.value)" style="'+iS+'font-weight:bold;">'
+              +'<input value="'+(p_projectAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
+              +'<input value="'+(p.projectAddr2||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr2\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
             +'</div>'
           +'</div>'
         +'</div>'
-        // RIGHT: BID# / DATE / PAGES
-        +'<div style="min-width:200px;">'
-          +'<div style="display:grid;grid-template-columns:auto 1fr;gap:3px 8px;font-size:11px;">'
-            +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;">BID #:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p.bidNum||job.num||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'bidNum\',this.value)" style="'+iS+'"></div>'
+        +'<div style="min-width:210px;">'
+          +'<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 8px;">'
+            +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;">JOB #:</div>'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p_bidNum||job.num||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'bidNum\',this.value)" style="'+iS+'"></div>'
             +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;">DATE:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input type="date" value="'+(p.proposalDate||'')+'" oninput="updateProposalField(\''+job.id+'\',\'proposalDate\',this.value)" style="'+iS+'"></div>'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input type="date" value="'+(p_proposalDate||'')+'" oninput="updateProposalField(\''+job.id+'\',\'proposalDate\',this.value)" style="'+iS+'"></div>'
             +'<div style="font-weight:bold;text-align:right;padding:3px 0;font-size:10px;white-space:nowrap;">PAGES INCLUDED:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p.pagesIncluded||'2')+'" oninput="updateProposalField(\''+job.id+'\',\'pagesIncluded\',this.value)" style="'+iS+'width:40px;"></div>'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p_pagesIncluded||'1')+'" oninput="updateProposalField(\''+job.id+'\',\'pagesIncluded\',this.value)" style="'+iS+'width:40px;"></div>'
           +'</div>'
         +'</div>'
       +'</div>'
 
-      // Body paragraph
       +'<div style="font-size:10px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:7px 4px;margin:10px 0;text-align:center;">'
         +'We shall supply labor and material necessary to accomplish the painting and wallcovering at the above stated project for the following quotation. All necessary Workman\u2019s Compensation, Public Liability and Property Damage Insurance are included in this quotation.'
       +'</div>'
 
-      // Inclusions — fixed text
-      +'<div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:14px;align-items:start;">'
-        +'<div style="font-weight:bold;padding-top:3px;">Inclusions:</div>'
-        +'<div style="padding-top:3px;">See attached Breakdown and Alternate Sheets.</div>'
-      +'</div>'
+      +'<div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Inclusions:</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;">'
+        +'<thead>'+tableHead('Total')+'</thead>'
+        +'<tbody>'+editableRows(p.inclusions, job.id, 'inclusions', 'Total')+'</tbody>'
+      +'</table>'
 
-      // Exclusions — editable lines
-      +'<div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:14px;align-items:start;">'
+      +'<div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:10px;align-items:start;">'
         +'<div style="font-weight:bold;padding-top:3px;">Exclusions:</div>'
         +'<div>'
-          +exclusionRows
+          +p.exclusionLines.map((line,i)=>
+            '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">'
+            +'<input value="'+(line||'').replace(/"/g,'&quot;')+'" oninput="updateProposalLine(\''+job.id+'\',\'exclusionLines\','+i+',this.value)" style="flex:1;border:none;border-bottom:1px solid #ccc;background:transparent;font-size:10px;font-family:Arial;outline:none;padding:1px 2px;">'
+            +'<button onclick="removeProposalLine(\''+job.id+'\',\'exclusionLines\','+i+')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:12px;padding:0 2px;">\xd7</button>'
+            +'</div>'
+          ).join('')
           +'<button onclick="addProposalLine(\''+job.id+'\',\'exclusionLines\')" style="margin-top:4px;background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>'
         +'</div>'
       +'</div>'
 
-      // Qualifications
-      +'<div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:20px;align-items:start;">'
+      +'<div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:16px;align-items:start;">'
         +'<div style="font-weight:bold;padding-top:3px;">Qualifications:</div>'
         +'<div>'
           +'<div style="margin-bottom:3px;display:flex;align-items:center;gap:4px;">'
@@ -8481,15 +8483,19 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
         +'</div>'
       +'</div>'
 
-      // BASE BID
-      +'<div style="display:flex;justify-content:flex-end;margin-bottom:24px;">'
+      +'<div style="display:flex;justify-content:flex-end;margin-bottom:14px;">'
         +'<div style="border:2px solid #000;padding:5px 14px;font-size:13px;font-weight:bold;display:flex;gap:16px;align-items:center;">'
           +'<span>BASE BID:</span>'
           +'<input value="'+(p.baseBid||'')+'" placeholder="$0" oninput="updateProposalField(\''+job.id+'\',\'baseBid\',this.value)" style="border:none;border-bottom:1px solid #000;font-size:13px;font-weight:bold;width:120px;text-align:right;outline:none;background:transparent;font-family:Arial;">'
         +'</div>'
       +'</div>'
 
-      // Signature
+      +'<div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Alternates:</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">'
+        +'<thead>'+tableHead('Total Add')+'</thead>'
+        +'<tbody>'+editableRows(p.alternates5, job.id, 'alternates5', 'Total Add')+'</tbody>'
+      +'</table>'
+
       +'<div style="font-size:10px;margin-top:8px;">'
         +'<div style="font-weight:bold;">'+(pm?pm.first+' '+pm.last:'Clayton Mase')+'</div>'
         +'<div>Project Manager</div>'
