@@ -4781,8 +4781,8 @@ function resetRoleMatrix(){
 // Procore-style overview panel + Documents + Budget tabs
 
 // Add Documents and Budget to job tabs
-const JOB_TABS = ['overview','submittal','status','corlog','cor','sov','budget','bid','documents'];
-const JOB_TAB_LABELS = ['Overview','Submittal','Status','COR Log','COR','SOV','Field Budget','Proposal','Documents'];
+const JOB_TABS = ['overview','bid','lumpsum','breakdown','alternate','submittal','status','rfi','transmittal','budget','corlog','cor','sov','documents'];
+const JOB_TAB_LABELS = ['Overview','Proposal','Lump Sum','Breakdown','Alternate','Submittal','Status','RFI','Transmittal','Field Budget','COR Log','COR','SOV','Documents'];
 
 // Override renderJobDetail to use new tab list
 function renderJobDetail(){
@@ -4807,6 +4807,11 @@ function renderJobDetail(){
   else if(CUR_JOB_TAB==='corlog') tabContent = renderCORLog(job,coHdr,coAddr,coPhone,ct);
   else if(CUR_JOB_TAB==='cor') tabContent = renderCORForm(job,coHdr,coAddr,coPhone,ct);
   else if(CUR_JOB_TAB==='sov') tabContent = renderSOV(job);
+  else if(CUR_JOB_TAB==='lumpsum') tabContent = renderLumpSumTab(job,coHdr,coAddr,coPhone);
+  else if(CUR_JOB_TAB==='breakdown') tabContent = renderBreakdownTab(job,coHdr,coAddr,coPhone);
+  else if(CUR_JOB_TAB==='alternate') tabContent = renderAlternateTab(job,coHdr,coAddr,coPhone);
+  else if(CUR_JOB_TAB==='rfi') tabContent = renderRFITab(job,coHdr,coAddr,coPhone);
+  else if(CUR_JOB_TAB==='transmittal') tabContent = renderTransmittalTab(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='budget') tabContent = renderBudgetTab(job);
   else if(CUR_JOB_TAB==='bid') tabContent = renderProposalTab(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='documents') tabContent = renderDocumentsTab(job);
@@ -8307,6 +8312,379 @@ function printProposal(jobId){
   const html=`<!DOCTYPE html><html><head><title>Proposal \u2014 ${job.name}</title>
   <style>body{margin:0;padding:0;font-family:Arial,sans-serif;}input,textarea{border:none!important;border-bottom:1px solid #ccc!important;outline:none;background:transparent;font-family:Arial,sans-serif;}@media print{@page{margin:0.5in;}}</style>
   </head><body>${el.outerHTML}</body></html>`;
+  const w=window.open('','_blank','width=900,height=1100');
+  w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
+}
+
+// ── Shared: company header HTML for print ────────────────────────────
+function coHeaderHTML(job){
+  const isACI = job.company==='ACI';
+  const name  = isACI ? 'ARCHITECTURAL COATINGS INC.' : 'BONAS COMPANY';
+  const sub   = 'PAINTING AND WALLCOVERING CONTRACTORS';
+  const addr  = isACI ? '1965 N. Main Street, Orange, CA. 92865' : '3197-C Airport Loop Drive \u2022 Costa Mesa, CA. 92626';
+  const phone = isACI ? '(714) 701-1360 \u2022 Fax (714) 701-1361' : '(714) 668-5250 \u2022 Fax (714) 668-5251';
+  return `<div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:16px;">
+    <div style="font-size:22px;font-weight:900;letter-spacing:1px;">${name}</div>
+    <div style="font-size:10px;font-weight:bold;letter-spacing:.5px;">${sub}</div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:5px;font-weight:bold;">
+      <span>${addr}</span><span>${phone}</span>
+    </div>
+  </div>`;
+}
+
+// Shared: project info header rows (PROJECT, BID#, DATE) for Breakdown/Alternate
+function projInfoCompact(job, title){
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const today = new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'2-digit'});
+  return `<div style="font-size:15px;font-weight:bold;text-align:center;margin-bottom:14px;letter-spacing:.5px;">${title}</div>
+  <div style="display:grid;grid-template-columns:80px 1fr 70px 1fr;font-size:11px;margin-bottom:14px;gap:2px;">
+    <span style="font-weight:bold;">PROJECT:</span>
+    <span style="font-weight:bold;">${job.name||''}</span>
+    <span style="font-weight:bold;text-align:right;">BID #:</span>
+    <span style="font-weight:bold;">${job.num||''}</span>
+    <span></span><span style="font-size:10px;">${gc?gc.name:''}</span>
+    <span style="font-weight:bold;text-align:right;">DATE:</span>
+    <span>${today}</span>
+  </div>`;
+}
+
+// Shared: editable line rows for inclusions/alternates
+function editableRows(rows, jobId, section, cols){
+  const iS = 'width:100%;border:none;background:transparent;font-size:11px;font-family:Arial,sans-serif;padding:1px 3px;outline:none;';
+  return rows.map((r,i)=>`<tr style="background:${i%2===0?'#fff':'#fafafa'};">
+    <td style="padding:2px 5px;border:1px solid #ccc;"><input value="${(r.item||'').replace(/"/g,'&quot;')}" oninput="updateProposal('${jobId}','${section}',${i},'item',this.value)" style="${iS}"></td>
+    <td style="padding:2px 5px;border:1px solid #ccc;text-align:center;width:70px;"><input value="${r.qty||''}" oninput="updateProposal('${jobId}','${section}',${i},'qty',this.value)" style="${iS}text-align:center;"></td>
+    <td style="padding:2px 5px;border:1px solid #ccc;text-align:center;width:70px;"><input value="${r.unit||''}" oninput="updateProposal('${jobId}','${section}',${i},'unit',this.value)" style="${iS}text-align:center;"></td>
+    <td style="padding:2px 5px;border:1px solid #ccc;text-align:right;width:80px;"><input value="${r.total||''}" placeholder="$0" oninput="updateProposal('${jobId}','${section}',${i},'total',this.value)" style="${iS}text-align:right;"></td>
+  </tr>`).join('');
+}
+
+function tableHead(lastCol){
+  return `<tr style="background:#e8e8e8;"><th style="padding:4px 5px;border:1px solid #ccc;text-align:left;font-size:10px;">Item</th>
+    <th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:70px;font-size:10px;">Quantity</th>
+    <th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:70px;font-size:10px;">Unit</th>
+    <th style="padding:4px 5px;border:1px solid #ccc;text-align:right;width:80px;font-size:10px;">${lastCol}</th></tr>`;
+}
+
+function proposalActionBar(jobId, printFn, label){
+  return `<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+    <button class="btn-sm" onclick="${printFn}('${jobId}')">&#9113; Print / PDF</button>
+    <button class="btn-sm-primary" onclick="saveProposal('${jobId}')">Save</button>
+  </div>`;
+}
+
+function proposalPaper(inner){
+  return `<div style="background:#fff;border:1px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.1);font-family:Arial,sans-serif;padding:24px 30px;" id="proposal-paper">${inner}</div>`;
+}
+
+function initProposal(job){
+  if(!job.proposal) job.proposal = {
+    inclusions: Array(36).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    inclusions5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    alternates5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    alternates47: Array(47).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    exclusions: 'Acoustical ceiling tiles or grid, millwork, cabinetry, wall patch or repair, skimcoating, core areas, MEP,\nremoval of existing finishes, doors, frames, exterior, caulking, aluminum, mock-ups, parking, OT, bond,\ntouch-up due to trade damage.',
+    plansDated:'', baseBid:'', proposalDate: new Date().toISOString().split('T')[0],
+    customerName:'', customerAddr:'', attn:'', bidNum:'', projectName:'', projectAddr:'',
+    contactPhone:'', contactFax:'', jobsitePhone:'', jobsiteFax:'',
+    rfiNum:'1', rfiQuestion:'', rfiResponseBy:'', rfiAnswer:'',
+    transmittalTo:'', transmittalPages:'1', transmittalRemarks:'',
+    transmittalChecks:{proposal:false,submittals:false,rfi:false,productData:false,changeOrder:false,other:''},
+    transmittalDelivery:{email:false,mail:false,fax:false,delivery:false},
+  };
+  // Ensure arrays are long enough
+  const ensure = (key, n) => { if(!job.proposal[key]||job.proposal[key].length<n){ job.proposal[key]=(job.proposal[key]||[]).concat(Array(n).fill(null).map(()=>({item:'',qty:'',unit:'',total:''}))).slice(0,n); } };
+  ensure('inclusions', 36);
+  ensure('inclusions5', 5);
+  ensure('alternates5', 5);
+  ensure('alternates47', 47);
+}
+
+// ── LUMP SUM TAB ──────────────────────────────────────────────────────
+function renderLumpSumTab(job, coHdr, coAddr, coPhone){
+  initProposal(job);
+  const p = job.proposal;
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;';
+
+  return `<div style="max-width:860px;margin:0 auto;">
+    ${proposalActionBar(job.id,'printLumpSum','')}
+    ${proposalPaper(`
+      ${coHeaderHTML(job)}
+      <div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:16px;">PROPOSAL</div>
+      <!-- Info Grid -->
+      <div style="display:grid;grid-template-columns:80px 1fr 90px 1fr;gap:0;font-size:11px;margin-bottom:12px;">
+        <div style="padding:4px 0;font-weight:bold;">CUSTOMER:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.customerName||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;font-weight:500;"><br><input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">DATE:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 0;font-weight:bold;font-size:10px;">PHONE #:<br>FAX #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PHONE #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||[job.address,job.city].filter(Boolean).join(', ')||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:9px;">JOBSITE PHONE #:<br>JOBSITE FAX #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.jobsiteFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsiteFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div></div><div></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PAGES INCLUDED:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;">2</div>
+      </div>
+      <!-- Body -->
+      <div style="font-size:10px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:8px 4px;margin:12px 0;text-align:center;">
+        We shall supply labor and material necessary to accomplish the painting and wallcovering at the above stated project for the following quotation. All necessary Workman's Compensation, Public Liability and Property Damage Insurance are included in this quotation.
+      </div>
+      <!-- Inclusions -->
+      <div style="font-size:11px;margin-bottom:10px;"><span style="font-weight:bold;">Inclusions:</span> <span style="margin-left:16px;">See attached Breakdown and Alternate Sheets.</span></div>
+      <!-- Exclusions -->
+      <div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:10px;">
+        <div style="font-weight:bold;padding-top:2px;">Exclusions:</div>
+        <textarea oninput="updateProposalField('${job.id}','exclusions',this.value)" style="border:none;border-bottom:1px solid #ccc;font-size:10px;font-family:Arial;resize:none;outline:none;background:transparent;width:100%;min-height:46px;">${p.exclusions||''}</textarea>
+      </div>
+      <!-- Qualifications -->
+      <div style="display:grid;grid-template-columns:90px 1fr;font-size:10px;margin-bottom:16px;">
+        <div style="font-weight:bold;padding-top:2px;">Qualifications:</div>
+        <div>
+          <div style="margin-bottom:2px;">Plans dated: <input value="${p.plansDated||''}" oninput="updateProposalField('${job.id}','plansDated',this.value)" style="${iS}width:110px;"></div>
+          <div>If a bond is required for this project, ADD 2% to overall cost.</div>
+          <div>Normal business hours. Single Phase.</div>
+          <div>Painting prior to the installation of carpet and base.</div>
+        </div>
+      </div>
+      <!-- BASE BID -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+        <div style="border:2px solid #000;padding:5px 14px;font-size:13px;font-weight:bold;display:flex;gap:16px;align-items:center;">
+          <span>BASE BID:</span>
+          <input value="${p.baseBid||''}" placeholder="$0" oninput="updateProposalField('${job.id}','baseBid',this.value)" style="${iS}font-size:13px;font-weight:bold;width:100px;text-align:right;border-bottom:1px solid #000;">
+        </div>
+      </div>
+      <!-- Signature -->
+      <div style="font-size:10px;">
+        <div style="font-weight:bold;">${pm?pm.first+' '+pm.last:'Clayton Mase'}</div>
+        <div>Project Manager</div>
+        <div style="color:#0000CC;">${pm&&pm.email?pm.email:'Cmase@bonasco.com'}</div>
+      </div>
+    `)}
+  </div>`;
+}
+
+// ── BREAKDOWN TAB ────────────────────────────────────────────────────
+function renderBreakdownTab(job, coHdr, coAddr, coPhone){
+  initProposal(job);
+  const p = job.proposal;
+  return `<div style="max-width:860px;margin:0 auto;">
+    ${proposalActionBar(job.id,'printBreakdown','')}
+    ${proposalPaper(`
+      ${coHeaderHTML(job)}
+      ${projInfoCompact(job,'BREAKDOWN SHEET')}
+      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Inclusions:</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+        <thead>${tableHead('Total')}</thead>
+        <tbody>${editableRows(p.inclusions, job.id, 'inclusions', 'Total')}</tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <div style="border:2px solid #000;padding:5px 14px;font-size:12px;font-weight:bold;display:flex;gap:16px;align-items:center;">
+          <span>BASE BID:</span>
+          <input value="${p.baseBid||''}" placeholder="$0" oninput="updateProposalField('${job.id}','baseBid',this.value)" style="border:none;border-bottom:1px solid #000;font-size:12px;font-weight:bold;width:90px;text-align:right;outline:none;background:transparent;font-family:Arial;">
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Alternates:</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>${tableHead('Total Add')}</thead>
+        <tbody>${editableRows(p.alternates5, job.id, 'alternates5', 'Total Add')}</tbody>
+      </table>
+    `)}
+  </div>`;
+}
+
+// ── ALTERNATE TAB ────────────────────────────────────────────────────
+function renderAlternateTab(job, coHdr, coAddr, coPhone){
+  initProposal(job);
+  const p = job.proposal;
+  return `<div style="max-width:860px;margin:0 auto;">
+    ${proposalActionBar(job.id,'printAlternate','')}
+    ${proposalPaper(`
+      ${coHeaderHTML(job)}
+      ${projInfoCompact(job,'ALTERNATE SHEET')}
+      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Alternates:</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>${tableHead('Total Add')}</thead>
+        <tbody>${editableRows(p.alternates47, job.id, 'alternates47', 'Total Add')}</tbody>
+      </table>
+    `)}
+  </div>`;
+}
+
+// ── RFI TAB ──────────────────────────────────────────────────────────
+function renderRFITab(job, coHdr, coAddr, coPhone){
+  initProposal(job);
+  const p = job.proposal;
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;';
+  const respDate = p.rfiResponseBy || new Date(Date.now()+7*86400000).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'2-digit'});
+
+  return `<div style="max-width:860px;margin:0 auto;">
+    ${proposalActionBar(job.id,'printRFI','')}
+    ${proposalPaper(`
+      ${coHeaderHTML(job)}
+      <div style="font-size:15px;font-weight:bold;text-align:center;margin-bottom:4px;letter-spacing:.5px;">REQUEST FOR INFORMATION</div>
+      <div style="font-size:14px;font-weight:bold;text-align:center;margin-bottom:14px;"># <input value="${p.rfiNum||'1'}" oninput="updateProposalField('${job.id}','rfiNum',this.value)" style="${iS}width:40px;text-align:center;font-size:14px;font-weight:bold;"></div>
+      <!-- Info grid matching template -->
+      <div style="display:grid;grid-template-columns:80px 1fr 80px 1fr;gap:0;font-size:11px;margin-bottom:12px;">
+        <div style="padding:4px 0;font-weight:bold;">CUSTOMER:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;"><br><input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PHONE #:<br>FAX #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:9px;">JOBSITE PHONE #:<br>JOBSITE FAX #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.jobsiteFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsiteFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
+      </div>
+      <div style="border-top:1px solid #000;margin-bottom:14px;"></div>
+      <div style="font-size:11px;margin-bottom:14px;">Please provide the following information regarding the above stated project:</div>
+      <div style="margin-bottom:8px;font-size:11px;padding-left:30px;">1) <input value="${(p.rfiQuestion||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','rfiQuestion',this.value)" style="${iS}width:85%;"></div>
+      <div style="display:flex;justify-content:flex-end;margin:20px 0;font-size:11px;">
+        Response requested by: <input value="${p.rfiResponseBy||respDate}" oninput="updateProposalField('${job.id}','rfiResponseBy',this.value)" style="${iS}width:100px;margin-left:8px;text-align:right;">
+      </div>
+      <div style="font-size:10px;margin-bottom:30px;">
+        <div style="font-weight:bold;">${pm?pm.first+' '+pm.last:'Clayton Mase'}</div>
+        <div>Project Manager</div>
+      </div>
+      <div style="border-top:1px solid #ccc;padding-top:10px;font-size:11px;">
+        <div style="font-weight:bold;margin-bottom:6px;">ANSWER:</div>
+        <textarea oninput="updateProposalField('${job.id}','rfiAnswer',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${p.rfiAnswer||''}</textarea>
+      </div>
+    `)}
+  </div>`;
+}
+
+// ── TRANSMITTAL TAB ──────────────────────────────────────────────────
+function renderTransmittalTab(job, coHdr, coAddr, coPhone){
+  initProposal(job);
+  const p = job.proposal;
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;';
+  const tc = p.transmittalChecks || {};
+  const td = p.transmittalDelivery || {};
+  const chk = (field, label, grp) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;">
+    <input type="checkbox" ${tc[field]?'checked':''} onchange="updateTransmittalCheck('${job.id}','${grp||'transmittalChecks'}','${field}',this.checked)" style="width:14px;height:14px;cursor:pointer;">
+    <span style="font-size:11px;">${label}</span>
+  </div>`;
+
+  return `<div style="max-width:860px;margin:0 auto;">
+    ${proposalActionBar(job.id,'printTransmittal','')}
+    ${proposalPaper(`
+      ${coHeaderHTML(job)}
+      <div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:16px;">TRANSMITTAL</div>
+      <div style="display:grid;grid-template-columns:60px 1fr 80px 1fr;gap:0;font-size:11px;margin-bottom:12px;">
+        <div style="padding:4px 0;font-weight:bold;">TO:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;"><br><input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PHONE #:<br>FAX #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:9px;">JOBSITE PHONE #:<br>JOBSITE FAX #:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.jobsiteFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsiteFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
+        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PAGES INCLUDED:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${p.transmittalPages||'1'}" oninput="updateProposalField('${job.id}','transmittalPages',this.value)" style="${iS}width:40px;"></div>
+      </div>
+      <div style="border-top:1px solid #000;padding-top:12px;margin-bottom:12px;">
+        <div style="font-weight:bold;font-size:12px;margin-bottom:8px;">Transmitted here within:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+          ${chk('proposal','Proposal')} ${chk('submittals','Submittals')}
+          ${chk('rfi','Request for information')} ${chk('productData','Product Data and MSDS sheets')}
+          ${chk('changeOrder','Change order request')} <div style="display:flex;align-items:center;gap:8px;padding:8px 0;"><input type="checkbox" style="width:14px;height:14px;"><input value="${tc.other||''}" oninput="updateTransmittalCheck('${job.id}','transmittalChecks','other',this.value)" placeholder="_________________" style="${iS}width:80%;"></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #000;padding-top:12px;margin-bottom:12px;">
+        <div style="font-weight:bold;font-size:12px;margin-bottom:8px;">Delivery Method:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;">
+          ${chk('email','Email','transmittalDelivery')} ${chk('mail','Mail','transmittalDelivery')}
+          ${chk('fax','Fax','transmittalDelivery')} ${chk('delivery','Delivery','transmittalDelivery')}
+        </div>
+      </div>
+      <div style="border-top:1px solid #000;padding-top:12px;margin-bottom:16px;">
+        <div style="font-weight:bold;font-size:12px;margin-bottom:6px;">Remarks:</div>
+        <textarea oninput="updateProposalField('${job.id}','transmittalRemarks',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${p.transmittalRemarks||''}</textarea>
+      </div>
+      <div style="font-size:10px;">
+        <div style="font-weight:bold;">${pm?pm.first+' '+pm.last:'Clayton Mase'}</div>
+        <div>Project Manager</div>
+      </div>
+    `)}
+  </div>`;
+}
+
+// ── HELPER: update transmittal checkboxes ────────────────────────────
+function updateTransmittalCheck(jobId, group, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.proposal)job.proposal={};
+  if(!job.proposal[group])job.proposal[group]={};
+  job.proposal[group][field]=val;
+  saveJobs();
+}
+
+// ── PRINT FUNCTIONS ──────────────────────────────────────────────────
+function printLumpSum(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const el=document.getElementById('proposal-paper');
+  if(!el){alert('Open the Lump Sum tab first.');return;}
+  _printPaper(el,job,'PROPOSAL');
+}
+function printBreakdown(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const el=document.getElementById('proposal-paper');
+  if(!el){alert('Open the Breakdown tab first.');return;}
+  _printPaper(el,job,'BREAKDOWN SHEET');
+}
+function printAlternate(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const el=document.getElementById('proposal-paper');
+  if(!el){alert('Open the Alternate tab first.');return;}
+  _printPaper(el,job,'ALTERNATE SHEET');
+}
+function printRFI(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const el=document.getElementById('proposal-paper');
+  if(!el){alert('Open the RFI tab first.');return;}
+  _printPaper(el,job,'REQUEST FOR INFORMATION');
+}
+function printTransmittal(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const el=document.getElementById('proposal-paper');
+  if(!el){alert('Open the Transmittal tab first.');return;}
+  _printPaper(el,job,'TRANSMITTAL');
+}
+function _printPaper(el, job, title){
+  const html=`<!DOCTYPE html><html><head><title>${title} \u2014 ${job.name}</title>
+  <style>
+    body{margin:0;padding:0;font-family:Arial,sans-serif;}
+    input,textarea{border:none!important;border-bottom:1px solid #bbb!important;outline:none;background:transparent;font-family:Arial,sans-serif;}
+    input[type=checkbox]{accent-color:#000;}
+    @media print{@page{margin:0.5in;size:letter;}}
+  </style></head><body>${el.outerHTML}</body></html>`;
   const w=window.open('','_blank','width=900,height=1100');
   w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
