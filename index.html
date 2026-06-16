@@ -4418,11 +4418,11 @@ function renderSubRow(jobId, type, row, idx){
   const col4 = type==='paint' ? row.finish||'' : row.leadTime||'';
   return `<div class="sub-row sub-row-paint ${inc}" id="subrow-${type}-${idx}" style="display:grid;grid-template-columns:28px 60px 1fr 1fr 120px 90px 36px;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${idx%2===0?'var(--bg2)':'var(--bg3)'};">
     <input type="checkbox" class="sub-check" ${row.included?'checked':''} onchange="toggleSubIncluded('${jobId}','${type}',${idx},this.checked)">
-    <input class="sub-input" value="${row.num||''}" placeholder="${idx===0?'#':''}" oninput="updateSubField('${jobId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.manufacturer||''}" placeholder="${idx===0?'Manufacturer':''}" oninput="updateSubField('${jobId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.color||''}" placeholder="${idx===0?(type==='paint'?'Color':'Pattern / Color'):''}" oninput="updateSubField('${jobId}','${type}',${idx},'color',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${col4}" placeholder="${idx===0?(type==='paint'?'Finish':'Lead Time'):''}" oninput="updateSubField('${jobId}','${type}',${idx},'${type==='paint'?'finish':'leadTime'}',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.orderNote||''}" placeholder="${idx===0?'Order note':''}" oninput="updateSubField('${jobId}','${type}',${idx},'orderNote',this.value)" style="font-size:11px;color:var(--text2);border-left:2px solid var(--border2);" title="Order notes — screen only, not printed">
+    <input class="sub-input" value="${row.num||''}" placeholder="#" oninput="updateSubField('${jobId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.manufacturer||''}" placeholder="Manufacturer" oninput="updateSubField('${jobId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.color||''}" placeholder="${type==='paint'?'Color':'Pattern / Color'}" oninput="updateSubField('${jobId}','${type}',${idx},'color',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${col4}" placeholder="${type==='paint'?'Finish':'Lead Time'}" oninput="updateSubField('${jobId}','${type}',${idx},'${type==='paint'?'finish':'leadTime'}',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.orderNote||''}" placeholder="Order note" oninput="updateSubField('${jobId}','${type}',${idx},'orderNote',this.value)" style="font-size:11px;color:var(--text2);border-left:2px solid var(--border2);" title="Order notes — screen only, not printed">
     <button class="btn-sm" style="padding:2px 6px;" onclick="removeSubItem('${jobId}','${type}',${idx})">×</button>
   </div>`;
 }
@@ -4483,6 +4483,7 @@ function renderStatusPage(job, coHdr, coAddr, coPhone){
       </div>
       <div style="display:flex;gap:8px;margin-bottom:14px;">
         <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.02em;box-shadow:0 1px 4px rgba(0,0,0,.15);" onclick="syncStatusFromSubmittal('${job.id}')">&#8635; Sync from Submittal</button>
+        <button class="btn-sm" onclick="printStatusPage(JOBS.find(j=>j.id==='${job.id}'))">⎙ Print</button>
         <button class="btn-sm" onclick="addStatusItem('${job.id}','paint')">+ Paint item</button>
         <button class="btn-sm" onclick="addStatusItem('${job.id}','wc')">+ WC item</button>
       </div>
@@ -4780,8 +4781,8 @@ function resetRoleMatrix(){
 // Procore-style overview panel + Documents + Budget tabs
 
 // Add Documents and Budget to job tabs
-const JOB_TABS = ['overview','submittal','status','corlog','cor','sov','budget','documents'];
-const JOB_TAB_LABELS = ['Overview','Submittal','Status','COR Log','COR','SOV','Field Budget','Documents'];
+const JOB_TABS = ['overview','submittal','status','corlog','cor','sov','budget','bid','documents'];
+const JOB_TAB_LABELS = ['Overview','Submittal','Status','COR Log','COR','SOV','Field Budget','Proposal','Documents'];
 
 // Override renderJobDetail to use new tab list
 function renderJobDetail(){
@@ -4807,6 +4808,7 @@ function renderJobDetail(){
   else if(CUR_JOB_TAB==='cor') tabContent = renderCORForm(job,coHdr,coAddr,coPhone,ct);
   else if(CUR_JOB_TAB==='sov') tabContent = renderSOV(job);
   else if(CUR_JOB_TAB==='budget') tabContent = renderBudgetTab(job);
+  else if(CUR_JOB_TAB==='bid') tabContent = renderProposalTab(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='documents') tabContent = renderDocumentsTab(job);
 
   document.getElementById('app').innerHTML = `
@@ -5044,7 +5046,10 @@ function renderBudgetTab(job){
   return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <div style="font-size:14px;font-weight:700;">Budget vs Actual</div>
-      <button class="btn-sm-primary" onclick="saveBudget('${job.id}')">Save Budget</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="printFieldBudget(JOBS.find(j=>j.id==='${job.id}'))">⎙ Print</button>
+        <button class="btn-sm-primary" onclick="saveBudget('${job.id}')">Save Budget</button>
+      </div>
     </div>
     <!-- Summary -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--border);">
@@ -5617,7 +5622,7 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
                   ${isVoid?'<span style="color:#CC0000;font-weight:700;">VOID</span> ':''}${cor?cor.desc||'':''}</td>
                 <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:600;color:${isActive?'#CC0000':'var(--text3)'};">${cor&&cor.total?fmtVal(cor.total):'—'}</td>
                 <td style="padding:3px 6px;border:1px solid var(--border);">
-                  ${cor?`<input value="${cor.custCONum||''}" placeholder=""
+                  ${cor?`<input value="${cor.custCONum||''}" placeholder="CO#"
                      oninput="inlineCORUpdate('${jid}',${i},'custCONum',this.value)"
                      style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:center;outline:none;color:var(--text);">`:''}
                 </td>
@@ -5627,7 +5632,7 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
                      style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);outline:none;color:var(--text);">`:''}
                 </td>
                 <td style="padding:3px 6px;border:1px solid var(--border);">
-                  ${cor?`<input type="number" value="${cor.custAmount||''}" placeholder=""
+                  ${cor?`<input type="number" value="${cor.custAmount||''}" placeholder="0"
                      oninput="inlineCORUpdate('${jid}',${i},'custAmount',parseFloat(this.value)||0)"
                      style="width:100%;border:none;background:transparent;font-size:11px;font-family:var(--font);text-align:right;outline:none;color:var(--green);font-weight:700;">`:''}
                 </td>
@@ -5718,8 +5723,8 @@ function renderSOV(job){
           <tbody>
             ${job.sov.map((line,i)=>`<tr style="background:${i%2===0?'var(--bg2)':'var(--bg3)'};">
               <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">${i+1}</td>
-              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" value="${line.desc||''}" placeholder="Description" onblur="SOV_LINE_UPDATE('${job.id}',${i},'desc',this.value)" style="width:100%;"></td>
-              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${line.value||''}" placeholder="0.00" step="0.01" onblur="SOV_LINE_UPDATE('${job.id}',${i},'value',parseFloat(this.value)||0)" style="width:100%;text-align:right;"><div style="font-size:10px;color:var(--text3);text-align:right;margin-top:1px;">${line.value?fmtMoney(line.value):''}</div></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" value="${line.desc||''}" placeholder="Description" oninput="SOV_LINE_UPDATE('${job.id}',${i},'desc',this.value)" style="width:100%;"></td>
+              <td style="padding:5px 8px;border:1px solid var(--border);"><input class="sub-input" type="number" value="${line.value||''}" placeholder="0.00" step="0.01" oninput="SOV_LINE_UPDATE('${job.id}',${i},'value',parseFloat(this.value)||0)" style="width:100%;text-align:right;"><div style="font-size:10px;color:var(--text3);text-align:right;margin-top:1px;">${line.value?fmtMoney(line.value):''}</div></td>
               <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;"><button class="btn-sm" onclick="removeSOVLine('${job.id}',${i})" style="padding:1px 5px;">×</button></td>
             </tr>`).join('')}
             ${!job.sov.length?`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);border:1px solid var(--border);">No SOV lines yet — click + Add Line</td></tr>`:''}
@@ -5955,13 +5960,9 @@ function SOV_LINE_UPDATE(jobId,idx,field,val){
   if(!job.sov)job.sov=[];
   if(job.sov[idx])job.sov[idx][field]=val;
   saveJobs();
-  // Only re-render months (description/value are saved on blur, not while typing)
-  // Do NOT re-render the line items table — it would destroy focus
-  // Update the fmtMoney display cell below the value input if present
-  if(field==='value'){
-    const dispEl=document.getElementById('sov-val-disp-'+jobId+'-'+idx);
-    if(dispEl)dispEl.textContent=val?fmtMoney(val):'';
-  }
+  // Re-render line items table + months in place — no page nav needed
+  const lineWrap=document.getElementById('sov-lines-wrap-'+jobId);
+  if(lineWrap)lineWrap.innerHTML=renderSOVLinesTable(job);
   const mCont=document.getElementById('sov-months-container-'+jobId);
   if(mCont)mCont.innerHTML=(job.sovMonths||[]).map((m,mi)=>renderSOVMonth(job,m,mi)).join('');
 }
@@ -7963,12 +7964,12 @@ function renderSOVLinesTable(job){
         +'<td style="padding:5px 8px;border:1px solid var(--border);text-align:center;color:var(--text3);">'+(i+1)+'</td>'
         +'<td style="padding:5px 8px;border:1px solid var(--border);">'
         +'<input class="sub-input" value="'+(line.desc||'').replace(/"/g,'&quot;')+'" placeholder="Description"'
-        +' onblur="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'desc\',this.value)" style="width:100%;"></td>'
+        +' oninput="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'desc\',this.value)" style="width:100%;"></td>'
         +'<td style="padding:5px 8px;border:1px solid var(--border);">'
         +'<div style="display:flex;align-items:center;gap:3px;">'
         +'<span style="font-size:11px;color:var(--text3);">$</span>'
         +'<input class="sub-input" type="number" value="'+(line.value||'')+'" placeholder="0.00" step="0.01"'
-        +' onblur="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'value\',parseFloat(this.value)||0)"'
+        +' oninput="SOV_LINE_UPDATE(\''+job.id+'\','+i+',\'value\',parseFloat(this.value)||0)"'
         +' style="flex:1;text-align:right;"></div>'
         +(line.value?'<div style="font-size:10px;color:var(--text3);text-align:right;">'+fmtMoney(line.value)+'</div>':'')
         +'</td>'
@@ -7984,6 +7985,330 @@ function renderSOVLinesTable(job){
     +'<td style="border:1px solid var(--border);"></td>'
     +'</tr></tfoot>'
     +'</table>';
+}
+
+// ════════════════════════════════════ PRINT STATUS PAGE ══════════════════════
+function printStatusPage(job){
+  if(!job)return;
+  const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive \u2022 Costa Mesa \u2022 CA \u2022 92626';
+  const coPhone=job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
+  const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const paint=(job.statusPaint||[]).filter(r=>r.num||r.manufacturer||r.color);
+  const wc=(job.statusWC||[]).filter(r=>r.num||r.manufacturer||r.color);
+
+  const paintRows=paint.map(r=>`<tr>
+    <td style="padding:4px 7px;border:1px solid #ccc;">${r.num||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;font-weight:${r.included?'bold':'normal'};">${r.manufacturer||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;">${r.color||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;">${r.finish||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.ddsOrdered||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.ddsReceived||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.approved||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.paintOrdered||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.estDelivery||''}</td>
+  </tr>`).join('');
+
+  const wcRows=wc.map(r=>`<tr>
+    <td style="padding:4px 7px;border:1px solid #ccc;">${r.num||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;font-weight:${r.included?'bold':'normal'};">${r.manufacturer||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;">${r.color||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.samplesOrdered||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.samplesReceived||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.approved||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.wcOrdered||''}</td>
+    <td style="padding:4px 7px;border:1px solid #ccc;text-align:center;">${r.estDelivery||''}</td>
+  </tr>`).join('');
+
+  const html=`<!DOCTYPE html><html><head><title>Status \u2014 ${job.name}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:10px;margin:0;padding:16px;color:#000;}
+    .hdr{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:12px;}
+    .co{font-size:14px;font-weight:bold;} .co-sub{font-size:9px;color:#555;}
+    h3{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+    th{padding:4px 7px;background:#f0f0f0;border:1px solid #ccc;text-align:left;font-size:9px;font-weight:bold;text-transform:uppercase;}
+    @media print{body{padding:8px;}}
+  </style></head><body>
+  <div class="hdr">
+    <div><div class="co">${coHdr}</div><div class="co-sub">PAINTING AND WALLCOVERING CONTRACTORS \u00b7 ${coAddr} \u00b7 ${coPhone}</div></div>
+    <div style="text-align:right;font-size:10px;">
+      <div style="font-size:13px;font-weight:bold;">STATUS PAGE</div>
+      <div><strong>Job:</strong> ${job.name} &nbsp; <strong>Job #:</strong> ${job.num||'\u2014'}</div>
+      <div><strong>GC:</strong> ${gc?gc.name:job.gcName||'\u2014'} &nbsp; <strong>PM:</strong> ${pm?pm.first+' '+pm.last:'\u2014'}</div>
+      <div><strong>Date:</strong> ${today}</div>
+    </div>
+  </div>
+  ${paint.length?`<h3>Paint</h3>
+  <table><thead><tr>
+    <th>#</th><th>Manufacturer</th><th>Color</th><th>Finish</th>
+    <th>DDS Ordered</th><th>DDS Rcvd</th><th>Approved</th><th>Paint Ordered</th><th>Est Delivery</th>
+  </tr></thead><tbody>${paintRows}</tbody></table>`:''}
+  ${wc.length?`<h3>Wallcovering</h3>
+  <table><thead><tr>
+    <th>#</th><th>Manufacturer</th><th>Pattern/Color</th>
+    <th>Samples Ordered</th><th>Samples Rcvd</th><th>Approved</th><th>WC Ordered</th><th>Est Delivery</th>
+  </tr></thead><tbody>${wcRows}</tbody></table>`:''}
+  <div style="margin-top:16px;font-size:9px;color:#777;text-align:center;">Printed ${today} \u00b7 ${coHdr}</div>
+  </body></html>`;
+  const w=window.open('','_blank','width=1000,height=750');w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);
+}
+
+// ════════════════════════════════════ PRINT FIELD BUDGET ═════════════════════
+function printFieldBudget(job){
+  if(!job)return;
+  const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive \u2022 Costa Mesa \u2022 CA \u2022 92626';
+  const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+  const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const CATS=['Labor','Overtime Labor','Fringes','Materials','Committed Materials','Subcontracts','Equipment Rental','Job Supplies','Other Job Costs'];
+  const totalBudget=CATS.reduce((s,c)=>s+(parseFloat((job.budget||{})[c])||0),0);
+  const totalActual=jobTotalCosts(job);
+  const fmt=v=>'$'+(parseFloat(v||0)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const rows=CATS.map(c=>{
+    const bud=parseFloat((job.budget||{})[c])||0;
+    const act=0; // actual by category not tracked separately
+    const v=bud;
+    return `<tr><td style="padding:5px 10px;border:1px solid #ccc;">${c}</td><td style="padding:5px 10px;border:1px solid #ccc;text-align:right;">${fmt(bud)}</td></tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><title>Field Budget \u2014 ${job.name}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:20px;}
+    .hdr{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:16px;}
+    .co{font-size:14px;font-weight:bold;} table{width:100%;border-collapse:collapse;max-width:500px;}
+    th{padding:5px 10px;background:#f0f0f0;border:1px solid #ccc;text-align:left;font-size:10px;font-weight:bold;text-transform:uppercase;}
+    .tot td{font-weight:bold;background:#f0f0f0;font-size:12px;}
+    @media print{body{padding:8px;}}
+  </style></head><body>
+  <div class="hdr">
+    <div><div class="co">${coHdr}</div><div style="font-size:9px;color:#555;">${coAddr}</div></div>
+    <div style="text-align:right;font-size:10px;">
+      <div style="font-size:13px;font-weight:bold;">FIELD BUDGET</div>
+      <div><strong>${job.name}</strong> &nbsp; Job #${job.num||'\u2014'}</div>
+      <div>GC: ${gc?gc.name:job.gcName||'\u2014'} &nbsp; PM: ${pm?pm.first+' '+pm.last:'\u2014'}</div>
+      <div>${today}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Category</th><th style="text-align:right;">Budget</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr class="tot"><td style="padding:6px 10px;border:1px solid #ccc;">TOTAL BUDGET</td><td style="padding:6px 10px;border:1px solid #ccc;text-align:right;">${fmt(totalBudget)}</td></tr>
+    <tr class="tot"><td style="padding:6px 10px;border:1px solid #ccc;">TOTAL ACTUAL COST</td><td style="padding:6px 10px;border:1px solid #ccc;text-align:right;color:#CC0000;">${fmt(totalActual)}</td></tr>
+    <tr class="tot"><td style="padding:6px 10px;border:1px solid #ccc;">VARIANCE</td><td style="padding:6px 10px;border:1px solid #ccc;text-align:right;color:${totalBudget-totalActual>=0?'green':'#CC0000'};">${fmt(totalBudget-totalActual)}</td></tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:20px;font-size:9px;color:#777;">Printed ${today} \u00b7 ${coHdr}</div>
+  </body></html>`;
+  const w=window.open('','_blank','width=700,height=600');w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);
+}
+
+// ════════════════════════════════════ PROPOSAL TAB ═══════════════════════════
+function renderProposalTab(job, coHdr, coAddr, coPhone){
+  if(!job.proposal) job.proposal = {
+    inclusions: Array(16).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    exclusions: 'Acoustical ceiling tiles or grid, millwork, cabinetry, wall patch or repair, skim coating, core areas, MEP,\nremoval of existing finishes, doors, frames, exterior, caulking, aluminum, mock-ups, parking, OT, bond,\ntouch-up due to trade damage.',
+    plansDated: '',
+    alternates: [{item:'Off hours (weekday evenings only)',qty:'1',unit:'ls',total:''},{item:'Parking',qty:'1',unit:'ls',total:''},{item:'',qty:'',unit:'',total:''}],
+    baseBid: '',
+  };
+  const p = job.proposal;
+  const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+  const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+
+  const iStyle = 'width:100%;border:none;border-bottom:1px solid #ddd;background:transparent;font-size:11px;font-family:Arial,sans-serif;padding:2px 3px;outline:none;';
+  const tdNum = 'style="padding:3px 6px;border:1px solid #ccc;text-align:center;width:80px;"';
+  const tdItem = 'style="padding:3px 6px;border:1px solid #ccc;"';
+  const tdTotal = 'style="padding:3px 6px;border:1px solid #ccc;text-align:right;width:80px;"';
+
+  const inclusionRows = p.inclusions.map((r,i)=>`<tr>
+    <td ${tdItem}><input value="${(r.item||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposal('${job.id}','inclusions',${i},'item',this.value)" style="${iStyle}"></td>
+    <td ${tdNum}><input value="${r.qty||''}" placeholder="" oninput="updateProposal('${job.id}','inclusions',${i},'qty',this.value)" style="${iStyle}text-align:center;"></td>
+    <td ${tdNum}><input value="${r.unit||''}" placeholder="" oninput="updateProposal('${job.id}','inclusions',${i},'unit',this.value)" style="${iStyle}text-align:center;"></td>
+    <td ${tdTotal}><input value="${r.total||''}" placeholder="$0" oninput="updateProposal('${job.id}','inclusions',${i},'total',this.value)" style="${iStyle}text-align:right;"></td>
+  </tr>`).join('');
+
+  const alternateRows = p.alternates.map((r,i)=>`<tr>
+    <td ${tdItem}><input value="${(r.item||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalAlt('${job.id}',${i},'item',this.value)" style="${iStyle}"></td>
+    <td ${tdNum}><input value="${r.qty||''}" placeholder="" oninput="updateProposalAlt('${job.id}',${i},'qty',this.value)" style="${iStyle}text-align:center;"></td>
+    <td ${tdNum}><input value="${r.unit||''}" placeholder="" oninput="updateProposalAlt('${job.id}',${i},'unit',this.value)" style="${iStyle}text-align:center;"></td>
+    <td ${tdTotal}><input value="${r.total||''}" placeholder="$0" oninput="updateProposalAlt('${job.id}',${i},'total',this.value)" style="${iStyle}text-align:right;"></td>
+  </tr>`).join('');
+
+  const logoSrc = getCompanyLogo(job.company||'ACI');
+
+  return `<div style="max-width:860px;margin:0 auto;">
+    <!-- Actions -->
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+      <button class="btn-sm" onclick="printProposal('${job.id}')">⎙ Print / PDF</button>
+      <button class="btn-sm-primary" onclick="saveProposal('${job.id}')">Save Proposal</button>
+    </div>
+
+    <!-- Paper Proposal -->
+    <div style="background:#fff;border:1px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.1);font-family:Arial,sans-serif;padding:28px 32px;" id="proposal-paper">
+
+      <!-- Header -->
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:18px;">
+        ${logoSrc?`<img src="${logoSrc}" style="height:50px;object-fit:contain;display:block;margin:0 auto 6px;" alt="">`:``}
+        <div style="font-size:20px;font-weight:bold;letter-spacing:1px;">${coHdr}</div>
+        <div style="font-size:10px;font-weight:bold;letter-spacing:.5px;margin-top:2px;">PAINTING AND WALLCOVERING CONTRACTORS</div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:6px;">
+          <span>${coAddr}</span><span>${coPhone} &bull; Fax (714) 701-1361</span>
+        </div>
+      </div>
+
+      <div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:18px;">PROPOSAL</div>
+
+      <!-- Info Grid -->
+      <div style="display:grid;grid-template-columns:80px 1fr 80px 1fr;gap:0;margin-bottom:6px;font-size:11px;">
+        <div style="padding:5px 0;font-weight:bold;">CUSTOMER:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input value="${(gc?gc.name:job.gcName||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iStyle}font-weight:500;">
+          <input value="${(gc&&gc.street?gc.street+', '+gc.city:p.customerAddr||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iStyle}margin-top:1px;">
+        </div>
+        <div style="padding:5px 8px;font-weight:bold;text-align:right;">BID #:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iStyle}">
+        </div>
+        <div style="padding:5px 0;font-weight:bold;">ATTN:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input value="${(contact?contact.first+' '+contact.last:p.attn||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iStyle}">
+        </div>
+        <div style="padding:5px 8px;font-weight:bold;text-align:right;">DATE:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input type="date" value="${p.proposalDate||new Date().toISOString().split('T')[0]}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iStyle}">
+        </div>
+        <div style="padding:5px 0;font-weight:bold;">PROJECT:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iStyle}font-weight:bold;">
+          <input value="${([job.address,job.city,job.zip].filter(Boolean).join(', ')||p.projectAddr||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iStyle}margin-top:1px;">
+        </div>
+        <div style="padding:5px 8px;font-weight:bold;text-align:right;font-size:10px;">PHONE #:<br>FAX #:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input value="${(p.contactPhone||gc&&gc.phone||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iStyle}">
+          <input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iStyle}margin-top:1px;">
+        </div>
+        <div style="padding:5px 0;font-weight:bold;font-size:10px;">JOBSITE PHONE #:<br>JOBSITE FAX #:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">
+          <input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iStyle}">
+          <input value="${(p.jobsiteFax||'').replace(/"/g,'&quot;')}" placeholder="" oninput="updateProposalField('${job.id}','jobsiteFax',this.value)" style="${iStyle}margin-top:1px;">
+        </div>
+        <div style="padding:5px 8px;font-weight:bold;text-align:right;font-size:10px;">PAGES INCLUDED:</div>
+        <div style="padding:5px 8px;border-bottom:1px solid #ccc;">1</div>
+      </div>
+
+      <!-- Body text -->
+      <div style="font-size:10px;font-weight:bold;border:1px solid #ccc;padding:8px;margin:14px 0;text-align:center;border-left:none;border-right:none;">
+        We shall supply labor and material necessary to accomplish the painting and wallcovering at the above stated project for the following quotation. All necessary Workman's Compensation, Public Liability and Property Damage Insurance are included.
+      </div>
+
+      <!-- Inclusions table -->
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+        <thead><tr style="background:#f0f0f0;">
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:left;width:100px;font-size:10px;">Inclusions:</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:left;font-size:10px;">Item</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:center;width:80px;font-size:10px;">Quantity</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:center;width:80px;font-size:10px;">Unit</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;width:80px;font-size:10px;">Total</th>
+        </tr></thead>
+        <tbody>${inclusionRows.replace(/<tr>/,'<tr style="background:#f0f0f0;"><td style="padding:3px 6px;border:1px solid #ccc;"></td>').replace(/<\/tr>/,'</tr>').replace(/<tr>/g,'<tr><td style="padding:3px 6px;border:1px solid #ccc;"></td>')}</tbody>
+      </table>
+
+      <!-- Exclusions -->
+      <div style="display:grid;grid-template-columns:100px 1fr;font-size:10px;margin-bottom:14px;">
+        <div style="font-weight:bold;padding-top:2px;">Exclusions:</div>
+        <textarea oninput="updateProposalField('${job.id}','exclusions',this.value)" style="border:none;border-bottom:1px solid #ddd;font-size:10px;font-family:Arial;resize:none;outline:none;background:transparent;line-height:1.5;width:100%;min-height:50px;">${p.exclusions||''}</textarea>
+      </div>
+
+      <!-- Qualifications -->
+      <div style="display:grid;grid-template-columns:100px 1fr;font-size:10px;margin-bottom:14px;">
+        <div style="font-weight:bold;padding-top:2px;">Qualifications:</div>
+        <div>
+          <div style="margin-bottom:3px;">Plans dated: <input value="${p.plansDated||''}" placeholder="" oninput="updateProposalField('${job.id}','plansDated',this.value)" style="border:none;border-bottom:1px solid #ddd;font-size:10px;font-family:Arial;outline:none;background:transparent;width:120px;"></div>
+          <div>If a bond is required for this project, ADD 2.5% to overall cost.</div>
+          <div>Normal business hours. Single Phase.</div>
+          <div>Painting prior to the installation of carpet and base.</div>
+          <div>Caulking between field painted-to-field painted surfaces only.</div>
+        </div>
+      </div>
+
+      <!-- Base Bid -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+        <div style="border:2px solid #000;padding:6px 16px;font-size:13px;font-weight:bold;display:flex;gap:20px;align-items:center;">
+          <span>BASE BID:</span>
+          <input value="${p.baseBid||''}" placeholder="$0" oninput="updateProposalField('${job.id}','baseBid',this.value)" style="border:none;border-bottom:1px solid #000;font-size:13px;font-family:Arial;font-weight:bold;outline:none;background:transparent;width:100px;text-align:right;">
+        </div>
+      </div>
+
+      <!-- Alternates table -->
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;">
+        <thead><tr style="background:#f0f0f0;">
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:left;width:100px;font-size:10px;">Alternates:</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:left;font-size:10px;">Item</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:center;width:80px;font-size:10px;">Quantity</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:center;width:80px;font-size:10px;">Unit</th>
+          <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;width:80px;font-size:10px;">Total Add</th>
+        </tr></thead>
+        <tbody>${alternateRows.replace(/<tr>/,'<tr><td style="padding:3px 6px;border:1px solid #ccc;background:#f0f0f0;"></td>').replace(/<\/tr>/,'</tr>').replace(/<tr>/g,'<tr><td style="padding:3px 6px;border:1px solid #ccc;"></td>')}</tbody>
+      </table>
+
+      <!-- Signature -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px;">
+        <div style="font-size:10px;">
+          <div style="font-weight:bold;font-size:11px;">${pm?pm.first+' '+pm.last:'Clayton Mase'}</div>
+          <div>Project Manager</div>
+          <div style="color:#0000CC;">${pm&&pm.email?pm.email:'Cmase@bonasco.com'}</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:9px;color:#666;border:1px solid #ccc;padding:8px;width:120px;height:60px;display:flex;align-items:center;justify-content:center;">
+            <em>WBENC Logo<br>Certified</em>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function updateProposal(jobId, section, idx, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.proposal)return;
+  if(!job.proposal[section])return;
+  if(job.proposal[section][idx])job.proposal[section][idx][field]=val;
+  saveJobs();
+}
+function updateProposalAlt(jobId, idx, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.proposal||!job.proposal.alternates)return;
+  if(job.proposal.alternates[idx])job.proposal.alternates[idx][field]=val;
+  saveJobs();
+}
+function updateProposalField(jobId, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.proposal)job.proposal={};
+  job.proposal[field]=val;
+  saveJobs();
+}
+function saveProposal(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  saveJobs('Save proposal: '+job.name);
+  showSaved('\u2713 Proposal saved');
+}
+
+function printProposal(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const el=document.getElementById('proposal-paper');
+  if(!el){alert('Please open the Proposal tab first.');return;}
+  // Print just the paper section
+  const html=`<!DOCTYPE html><html><head><title>Proposal \u2014 ${job.name}</title>
+  <style>body{margin:0;padding:0;font-family:Arial,sans-serif;}input,textarea{border:none!important;border-bottom:1px solid #ccc!important;outline:none;background:transparent;font-family:Arial,sans-serif;}@media print{@page{margin:0.5in;}}</style>
+  </head><body>${el.outerHTML}</body></html>`;
+  const w=window.open('','_blank','width=900,height=1100');
+  w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 </script>
 </body>
