@@ -8145,7 +8145,7 @@ function renderProposalTab(job, coHdr, coAddr, coPhone){
           // CUSTOMER
           +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:4px;">'
             +'<div style="font-weight:bold;padding:3px 0;">CUSTOMER:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;">'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
               +'<input value="'+(p_customerName||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerName\',this.value)" style="'+iS+'font-weight:500;">'
               +'<input value="'+(p_customerAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerAddr\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
             +'</div>'
@@ -8153,16 +8153,17 @@ function renderProposalTab(job, coHdr, coAddr, coPhone){
           // ATTN
           +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:4px;">'
             +'<div style="font-weight:bold;padding:3px 0;">ATTN:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;">'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
               +'<input value="'+(p_attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'attn\',this.value)" style="'+iS+'">'
             +'</div>'
           +'</div>'
           // PROJECT
           +'<div style="display:grid;grid-template-columns:80px 1fr;">'
             +'<div style="font-weight:bold;padding:3px 0;">PROJECT:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;">'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
               +'<input value="'+(p_projectName||job.name||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectName\',this.value)" style="'+iS+'font-weight:bold;">'
               +'<input value="'+(p_projectAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
+              +'<input value="'+(p.projectAddr2||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr2\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
             +'</div>'
           +'</div>'
         +'</div>'
@@ -8173,7 +8174,7 @@ function renderProposalTab(job, coHdr, coAddr, coPhone){
             +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p_bidNum||job.num||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'bidNum\',this.value)" style="'+iS+'"></div>'
             +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;">DATE:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input type="date" value="'+(p_proposalDate||'')+'" oninput="updateProposalField(\''+job.id+'\',\'proposalDate\',this.value)" style="'+iS+'"></div>'
-            +'<div style="font-weight:bold;text-align:right;padding:3px 0;font-size:10px;white-space:nowrap;">PAGES<br>INCLUDED:</div>'
+            +'<div style="font-weight:bold;text-align:right;padding:3px 0;font-size:10px;white-space:nowrap;">PAGES INCLUDED:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p_pagesIncluded||'1')+'" oninput="updateProposalField(\''+job.id+'\',\'pagesIncluded\',this.value)" style="'+iS+'width:40px;"></div>'
           +'</div>'
         +'</div>'
@@ -8344,7 +8345,7 @@ function proposalPaper(inner){
 
 function initProposal(job){
   if(!job.proposal) job.proposal = {
-    inclusions: Array(36).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    inclusions: Array(23).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     inclusions5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     alternates5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     alternates47: Array(47).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
@@ -8359,7 +8360,7 @@ function initProposal(job){
   };
   // Ensure arrays are long enough
   const ensure = (key, n) => { if(!job.proposal[key]||job.proposal[key].length<n){ job.proposal[key]=(job.proposal[key]||[]).concat(Array(n).fill(null).map(()=>({item:'',qty:'',unit:'',total:''}))).slice(0,n); } };
-  ensure('inclusions', 36);
+  ensure('inclusions', 23);
   ensure('inclusions5', 5);
   ensure('alternates5', 5);
   ensure('alternates47', 47);
@@ -8409,7 +8410,7 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
           // CUSTOMER
           +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:4px;">'
             +'<div style="font-weight:bold;padding:3px 0;">CUSTOMER:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;">'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
               +'<input value="'+(p_customerName||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerName\',this.value)" style="'+iS+'font-weight:500;">'
               +'<input value="'+(p_customerAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'customerAddr\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
             +'</div>'
@@ -8417,16 +8418,17 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
           // ATTN
           +'<div style="display:grid;grid-template-columns:80px 1fr;margin-bottom:4px;">'
             +'<div style="font-weight:bold;padding:3px 0;">ATTN:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;">'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
               +'<input value="'+(p_attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'attn\',this.value)" style="'+iS+'">'
             +'</div>'
           +'</div>'
           // PROJECT
           +'<div style="display:grid;grid-template-columns:80px 1fr;">'
             +'<div style="font-weight:bold;padding:3px 0;">PROJECT:</div>'
-            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;">'
+            +'<div style="border-bottom:1px solid #ccc;padding:2px 6px;max-width:55%;">'
               +'<input value="'+(p_projectName||job.name||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectName\',this.value)" style="'+iS+'font-weight:bold;">'
               +'<input value="'+(p_projectAddr||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
+              +'<input value="'+(p.projectAddr2||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr2\',this.value)" style="'+iS+'margin-top:2px;font-size:10px;">'
             +'</div>'
           +'</div>'
         +'</div>'
@@ -8437,7 +8439,7 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
             +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p_bidNum||job.num||'').replace(/"/g,'&quot;')+'" oninput="updateProposalField(\''+job.id+'\',\'bidNum\',this.value)" style="'+iS+'"></div>'
             +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;">DATE:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input type="date" value="'+(p_proposalDate||'')+'" oninput="updateProposalField(\''+job.id+'\',\'proposalDate\',this.value)" style="'+iS+'"></div>'
-            +'<div style="font-weight:bold;text-align:right;padding:3px 0;font-size:10px;white-space:nowrap;">PAGES<br>INCLUDED:</div>'
+            +'<div style="font-weight:bold;text-align:right;padding:3px 0;font-size:10px;white-space:nowrap;">PAGES INCLUDED:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:2px 4px;"><input value="'+(p_pagesIncluded||'1')+'" oninput="updateProposalField(\''+job.id+'\',\'pagesIncluded\',this.value)" style="'+iS+'width:40px;"></div>'
           +'</div>'
         +'</div>'
@@ -8578,14 +8580,9 @@ function renderRFITab(job, coHdr, coAddr, coPhone){
         <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
         <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
         <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PHONE #:<br>FAX #:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
         <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:9px;">JOBSITE PHONE #:<br>JOBSITE FAX #:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.jobsiteFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsiteFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
         <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
       </div>
       <div style="border-top:1px solid #000;margin-bottom:14px;"></div>
@@ -8632,14 +8629,9 @@ function renderTransmittalTab(job, coHdr, coAddr, coPhone){
         <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
         <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
         <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PHONE #:<br>FAX #:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
         <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:9px;">JOBSITE PHONE #:<br>JOBSITE FAX #:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.jobsitePhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsitePhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.jobsiteFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','jobsiteFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
+        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
         <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
         <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PAGES INCLUDED:</div>
         <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${p.transmittalPages||'1'}" oninput="updateProposalField('${job.id}','transmittalPages',this.value)" style="${iS}width:40px;"></div>
