@@ -8251,7 +8251,19 @@ function updateProposal(jobId, section, idx, field, val){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
   if(!job.proposal)return;
   if(!job.proposal[section])return;
-  if(job.proposal[section][idx])job.proposal[section][idx][field]=val;
+  const row=job.proposal[section][idx];
+  if(!row)return;
+  row[field]=val;
+  // Auto-calculate total = qty * unitPrice whenever either changes
+  if(field==='qty'||field==='unitPrice'){
+    const q=parseFloat(row.qty)||0;
+    const u=parseFloat(row.unitPrice)||0;
+    if(q&&u) row.total='$'+(q*u).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    else row.total='';
+    // Update the total display cell in the DOM
+    const totalEl=document.getElementById('prop-total-'+section+'-'+idx);
+    if(totalEl)totalEl.textContent=row.total||'$0';
+  }
   saveJobs();
 }
 function updateProposalAlt(jobId, idx, field, val){
@@ -8320,19 +8332,26 @@ function projInfoCompact(job, title){
 // Shared: editable line rows for inclusions/alternates
 function editableRows(rows, jobId, section, cols){
   const iS = 'width:100%;border:none;background:transparent;font-size:11px;font-family:Arial,sans-serif;padding:1px 3px;outline:none;';
-  return rows.map((r,i)=>`<tr style="background:${i%2===0?'#fff':'#fafafa'};">
+  const iSc = iS+'text-align:center;';
+  const iSr = iS+'text-align:right;';
+  return rows.map((r,i)=>{
+    const autoTotal = r.total || ((parseFloat(r.qty)||0)&&(parseFloat(r.unitPrice)||0) ? '$'+((parseFloat(r.qty)||0)*(parseFloat(r.unitPrice)||0)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '$0');
+    return `<tr style="background:${i%2===0?'#fff':'#fafafa'};">
     <td style="padding:2px 5px;border:1px solid #ccc;"><input value="${(r.item||'').replace(/"/g,'&quot;')}" oninput="updateProposal('${jobId}','${section}',${i},'item',this.value)" style="${iS}"></td>
-    <td style="padding:2px 5px;border:1px solid #ccc;text-align:center;width:70px;"><input value="${r.qty||''}" oninput="updateProposal('${jobId}','${section}',${i},'qty',this.value)" style="${iS}text-align:center;"></td>
-    <td style="padding:2px 5px;border:1px solid #ccc;text-align:center;width:70px;"><input value="${r.unit||''}" oninput="updateProposal('${jobId}','${section}',${i},'unit',this.value)" style="${iS}text-align:center;"></td>
-    <td style="padding:2px 5px;border:1px solid #ccc;text-align:right;width:80px;"><input value="${r.total||''}" placeholder="$0" oninput="updateProposal('${jobId}','${section}',${i},'total',this.value)" style="${iS}text-align:right;"></td>
+    <td style="padding:2px 3px;border:1px solid #ccc;width:50px;"><input value="${r.qty||''}" oninput="updateProposal('${jobId}','${section}',${i},'qty',this.value)" style="${iSc}"></td>
+    <td style="padding:2px 3px;border:1px solid #ccc;width:40px;"><input value="${r.qtyUnit||''}" placeholder="sf" oninput="updateProposal('${jobId}','${section}',${i},'qtyUnit',this.value)" style="${iSc}font-size:10px;"></td>
+    <td style="padding:2px 3px;border:1px solid #ccc;width:70px;"><input value="${r.unitPrice||''}" placeholder="$" oninput="updateProposal('${jobId}','${section}',${i},'unitPrice',this.value)" style="${iSr}"></td>
+    <td id="prop-total-${section}-${i}" style="padding:2px 5px;border:1px solid #ccc;text-align:right;width:80px;font-size:11px;">${autoTotal}</td>
     <td style="padding:2px 3px;border:none;width:18px;"><button onclick="deleteProposalRow('${jobId}','${section}',${i})" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:13px;padding:0;line-height:1;" title="Delete row">×</button></td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 
 function tableHead(lastCol){
   return `<tr style="background:#e8e8e8;"><th style="padding:4px 5px;border:1px solid #ccc;text-align:left;font-size:10px;">Item</th>
-    <th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:70px;font-size:10px;">Quantity</th>
-    <th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:70px;font-size:10px;">Unit</th>
+    <th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:50px;font-size:10px;">QTY</th>
+    <th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:40px;font-size:10px;">UNIT</th>
+    <th style="padding:4px 5px;border:1px solid #ccc;text-align:right;width:70px;font-size:10px;">UNIT $</th>
     <th style="padding:4px 5px;border:1px solid #ccc;text-align:right;width:80px;font-size:10px;">${lastCol}</th>
     <th style="width:18px;border:none;background:transparent;"></th></tr>`;
 }
@@ -8350,7 +8369,7 @@ function proposalPaper(inner){
 
 function initProposal(job){
   if(!job.proposal) job.proposal = {
-    inclusions: Array(23).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    inclusions: Array(16).fill(null).map(()=>({item:'',qty:'',qtyUnit:'',unitPrice:'',total:''})),
     inclusions5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     alternates5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     alternates47: Array(20).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
@@ -8365,8 +8384,8 @@ function initProposal(job){
     transmittalDelivery:{email:false,mail:false,fax:false,delivery:false},
   };
   // Ensure arrays are long enough
-  const ensure = (key, n) => { if(!job.proposal[key]||job.proposal[key].length<n){ job.proposal[key]=(job.proposal[key]||[]).concat(Array(n).fill(null).map(()=>({item:'',qty:'',unit:'',total:''}))).slice(0,n); } };
-  ensure('inclusions', 23);
+  const ensure = (key, n) => { if(!job.proposal[key]||job.proposal[key].length<n){ job.proposal[key]=(job.proposal[key]||[]).concat(Array(n).fill(null).map(()=>({item:'',qty:'',qtyUnit:'',unitPrice:'',unit:'',total:''}))).slice(0,n); } };
+  ensure('inclusions', 16);
   ensure('inclusions5', 5);
   ensure('alternates5', 5);
   ensure('alternates47', 20);
@@ -8392,7 +8411,7 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
   var contact = DB.contacts.find(function(c){return parseInt(c.id)===parseInt(job.contactId);});
   var pm = DB.members.find(function(m){return parseInt(m.id)===parseInt(job.pmId);});
   var iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;width:100%;';
-  var iSsm = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:10px;font-family:Arial,sans-serif;outline:none;width:100%;';
+  var iSsm = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;width:100%;';
   var exclRows = (p.exclusionLines||[]).map(function(line,i){
     return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">'
       +'<input value="'+(line||'').replace(/"/g,'&quot;')+'" oninput="updateProposalLine(\''+job.id+'\',\'exclusionLines\','+i+',this.value)" style="flex:1;'+iSsm+'">'
@@ -8422,11 +8441,11 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
     +'</div>'
     +proposalPaper(
       coHeaderHTML(job)
-      +'<div style="font-size:15px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:12px;">NEW JOB</div>'
+      +'<div style="font-size:17px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:14px;">NEW JOB</div>'
       +'<div style="display:grid;grid-template-columns:1fr auto;gap:0 20px;font-size:11px;margin-bottom:10px;">'
         +'<div>'
           +'<div style="display:grid;grid-template-columns:70px 1fr;margin-bottom:4px;">'
-            +'<div style="font-weight:bold;padding:2px 0;font-size:10px;">CUSTOMER:</div>'
+            +'<div style="font-weight:bold;padding:3px 0;font-size:11px;">CUSTOMER:</div>'
             +'<div style="max-width:55%;">'
               +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;"><input value="'+cName+'" oninput="updateProposalField(\''+job.id+'\',\'customerName\',this.value)" style="'+iSsm+'font-weight:500;"></div>'
               +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;margin-top:2px;"><input value="'+cAddr+'" oninput="updateProposalField(\''+job.id+'\',\'customerAddr\',this.value)" style="'+iSsm+'"></div>'
@@ -8434,11 +8453,11 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
             +'</div>'
           +'</div>'
           +'<div style="display:grid;grid-template-columns:70px 1fr;margin-bottom:4px;">'
-            +'<div style="font-weight:bold;padding:2px 0;font-size:10px;">ATTN:</div>'
+            +'<div style="font-weight:bold;padding:3px 0;font-size:11px;">ATTN:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;max-width:55%;"><input value="'+attnVal+'" oninput="updateProposalField(\''+job.id+'\',\'attn\',this.value)" style="'+iSsm+'"></div>'
           +'</div>'
           +'<div style="display:grid;grid-template-columns:70px 1fr;">'
-            +'<div style="font-weight:bold;padding:2px 0;font-size:10px;">PROJECT:</div>'
+            +'<div style="font-weight:bold;padding:3px 0;font-size:11px;">PROJECT:</div>'
             +'<div style="max-width:55%;">'
               +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;"><input value="'+projName+'" oninput="updateProposalField(\''+job.id+'\',\'projectName\',this.value)" style="'+iSsm+'font-weight:bold;"></div>'
               +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;margin-top:2px;"><input value="'+projAddr+'" oninput="updateProposalField(\''+job.id+'\',\'projectAddr\',this.value)" style="'+iSsm+'"></div>'
@@ -8448,31 +8467,31 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
         +'</div>'
         +'<div style="min-width:190px;">'
           +'<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 6px;font-size:10px;">'
-            +'<div style="font-weight:bold;text-align:right;padding:2px 0;white-space:nowrap;">JOB #:</div>'
+            +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;font-size:11px;">JOB #:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;"><input value="'+jobNum+'" oninput="updateProposalField(\''+job.id+'\',\'bidNum\',this.value)" style="'+iSsm+'"></div>'
-            +'<div style="font-weight:bold;text-align:right;padding:2px 0;white-space:nowrap;">DATE:</div>'
+            +'<div style="font-weight:bold;text-align:right;padding:3px 0;white-space:nowrap;font-size:11px;">DATE:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;"><input type="date" value="'+propDate+'" oninput="updateProposalField(\''+job.id+'\',\'proposalDate\',this.value)" style="'+iSsm+'"></div>'
-            +'<div style="font-weight:bold;text-align:right;padding:2px 0;font-size:9px;white-space:nowrap;">PAGES INCLUDED:</div>'
+            +'<div style="font-weight:bold;text-align:right;padding:3px 0;font-size:10px;white-space:nowrap;">PAGES INCLUDED:</div>'
             +'<div style="border-bottom:1px solid #ccc;padding:1px 4px;"><input value="'+pagesInc+'" oninput="updateProposalField(\''+job.id+'\',\'pagesIncluded\',this.value)" style="'+iSsm+'width:30px;"></div>'
           +'</div>'
         +'</div>'
       +'</div>'
-      +'<div style="font-size:9px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:5px 4px;margin:8px 0;text-align:center;">'
+      +'<div style="font-size:10px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:6px 4px;margin:10px 0;text-align:center;">'
         +'We shall supply labor and material necessary to accomplish the painting and wallcovering at the above stated project for the following quotation. All necessary Workman’s Compensation, Public Liability and Property Damage Insurance are included in this quotation.'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:80px 1fr;font-size:10px;margin-bottom:10px;align-items:start;">'
-        +'<div style="font-weight:bold;padding-top:2px;">Inclusions:</div>'
+        +'<div style="font-weight:bold;padding-top:3px;font-size:11px;">Inclusions:</div>'
         +'<div style="padding-top:2px;">See attached Breakdown and Alternate Sheets.</div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:80px 1fr;font-size:10px;margin-bottom:10px;align-items:start;">'
-        +'<div style="font-weight:bold;padding-top:2px;">Exclusions:</div>'
+        +'<div style="font-weight:bold;padding-top:3px;font-size:11px;">Exclusions:</div>'
         +'<div>'
           +exclRows
           +'<button onclick="addProposalLine(\''+job.id+'\',\'exclusionLines\')" style="margin-top:3px;background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>'
         +'</div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:80px 1fr;font-size:10px;margin-bottom:14px;align-items:start;">'
-        +'<div style="font-weight:bold;padding-top:2px;">Qualifications:</div>'
+        +'<div style="font-weight:bold;padding-top:3px;font-size:11px;">Qualifications:</div>'
         +'<div>'
           +'<div style="margin-bottom:2px;display:flex;align-items:center;gap:4px;"><span>Plans dated:</span>'
           +'<input value="'+plansDt+'" oninput="updateProposalField(\''+job.id+'\',\'plansDated\',this.value)" style="flex:1;max-width:260px;border:none;border-bottom:1px solid #ccc;background:transparent;font-size:10px;font-family:Arial;outline:none;">'
@@ -8483,9 +8502,9 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
         +'</div>'
       +'</div>'
       +'<div style="display:flex;justify-content:flex-end;margin-bottom:16px;">'
-        +'<div style="border:2px solid #000;padding:4px 12px;font-size:12px;font-weight:bold;display:flex;gap:14px;align-items:center;">'
+        +'<div style="border:2px solid #000;padding:5px 14px;font-size:13px;font-weight:bold;display:flex;gap:16px;align-items:center;">'
           +'<span>BASE BID:</span>'
-          +'<input value="'+baseBid+'" placeholder="$0" oninput="updateProposalField(\''+job.id+'\',\'baseBid\',this.value)" style="border:none;border-bottom:1px solid #000;font-size:12px;font-weight:bold;width:110px;text-align:right;outline:none;background:transparent;font-family:Arial;">'
+          +'<input value="'+baseBid+'" placeholder="$0" oninput="updateProposalField(\''+job.id+'\',\'baseBid\',this.value)" style="border:none;border-bottom:1px solid #000;font-size:13px;font-weight:bold;width:120px;text-align:right;outline:none;background:transparent;font-family:Arial;">'
         +'</div>'
       +'</div>'
       +'<div style="font-size:10px;margin-top:6px;">'
