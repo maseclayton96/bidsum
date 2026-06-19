@@ -4550,18 +4550,24 @@ function renderStatusRow(jobId, type, row, idx){
     ${f(isPaint?'paintOrdered':'wcOrdered', isPaint?row.paintOrdered:row.wcOrdered, 'MM/DD/YY')}
     ${f('estDelivery', row.estDelivery, 'MM/DD/YY')}
     <td><button class="btn-sm" onclick="removeStatusItem('${jobId}','${type}',${idx})">×</button></td>
-  </tr>`;
-}
-
-function updateApprovedStyle(el){
-  const v = (el.value||'').toUpperCase();
-  el.className = 'status-input ' + (v==='APPROVED'?'status-approved':v==='REJECTED'?'status-rejected':'');
-}
-function updateStatusField(jobId, type, idx, field, val){
-  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const arr = type==='paint' ? job.statusPaint : job.statusWC;
-  if(arr&&arr[idx]) arr[idx][field]=val;
-  saveJobs();
+  </tr>
+    ${(job.submittalSheets||[]).map((sheet,si)=>`
+      <div style="margin-top:24px;border-top:2px dashed var(--border);padding-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-weight:700;font-size:14px;">Submittal Sheet ${si+2}</div>
+          <button class="btn-sm" style="color:#CC0000;" onclick="removeSubmittalSheet('${job.id}',${si})">✕ Remove</button>
+        </div>
+        <div class="sub-section-title">PAINT</div>
+        <div style="overflow-x:auto;"><table style="min-width:900px;font-size:11px;width:100%;border-collapse:collapse;"><thead><tr style="background:var(--bg3);"><th style="padding:5px 6px;border:1px solid var(--border);"></th><th style="padding:5px 6px;border:1px solid var(--border);">#</th><th style="padding:5px 6px;border:1px solid var(--border);">Manufacturer</th><th style="padding:5px 6px;border:1px solid var(--border);">Color</th><th style="padding:5px 6px;border:1px solid var(--border);">Finish</th><th style="padding:5px 6px;border:1px solid var(--border);">Order</th></tr></thead><tbody>
+        ${(sheet.paint||[]).map((row,ri)=>`<tr><td style="padding:3px 4px;border:1px solid var(--border);"><input type="checkbox" ${row.included?'checked':''} onchange="updateSubSheetField('${job.id}',${si},'paint',${ri},'included',this.checked)"></td><td><input class="sub-input" value="${row.num||''}" oninput="updateSubSheetField('${job.id}',${si},'paint',${ri},'num',this.value)"></td><td><input class="sub-input" value="${row.manufacturer||''}" oninput="updateSubSheetField('${job.id}',${si},'paint',${ri},'manufacturer',this.value)" style="width:100%;"></td><td><input class="sub-input" value="${row.color||''}" oninput="updateSubSheetField('${job.id}',${si},'paint',${ri},'color',this.value)" style="width:100%;"></td><td><input class="sub-input" value="${row.finish||''}" oninput="updateSubSheetField('${job.id}',${si},'paint',${ri},'finish',this.value)"></td><td><input class="sub-input" value="${row.orderNote||''}" oninput="updateSubSheetField('${job.id}',${si},'paint',${ri},'orderNote',this.value)" style="width:100%;"></td></tr>`).join('')}
+        </tbody></table></div>
+        <button class="btn-sm" onclick="addSubSheetItem('${job.id}',${si},'paint')" style="margin-top:6px;">+ Add paint item</button>
+      </div>
+    `).join('')}
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn-sm" onclick="addSubmittalSheet('${job.id}')">+ Add Submittal Sheet</button>
+    </div>
+  `;
 }
 function addStatusItem(jobId, type){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
@@ -5092,20 +5098,20 @@ function renderBudgetTab(job){
         </tr>`;
       }).join('')}
     </tbody></table>
-  </div>`;
-}
-
-let JOB_BUDGET_TEMP = {};
-function updateBudgetRow(input, cat, jobId){
-  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
-  if(!JOB_BUDGET_TEMP[jobId])JOB_BUDGET_TEMP[jobId]={};
-  const budgeted=parseFloat(input.value)||0;
-  JOB_BUDGET_TEMP[jobId][cat]=budgeted;
-  const actual=jobCostByCategory(job,cat);
-  const v=budgeted-actual;
-  const el=document.getElementById('bv-'+cat.replace(/\s/g,'-')+'-'+jobId);
-  if(el)el.textContent=budgeted?fmtVal(v):'—';
-  if(el)el.style.color=v>=0?'var(--green)':'#CC0000';
+  </div>
+    ${(job.budgetSheets||[]).map((bs,bi)=>`
+      <div style="margin-top:24px;border-top:2px dashed var(--border);padding-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:14px;font-weight:700;">Field Budget ${bi+2}</div>
+          <button class="btn-sm" style="color:#CC0000;" onclick="removeBudgetSheet('${job.id}',${bi})">✕ Remove</button>
+        </div>
+        ${[["Labor", "Overtime Labor", "Fringes", "Materials", "Committed Materials", "Subcontracts", "Equipment Rental", "Job Supplies", "Other Job Costs"]].map(c=>`<div style="display:grid;grid-template-columns:1fr 160px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);"><label style="font-size:13px;font-weight:500;">${c}</label><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--text3);">$</span><input type="number" value="${bs[c]||0}" onchange="updateBudgetSheetField('${job.id}',{bi},${c},${this.value})" class="sub-input" style="width:130px;text-align:right;"></div></div>`).join('')}
+      </div>
+    `).join('')}
+    <div style="text-align:center;margin-top:20px;">
+      <button class="btn-sm" onclick="addBudgetSheet('${job.id}')">+ Add Budget Sheet</button>
+    </div>
+  `;
 }
 function saveBudget(jobId){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
@@ -8362,6 +8368,7 @@ function initProposal(job){
     alternates5: Array(5).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     alternates47: Array(20).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
     breakdownRows: Array(15).fill(null).map(()=>({item:'',qty:'',unit:'',total:''})),
+    breakdownSheets: null,
     exclusions: 'Acoustical ceiling tiles or grid, millwork, cabinetry, wall patch or repair, skimcoating, core areas, MEP,\nremoval of existing finishes, doors, frames, exterior, caulking, aluminum, mock-ups, parking, OT, bond,\ntouch-up due to trade damage.',
     plansDated:'', baseBid:'', proposalDate: new Date().toISOString().split('T')[0],
     customerName:'', customerAddr:'', attn:'', bidNum:'', projectName:'', projectAddr:'',
@@ -8511,18 +8518,26 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
 function renderBreakdownTab(job, coHdr, coAddr, coPhone){
   initProposal(job);
   const p = job.proposal;
-  return `<div style="max-width:860px;margin:0 auto;">
-    ${proposalActionBar(job.id,'printBreakdown','')}
-    ${proposalPaper(`
+  // Migrate legacy single sheet into sheets array on first open
+  if(!p.breakdownSheets){
+    p.breakdownSheets = [{rows: p.breakdownRows||[], alternates: p.alternates5||[]}];
+    saveJobs();
+  }
+
+  const sheetHTML = p.breakdownSheets.map((sheet,si)=>{
+    if(!sheet.rows)sheet.rows=Array(15).fill(null).map(()=>({item:'',qty:'',qtyUnit:'',unitPrice:'',unit:'',total:''}));
+    if(!sheet.alternates)sheet.alternates=Array(5).fill(null).map(()=>({item:'',qty:'',qtyUnit:'',unitPrice:'',unit:'',total:''}));
+    const sheetLabel = p.breakdownSheets.length>1 ? 'BREAKDOWN SHEET '+(si+1) : 'BREAKDOWN SHEET';
+    return proposalPaper(`
       ${coHeaderHTML(job)}
-      ${projInfoCompact(job,'BREAKDOWN SHEET')}
+      ${projInfoCompact(job,sheetLabel)}
       <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Inclusions:</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
         <thead>${tableHead('Total')}</thead>
-        <tbody>${editableRows(p.breakdownRows, job.id, 'breakdownRows', 'Total')}</tbody>
+        <tbody>${editableSheetRows(sheet.rows, job.id, 'breakdownSheets', si, 'rows')}</tbody>
       </table>
       <div style="margin-bottom:10px;">
-        <button onclick="addProposalRow('${job.id}','breakdownRows')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>
+        <button onclick="addSheetRow('${job.id}','breakdownSheets',${si},'rows')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
         <div style="border:2px solid #000;padding:5px 14px;font-size:12px;font-weight:bold;display:flex;gap:16px;align-items:center;">
@@ -8533,12 +8548,27 @@ function renderBreakdownTab(job, coHdr, coAddr, coPhone){
       <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Alternates:</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
         <thead>${tableHead('Total Add')}</thead>
-        <tbody>${editableRows(p.alternates5, job.id, 'alternates5', 'Total Add')}</tbody>
+        <tbody>${editableSheetRows(sheet.alternates, job.id, 'breakdownSheets', si, 'alternates')}</tbody>
       </table>
-      <button onclick="addProposalRow('${job.id}','alternates5')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add alternate</button>
-    `)}
+      <button onclick="addSheetRow('${job.id}','breakdownSheets',${si},'alternates')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add alternate</button>
+    `);
+  }).join('<div style="margin:16px 0;border-top:2px dashed var(--border);"></div>');
+
+  return `<div style="max-width:860px;margin:0 auto;">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+      <button class="btn-sm" onclick="addBreakdownSheet('${job.id}')">+ Add Sheet</button>
+      ${p.breakdownSheets.length>1?`<button class="btn-sm" onclick="copyBreakdownSheet('${job.id}',${p.breakdownSheets.length-1})">⊕ Copy Last</button>`:''}
+      <button class="btn-sm" onclick="${'printBreakdown'}('${job.id}')">⎙ Print / PDF</button>
+      <button class="btn-sm-primary" onclick="saveProposal('${job.id}')">Save</button>
+    </div>
+    ${sheetHTML}
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn-sm" onclick="addBreakdownSheet('${job.id}')">+ Add Breakdown Sheet</button>
+      ${p.breakdownSheets.length>1?`<button class="btn-sm" style="color:#CC0000;margin-left:8px;" onclick="removeBreakdownSheet('${job.id}',${p.breakdownSheets.length-1})">✕ Remove Last Sheet</button>`:''}
+    </div>
   </div>`;
 }
+
 
 // ── ALTERNATE TAB ────────────────────────────────────────────────────
 function renderAlternateTab(job, coHdr, coAddr, coPhone){
@@ -8762,6 +8792,140 @@ function addProposalRow(jobId, section){
   if(!job.proposal[section])job.proposal[section]=[];
   job.proposal[section].push({item:'',qty:'',unit:'',total:''});
   saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+// ── Multi-sheet helpers ──────────────────────────────────────────────
+
+// Generic: edit a row in a nested sheet array
+function editableSheetRows(rows, jobId, sheetKey, sheetIdx, rowsKey){
+  const iS = 'width:100%;border:none;background:transparent;font-size:11px;font-family:Arial,sans-serif;padding:1px 3px;outline:none;';
+  const iSc = iS+'text-align:center;';
+  const iSr = iS+'text-align:right;';
+  return (rows||[]).map((r,i)=>{
+    const autoTotal = r.total || ((parseFloat(r.qty)||0)&&(parseFloat(r.unitPrice)||0) ? '$'+((parseFloat(r.qty)||0)*(parseFloat(r.unitPrice)||0)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '$0');
+    return `<tr style="background:${i%2===0?'#fff':'#fafafa'};">
+    <td style="padding:2px 5px;border:1px solid #ccc;"><input value="${(r.item||'').replace(/"/g,'&quot;')}" oninput="updateSheetRow('${jobId}','${sheetKey}',${sheetIdx},'${rowsKey}',${i},'item',this.value)" style="${iS}"></td>
+    <td style="padding:2px 3px;border:1px solid #ccc;width:50px;"><input value="${r.qty||''}" oninput="updateSheetRow('${jobId}','${sheetKey}',${sheetIdx},'${rowsKey}',${i},'qty',this.value)" style="${iSc}"></td>
+    <td style="padding:2px 3px;border:1px solid #ccc;width:40px;"><input value="${r.qtyUnit||''}" placeholder="sf" oninput="updateSheetRow('${jobId}','${sheetKey}',${sheetIdx},'${rowsKey}',${i},'qtyUnit',this.value)" style="${iSc}font-size:10px;"></td>
+    <td style="padding:2px 3px;border:1px solid #ccc;width:70px;"><input value="${r.unitPrice||''}" placeholder="$" oninput="updateSheetRow('${jobId}','${sheetKey}',${sheetIdx},'${rowsKey}',${i},'unitPrice',this.value)" style="${iSr}"></td>
+    <td style="padding:2px 5px;border:1px solid #ccc;text-align:right;width:80px;font-size:11px;">${autoTotal}</td>
+    <td style="padding:2px 3px;border:none;width:18px;"><button onclick="deleteSheetRow('${jobId}','${sheetKey}',${sheetIdx},'${rowsKey}',${i})" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:13px;padding:0;">×</button></td>
+  </tr>`;
+  }).join('');
+}
+
+function updateSheetRow(jobId, sheetKey, sheetIdx, rowsKey, rowIdx, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const sheet=(job.proposal&&job.proposal[sheetKey])||(job[sheetKey]);
+  if(!sheet||!sheet[sheetIdx])return;
+  const rows=sheet[sheetIdx][rowsKey];
+  if(!rows||!rows[rowIdx])return;
+  rows[rowIdx][field]=val;
+  if(field==='qty'||field==='unitPrice'){
+    const q=parseFloat(rows[rowIdx].qty)||0;
+    const u=parseFloat(rows[rowIdx].unitPrice)||0;
+    rows[rowIdx].total = q&&u ? '$'+(q*u).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  }
+  saveJobs();
+}
+
+function deleteSheetRow(jobId, sheetKey, sheetIdx, rowsKey, rowIdx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const sheet=(job.proposal&&job.proposal[sheetKey])||(job[sheetKey]);
+  if(!sheet||!sheet[sheetIdx])return;
+  const rows=sheet[sheetIdx][rowsKey];
+  if(rows)rows.splice(rowIdx,1);
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function addSheetRow(jobId, sheetKey, sheetIdx, rowsKey){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  const sheet=(job.proposal&&job.proposal[sheetKey])||(job[sheetKey]);
+  if(!sheet||!sheet[sheetIdx])return;
+  if(!sheet[sheetIdx][rowsKey])sheet[sheetIdx][rowsKey]=[];
+  sheet[sheetIdx][rowsKey].push({item:'',qty:'',qtyUnit:'',unitPrice:'',unit:'',total:''});
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+// Breakdown sheet operations
+function addBreakdownSheet(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job||!job.proposal)return;
+  if(!job.proposal.breakdownSheets)job.proposal.breakdownSheets=[];
+  job.proposal.breakdownSheets.push({
+    rows:Array(15).fill(null).map(()=>({item:'',qty:'',qtyUnit:'',unitPrice:'',unit:'',total:''})),
+    alternates:Array(5).fill(null).map(()=>({item:'',qty:'',qtyUnit:'',unitPrice:'',unit:'',total:''}))
+  });
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function copyBreakdownSheet(jobId, fromIdx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job||!job.proposal||!job.proposal.breakdownSheets)return;
+  const orig=job.proposal.breakdownSheets[fromIdx];
+  if(!orig)return;
+  job.proposal.breakdownSheets.push(JSON.parse(JSON.stringify(orig)));
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function removeBreakdownSheet(jobId, idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job||!job.proposal||!job.proposal.breakdownSheets)return;
+  if(job.proposal.breakdownSheets.length<=1){alert('Must keep at least one breakdown sheet.');return;}
+  if(!confirm('Remove this breakdown sheet?'))return;
+  job.proposal.breakdownSheets.splice(idx,1);
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+// Submittal sheet operations
+function addSubmittalSheet(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.submittalSheets)job.submittalSheets=[];
+  const copyPaint=(job.submittalPaint||[]).map(r=>({...r,manufacturer:'',color:'',finish:'',orderNote:'',num:'',included:false}));
+  job.submittalSheets.push({paint:copyPaint,wc:[]});
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function removeSubmittalSheet(jobId, idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Remove this submittal sheet?'))return;
+  if(job.submittalSheets)job.submittalSheets.splice(idx,1);
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function updateSubSheetField(jobId, sheetIdx, type, rowIdx, field, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.submittalSheets||!job.submittalSheets[sheetIdx])return;
+  const arr=type==='paint'?job.submittalSheets[sheetIdx].paint:job.submittalSheets[sheetIdx].wc;
+  if(!arr||!arr[rowIdx])return;
+  arr[rowIdx][field]=val;saveJobs();
+}
+
+function addSubSheetItem(jobId, sheetIdx, type){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.submittalSheets||!job.submittalSheets[sheetIdx])return;
+  const arr=type==='paint'?job.submittalSheets[sheetIdx].paint:job.submittalSheets[sheetIdx].wc;
+  if(arr)arr.push({num:'',manufacturer:'',color:'',finish:'',orderNote:'',included:false});
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+// Budget sheet operations
+function addBudgetSheet(jobId){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.budgetSheets)job.budgetSheets=[];
+  job.budgetSheets.push({});
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function removeBudgetSheet(jobId, idx){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!confirm('Remove this budget sheet?'))return;
+  if(job.budgetSheets)job.budgetSheets.splice(idx,1);
+  saveJobs();openJobDetail(jobId,CUR_JOB_TAB);
+}
+
+function updateBudgetSheetField(jobId, sheetIdx, cat, val){
+  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
+  if(!job.budgetSheets||!job.budgetSheets[sheetIdx])return;
+  job.budgetSheets[sheetIdx][cat]=parseFloat(val)||0;
+  saveJobs();
 }
 </script>
 </body>
