@@ -4887,8 +4887,8 @@ function renderJobDetail(){
       </div>
     </div>
     <!-- Tab Bar -->
-    <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;overflow-x:auto;">
-      <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;white-space:nowrap;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;">
+      <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;flex-wrap:wrap;">
         ${JOB_TABS.map((t,i)=>`<div class="job-tab ${CUR_JOB_TAB===t?'active':''}" data-jobid="${job.id}" data-tab="${t}" onclick="openJobDetail(this.dataset.jobid,this.dataset.tab)">${JOB_TAB_LABELS[i]}</div>`).join('')}
       </div>
     </div>
@@ -8941,21 +8941,20 @@ async function ewoDelete(id){
 }
 
 // ── Render EWO Tab ────────────────────────────────────────────────────────────
-async function renderEWOTab(job){
-  // Return placeholder immediately, load async
-  setTimeout(async()=>{
-    const container = document.getElementById('ewo-tab-content');
-    if(!container) return;
-    try {
-      showLoader();
-      const rows = await ewoGet(job.id);
+function renderEWOTab(job){
+  // Synchronous placeholder — async load fires after render
+  const placeholder = '<div id="ewo-tab-content"><div class="empty"><div class="empty-icon" style="font-size:20px;">&#8987;</div><div class="empty-text">Loading EWOs…</div></div></div>';
+  setTimeout(function(){
+    ewoGet(job.id).then(function(rows){
       EWO_RECORDS = rows.map(mapEWO);
-      container.innerHTML = buildEWOTabHTML(job);
-    } catch(e) {
-      if(container) container.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div class="empty-text">Could not load EWOs</div><div style="font-size:12px;color:var(--text3);margin-top:4px;">${e.message}</div></div>`;
-    } finally { hideLoader(); }
+      const container = document.getElementById('ewo-tab-content');
+      if(container) container.innerHTML = buildEWOTabHTML(job);
+    }).catch(function(e){
+      const container = document.getElementById('ewo-tab-content');
+      if(container) container.innerHTML = '<div class="empty"><div class="empty-icon">⚠</div><div class="empty-text">Could not load EWOs: '+e.message+'</div></div>';
+    });
   }, 0);
-  return `<div id="ewo-tab-content"><div class="empty"><div class="empty-icon" style="font-size:20px;">⟳</div><div class="empty-text">Loading EWOs…</div></div></div>`;
+  return placeholder;
 }
 
 function buildEWOTabHTML(job){
@@ -9004,7 +9003,7 @@ function buildEWOTabHTML(job){
     const ot = workers.reduce((s,w)=>s+(parseFloat(w.ot)||0),0);
     const pt = workers.reduce((s,w)=>s+(parseFloat(w.pt)||0),0);
     const statusCls = e.status==='Pending'?'ewo-status-pending':e.status==='Approved'?'ewo-status-approved':'ewo-status-void';
-    return `<div class="ewo-card" onclick="openEditEWO('${e.id}')">
+    return `<div class="ewo-card">
       <div class="ewo-card-header">
         <div>
           <div class="ewo-card-num">EWO #${e.ewo_num}</div>
@@ -9024,6 +9023,11 @@ function buildEWOTabHTML(job){
         <div class="ewo-hours-cell"><div class="ewo-hours-val">${pt.toFixed(1)}</div><div class="ewo-hours-lbl">PT</div></div>
         <div class="ewo-hours-cell"><div class="ewo-hours-val">${(e.materials||[]).length}</div><div class="ewo-hours-lbl">Materials</div></div>
         <div class="ewo-hours-cell"><div class="ewo-hours-val">${(e.equipment||[]).length}</div><div class="ewo-hours-lbl">Equipment</div></div>
+      </div>
+      <div style="display:flex;gap:6px;padding:8px 12px 10px;border-top:1px solid var(--border);">
+        <button class="btn-sm" onclick="event.stopPropagation();printEWORecord('${e.id}')" style="font-size:11px;">&#9113; Print</button>
+        <button class="btn-sm" onclick="event.stopPropagation();ewoToCOR('${e.id}')" style="font-size:11px;">⇒ COR</button>
+        <button class="btn-sm" onclick="event.stopPropagation();openEditEWO('${e.id}')" style="font-size:11px;">Edit</button>
       </div>
     </div>`;
   }).join('');
@@ -9231,6 +9235,163 @@ async function deleteEWO(){
   finally{ hideLoader(); }
 }
 
+
+function printEWORecord(ewoId){
+  const ewo = EWO_RECORDS.find(e=>String(e.id)===String(ewoId));
+  if(!ewo){ alert('EWO not found.'); return; }
+  const job = JOBS.find(j=>String(j.id)===String(ewo.job_id||ewo.jobId));
+  const isACI = job&&job.company==='ACI';
+  const coName  = isACI ? 'ARCHITECTURAL COATINGS INC.' : 'BONAS COMPANY';
+  const coSub   = 'PAINTING AND WALLCOVERING CONTRACTORS';
+  const coAddr  = isACI ? '1965 N. Main Street, Orange, CA. 92865' : '3197-C Airport Loop Drive \u2022 Costa Mesa, CA. 92626';
+  const coPhone = isACI ? '(714) 701-1360  Fax (714) 701-1361' : '(714) 668-5250  Fax (714) 668-5251';
+
+  const workers   = ewo.workers   || [];
+  const materials = ewo.materials || [];
+  const equipment = ewo.equipment || [];
+
+  const totalST = workers.reduce((s,w)=>s+(parseFloat(w.st)||0),0);
+  const totalOT = workers.reduce((s,w)=>s+(parseFloat(w.ot)||0),0);
+  const totalPT = workers.reduce((s,w)=>s+(parseFloat(w.pt)||0),0);
+
+  const workerRows = workers.map(w=>`
+    <tr>
+      <td>${w.name||''}</td>
+      <td>${w.cls||''}</td>
+      <td style="text-align:center;">${parseFloat(w.st)||0}</td>
+      <td style="text-align:center;">${parseFloat(w.ot)||0}</td>
+      <td style="text-align:center;">${parseFloat(w.pt)||0}</td>
+    </tr>`).join('');
+
+  const matRows = materials.length ? materials.map(m=>`
+    <tr>
+      <td>${m.qty||''}</td>
+      <td>${m.unit||''}</td>
+      <td>${m.desc||''}</td>
+    </tr>`).join('') : '<tr><td colspan="3" style="color:#999;">None</td></tr>';
+
+  const equipRows = equipment.length ? equipment.map(e=>`
+    <tr>
+      <td>${e.desc||''}</td>
+      <td style="text-align:center;">${e.hours||''}</td>
+    </tr>`).join('') : '<tr><td colspan="2" style="color:#999;">None</td></tr>';
+
+  const statusColor = ewo.status==='Approved'?'#1a7f4b': ewo.status==='Void'?'#999':'#b45309';
+
+  const html = `<!DOCTYPE html><html><head>
+  <title>EWO #${ewo.ewo_num} \u2014 ${job?job.name:''}</title>
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;padding:24px 32px;font-family:Arial,sans-serif;font-size:11px;color:#000;}
+    .co-header{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:16px;}
+    .co-name{font-size:20px;font-weight:900;letter-spacing:1px;}
+    .co-sub{font-size:10px;font-weight:bold;letter-spacing:.5px;margin-top:2px;}
+    .co-info{display:flex;justify-content:space-between;font-size:9px;font-weight:bold;margin-top:4px;}
+    .doc-title{font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:14px;}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:14px;font-size:11px;}
+    .info-row{display:flex;gap:6px;align-items:baseline;}
+    .info-label{font-weight:bold;white-space:nowrap;}
+    .status-badge{display:inline-block;padding:2px 10px;border-radius:4px;font-weight:bold;font-size:11px;border:1px solid currentColor;}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+    th{background:#e8e8e8;padding:4px 6px;border:1px solid #ccc;font-size:10px;text-align:left;}
+    td{padding:4px 6px;border:1px solid #ccc;font-size:11px;}
+    .section-title{font-size:12px;font-weight:bold;margin:12px 0 4px;}
+    .totals-row{font-weight:bold;background:#f0f0f0;}
+    .sig-block{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+    .sig-line{border-top:1px solid #000;padding-top:4px;margin-top:20px;font-size:10px;color:#555;}
+    .description-box{border:1px solid #ccc;padding:8px;min-height:40px;margin-bottom:14px;font-size:11px;white-space:pre-wrap;}
+    .sundries-box{border:1px solid #ccc;padding:6px;font-size:10px;color:#333;margin-bottom:14px;}
+    @media print{@page{margin:0.5in;size:letter;} body{padding:0;}}
+  </style>
+  </head><body>
+  <div class="co-header">
+    <div class="co-name">${coName}</div>
+    <div class="co-sub">${coSub}</div>
+    <div class="co-info"><span>${coAddr}</span><span>${coPhone}</span></div>
+  </div>
+  <div class="doc-title">EXTRA WORK ORDER</div>
+  <div class="info-grid">
+    <div class="info-row"><span class="info-label">EWO #:</span><span style="font-size:14px;font-weight:bold;">${ewo.ewo_num}</span></div>
+    <div class="info-row"><span class="info-label">Status:</span><span class="status-badge" style="color:${statusColor};border-color:${statusColor};">${ewo.status}</span></div>
+    <div class="info-row"><span class="info-label">Project:</span><span>${job?job.name:''}</span></div>
+    <div class="info-row"><span class="info-label">Date:</span><span>${ewo.date||''}</span></div>
+    <div class="info-row"><span class="info-label">Foreman:</span><span>${ewo.foreman||''}</span></div>
+    <div class="info-row"><span class="info-label">GC Superintendent:</span><span>${ewo.gc_super||''}</span></div>
+  </div>
+  <div class="section-title">Description of Work</div>
+  <div class="description-box">${ewo.description||''}</div>
+  <div class="section-title">Workers &amp; Hours</div>
+  <table>
+    <thead><tr><th>Worker Name</th><th>Classification</th><th style="text-align:center;">ST</th><th style="text-align:center;">OT</th><th style="text-align:center;">PT</th></tr></thead>
+    <tbody>
+      ${workerRows}
+      <tr class="totals-row"><td colspan="2">TOTALS</td><td style="text-align:center;">${totalST.toFixed(1)}</td><td style="text-align:center;">${totalOT.toFixed(1)}</td><td style="text-align:center;">${totalPT.toFixed(1)}</td></tr>
+    </tbody>
+  </table>
+  <div class="section-title">Materials</div>
+  <table>
+    <thead><tr><th style="width:60px;">Qty</th><th style="width:60px;">Unit</th><th>Description</th></tr></thead>
+    <tbody>${matRows}</tbody>
+  </table>
+  <div class="section-title">Equipment</div>
+  <table>
+    <thead><tr><th>Description</th><th style="text-align:center;width:80px;">Hours</th></tr></thead>
+    <tbody>${equipRows}</tbody>
+  </table>
+  ${ewo.sundries?'<div class="section-title">Sundries / Notes</div><div class="sundries-box">'+ewo.sundries+'</div>':''}
+  ${ewo.gc_notes?'<div class="section-title">GC Notes / Changes</div><div class="description-box">'+ewo.gc_notes+'</div>':''}
+  <div class="sig-block">
+    <div>
+      <div style="font-weight:bold;margin-bottom:4px;">Foreman Signature</div>
+      <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+      <div style="margin-top:8px;font-size:10px;">${ewo.foreman||'___________________________'}</div>
+    </div>
+    <div>
+      <div style="font-weight:bold;margin-bottom:4px;">GC Superintendent Signature</div>
+      <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+      <div style="margin-top:8px;font-size:10px;">${ewo.gc_super||'___________________________'}</div>
+    </div>
+  </div>
+  </body></html>`;
+
+  const w = window.open('','_blank','width=850,height=1100');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 600);
+}
+
+function ewoToCOR(ewoId){
+  const ewo = EWO_RECORDS.find(e=>String(e.id)===String(ewoId));
+  if(!ewo){ alert('EWO not found.'); return; }
+  const job = JOBS.find(j=>String(j.id)===String(ewo.job_id||ewo.jobId));
+  if(!job){ alert('Job not found.'); return; }
+  if(ewo.status!=='Approved'){
+    if(!confirm('This EWO is not yet Approved. Create a COR anyway?')) return;
+  }
+  if(!job.cors) job.cors = [];
+  const corNum = (job.cors.length+1).toString().padStart(3,'0');
+  const workers = ewo.workers||[];
+  const totalST = workers.reduce((s,w)=>s+(parseFloat(w.st)||0),0);
+  const totalOT = workers.reduce((s,w)=>s+(parseFloat(w.ot)||0),0);
+  const totalPT = workers.reduce((s,w)=>s+(parseFloat(w.pt)||0),0);
+  // Build COR description from EWO data
+  const desc = 'EWO #'+ewo.ewo_num+(ewo.description?' \u2014 '+ewo.description:'');
+  const newCOR = {
+    id: 'cor-'+Date.now(),
+    num: corNum,
+    date: ewo.date || new Date().toISOString().split('T')[0],
+    description: desc,
+    ewoRef: ewo.ewo_num,
+    labor: {st: totalST, ot: totalOT, pt: totalPT},
+    materials: (ewo.materials||[]).map(m=>({desc:m.desc,qty:m.qty,unit:m.unit})),
+    void: false,
+    total: 0,
+  };
+  job.cors.push(newCOR);
+  saveJobs();
+  alert('COR #'+corNum+' created from EWO #'+ewo.ewo_num+'.\nOpen the COR tab to set the dollar amount.');
+  openJobDetail(job.id,'cor');
+}
 </script>
 </body>
 </html>
