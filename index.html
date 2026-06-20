@@ -5380,89 +5380,7 @@ function printCORLog(job){
       Printed ${today} · ${coHdr} · Confidential
     </div>
   
-<!-- EWO FORM MODAL -->
-<div class="ewo-modal-overlay" id="ewo-modal-overlay" onclick="if(event.target===this)closeEWOModal()">
-  <div class="ewo-modal">
-    <div class="ewo-modal-head">
-      <div class="ewo-modal-title" id="ewo-modal-title">New Extra Work Order</div>
-      <div class="modal-close" onclick="closeEWOModal()">✕</div>
-    </div>
-    <div class="ewo-modal-body">
-      <div class="frow">
-        <div class="fg"><label>EWO #</label><input id="ewo-num" class="ewo-input" placeholder="Auto-assigned" readonly style="background:var(--bg3);"></div>
-        <div class="fg"><label>Date</label><input id="ewo-date" type="date" class="ewo-input"></div>
-      </div>
-      <div class="fg"><label>Foreman</label><input id="ewo-foreman" class="ewo-input" placeholder="Foreman name"></div>
-      <div class="fg"><label>Description of Extra Work</label><textarea id="ewo-desc" class="ewo-input" style="min-height:72px;resize:vertical;" placeholder="Describe the extra work performed..."></textarea></div>
 
-      <div class="ewo-section-lbl">Workers & Hours</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-        <div style="display:grid;grid-template-columns:1fr 60px 70px 70px 70px 32px;gap:6px;margin-bottom:6px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Name</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">Class</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">ST</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">OT</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">PT</div>
-          <div></div>
-        </div>
-        <div id="ewo-workers-container"></div>
-        <button class="ewo-add-btn" onclick="addEWOWorker()">+ Add worker</button>
-      </div>
-
-      <div class="frow" style="margin-top:10px;">
-        <div class="fg"><label>Total ST Hours</label><input id="ewo-total-st" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
-        <div class="fg"><label>Total OT Hours</label><input id="ewo-total-ot" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
-        <div class="fg"><label>Total PT Hours</label><input id="ewo-total-pt" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
-      </div>
-
-      <div class="ewo-section-lbl">Materials</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-        <div style="display:grid;grid-template-columns:60px 80px 1fr 36px;gap:6px;margin-bottom:6px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Qty</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Unit</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Description</div>
-          <div></div>
-        </div>
-        <div id="ewo-materials-container"></div>
-        <button class="ewo-add-btn" onclick="addEWOMaterial()">+ Add material</button>
-      </div>
-
-      <div class="ewo-section-lbl">Equipment</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-        <div style="display:grid;grid-template-columns:1fr 100px 36px;gap:6px;margin-bottom:6px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Description</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Hours</div>
-          <div></div>
-        </div>
-        <div id="ewo-equipment-container"></div>
-        <button class="ewo-add-btn" onclick="addEWOEquipment()">+ Add equipment</button>
-      </div>
-
-      <div class="ewo-section-lbl">Sundries / Notes</div>
-      <textarea id="ewo-sundries" class="ewo-input" style="min-height:52px;resize:vertical;" placeholder="Sundries, consumables, or additional notes..."></textarea>
-
-      <div class="ewo-section-lbl">Status</div>
-      <div class="frow">
-        <div class="fg">
-          <label>EWO Status</label>
-          <select id="ewo-status" class="ewo-input">
-            <option value="Pending">Pending (GC Signature)</option>
-            <option value="Approved">Approved / Verified</option>
-            <option value="Void">Void</option>
-          </select>
-        </div>
-        <div class="fg"><label>GC Superintendent</label><input id="ewo-gc-super" class="ewo-input" placeholder="Name of GC super who approved"></div>
-      </div>
-      <div class="fg"><label>GC Notes / Changes</label><textarea id="ewo-gc-notes" class="ewo-input" style="min-height:48px;resize:vertical;" placeholder="Any changes or comments from GC..."></textarea></div>
-
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
-        <button id="ewo-delete-btn" class="btn-danger" style="display:none;margin-right:auto;" onclick="deleteEWO()">Delete EWO</button>
-        <button class="btn" onclick="closeEWOModal()">Cancel</button>
-        <button class="btn-primary" onclick="saveEWO()">Save EWO</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 </body></html>`;
 
@@ -9393,5 +9311,89 @@ function ewoToCOR(ewoId){
   openJobDetail(job.id,'cor');
 }
 </script>
+
+<!-- EWO FORM MODAL -->
+<div class="ewo-modal-overlay" id="ewo-modal-overlay" onclick="if(event.target===this)closeEWOModal()">
+  <div class="ewo-modal">
+    <div class="ewo-modal-head">
+      <div class="ewo-modal-title" id="ewo-modal-title">New Extra Work Order</div>
+      <div class="modal-close" onclick="closeEWOModal()">✕</div>
+    </div>
+    <div class="ewo-modal-body">
+      <div class="frow">
+        <div class="fg"><label>EWO #</label><input id="ewo-num" class="ewo-input" placeholder="Auto-assigned" readonly style="background:var(--bg3);"></div>
+        <div class="fg"><label>Date</label><input id="ewo-date" type="date" class="ewo-input"></div>
+      </div>
+      <div class="fg"><label>Foreman</label><input id="ewo-foreman" class="ewo-input" placeholder="Foreman name"></div>
+      <div class="fg"><label>Description of Extra Work</label><textarea id="ewo-desc" class="ewo-input" style="min-height:72px;resize:vertical;" placeholder="Describe the extra work performed..."></textarea></div>
+
+      <div class="ewo-section-lbl">Workers & Hours</div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+        <div style="display:grid;grid-template-columns:1fr 60px 70px 70px 70px 32px;gap:6px;margin-bottom:6px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Name</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">Class</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">ST</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">OT</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">PT</div>
+          <div></div>
+        </div>
+        <div id="ewo-workers-container"></div>
+        <button class="ewo-add-btn" onclick="addEWOWorker()">+ Add worker</button>
+      </div>
+
+      <div class="frow" style="margin-top:10px;">
+        <div class="fg"><label>Total ST Hours</label><input id="ewo-total-st" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
+        <div class="fg"><label>Total OT Hours</label><input id="ewo-total-ot" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
+        <div class="fg"><label>Total PT Hours</label><input id="ewo-total-pt" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
+      </div>
+
+      <div class="ewo-section-lbl">Materials</div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+        <div style="display:grid;grid-template-columns:60px 80px 1fr 36px;gap:6px;margin-bottom:6px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Qty</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Unit</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Description</div>
+          <div></div>
+        </div>
+        <div id="ewo-materials-container"></div>
+        <button class="ewo-add-btn" onclick="addEWOMaterial()">+ Add material</button>
+      </div>
+
+      <div class="ewo-section-lbl">Equipment</div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+        <div style="display:grid;grid-template-columns:1fr 100px 36px;gap:6px;margin-bottom:6px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Description</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Hours</div>
+          <div></div>
+        </div>
+        <div id="ewo-equipment-container"></div>
+        <button class="ewo-add-btn" onclick="addEWOEquipment()">+ Add equipment</button>
+      </div>
+
+      <div class="ewo-section-lbl">Sundries / Notes</div>
+      <textarea id="ewo-sundries" class="ewo-input" style="min-height:52px;resize:vertical;" placeholder="Sundries, consumables, or additional notes..."></textarea>
+
+      <div class="ewo-section-lbl">Status</div>
+      <div class="frow">
+        <div class="fg">
+          <label>EWO Status</label>
+          <select id="ewo-status" class="ewo-input">
+            <option value="Pending">Pending (GC Signature)</option>
+            <option value="Approved">Approved / Verified</option>
+            <option value="Void">Void</option>
+          </select>
+        </div>
+        <div class="fg"><label>GC Superintendent</label><input id="ewo-gc-super" class="ewo-input" placeholder="Name of GC super who approved"></div>
+      </div>
+      <div class="fg"><label>GC Notes / Changes</label><textarea id="ewo-gc-notes" class="ewo-input" style="min-height:48px;resize:vertical;" placeholder="Any changes or comments from GC..."></textarea></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+        <button id="ewo-delete-btn" class="btn-danger" style="display:none;margin-right:auto;" onclick="deleteEWO()">Delete EWO</button>
+        <button class="btn" onclick="closeEWOModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveEWO()">Save EWO</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
