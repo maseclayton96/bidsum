@@ -8815,6 +8815,7 @@ function addProposalRow(jobId, section){
 
 let EWO_RECORDS = []; // cached for current job
 let EWO_EDIT_ID = null;
+let EWO_MODAL_PHOTOS = []; // photos in the BidSum EWO modal
 
 // Map DB row → local object
 function mapEWO(r){
@@ -9056,6 +9057,7 @@ function getEWOFormData(){
     status: document.getElementById('ewo-status').value,
     gc_super: document.getElementById('ewo-gc-super').value.trim(),
     gc_notes: document.getElementById('ewo-gc-notes').value.trim(),
+    photos: [...EWO_MODAL_PHOTOS],
   };
 }
 
@@ -9076,6 +9078,8 @@ function populateEWOForm(e){
   (e.equipment||[]).forEach(q=>addEWOEquipment(q));
   if(!(e.workers||[]).length) addEWOWorker();
   updateEWOTotals();
+  EWO_MODAL_PHOTOS = Array.isArray(e.photos) ? [...e.photos] : [];
+  ewoModalRenderPhotos();
 }
 
 // ── Auto-increment EWO number for a job ──────────────────────────────────────
@@ -9092,6 +9096,8 @@ function openNewEWO(jobId, company){
   const job = JOBS.find(j=>String(j.id)===String(jobId));
   document.getElementById('ewo-modal-title').textContent = 'New Extra Work Order';
   document.getElementById('ewo-delete-btn').style.display='none';
+  EWO_MODAL_PHOTOS = [];
+  ewoModalRenderPhotos();
   populateEWOForm({ewo_num: nextEWONum(jobId), date: new Date().toISOString().split('T')[0]});
   // Store context on the overlay for saveEWO
   document.getElementById('ewo-modal-overlay').dataset.jobId = jobId;
@@ -9310,6 +9316,33 @@ function ewoToCOR(ewoId){
   alert('COR #'+corNum+' created from EWO #'+ewo.ewo_num+'.\nOpen the COR tab to set the dollar amount.');
   openJobDetail(job.id,'cor');
 }
+
+// ── EWO Modal Photo Helpers ──────────────────────────────────────────
+function ewoModalHandlePhotos(inp){
+  Array.from(inp.files).forEach(function(f){
+    var r = new FileReader();
+    r.onload = function(e){
+      EWO_MODAL_PHOTOS.push(e.target.result);
+      ewoModalRenderPhotos();
+    };
+    r.readAsDataURL(f);
+  });
+  inp.value = '';
+}
+function ewoModalRenderPhotos(){
+  var grid = document.getElementById('ewo-photo-grid');
+  if(!grid) return;
+  grid.innerHTML = EWO_MODAL_PHOTOS.map(function(src,i){
+    return '<div style="position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;background:var(--bg3);flex-shrink:0;">'
+      +'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;">'
+      +'<button onclick="ewoModalRemovePhoto('+i+')" type="button" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.65);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;">×</button>'
+      +'</div>';
+  }).join('');
+}
+function ewoModalRemovePhoto(i){
+  EWO_MODAL_PHOTOS.splice(i,1);
+  ewoModalRenderPhotos();
+}
 </script>
 
 <!-- EWO FORM MODAL -->
@@ -9387,6 +9420,17 @@ function ewoToCOR(ewoId){
       </div>
       <div class="fg"><label>GC Notes / Changes</label><textarea id="ewo-gc-notes" class="ewo-input" style="min-height:48px;resize:vertical;" placeholder="Any changes or comments from GC..."></textarea></div>
 
+      <!-- Photos -->
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text3);letter-spacing:.05em;margin-bottom:8px;">Photos</div>
+        <div id="ewo-photo-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:0;"></div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-sm" onclick="document.getElementById('ewo-photo-cam').click()">📷 Camera</button>
+          <button type="button" class="btn-sm" onclick="document.getElementById('ewo-photo-gal').click()">🖼 Gallery</button>
+        </div>
+        <input type="file" id="ewo-photo-cam" accept="image/*" capture="environment" multiple style="display:none" onchange="ewoModalHandlePhotos(this)">
+        <input type="file" id="ewo-photo-gal" accept="image/*" multiple style="display:none" onchange="ewoModalHandlePhotos(this)">
+      </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
         <button id="ewo-delete-btn" class="btn-danger" style="display:none;margin-right:auto;" onclick="deleteEWO()">Delete EWO</button>
         <button class="btn" onclick="closeEWOModal()">Cancel</button>
