@@ -2411,7 +2411,7 @@ function toggleSeriesField(){
 function toggleCompanyField(){
   var t=document.getElementById('m-type').value;
   var f=document.getElementById('company-field');
-  if(f) f.style.display=(t==='FOR'||t==='SUP')?'''none';
+  if(f) f.style.display=(t==='FOR'||t==='SUP')?'block':'none';
 }
 function updateSeriesHint(){
  const s=document.getElementById('m-series').value;
