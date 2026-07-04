@@ -693,13 +693,16 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 <!-- AUTH OVERLAY -->
 <div id="auth-overlay" class="auth-overlay">
  <div class="auth-box">
- <!-- Step 1: Select user -->
+ <!-- Step 1: Type name to find profile -->
  <div id="auth-step-select">
  <div class="auth-logo">Bid<span>Sum</span></div>
- <div class="auth-sub">Select your profile to continue</div>
- <div class="auth-user-select" id="auth-user-list">
- <div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">Loading...</div>
+ <div id="auth-search-ui">
+ <div class="auth-sub">Type your name or employee # to continue</div>
+ <input id="auth-name-input" class="auth-input" style="letter-spacing:0;" placeholder="Name or employee #…" autocomplete="off" oninput="onAuthNameInput()" onkeydown="onAuthNameKeydown(event)">
+ <div class="auth-user-select" id="auth-user-list" style="display:none;"></div>
+ <div id="auth-name-hint" style="text-align:center;font-size:12px;color:var(--text3);padding:2px 0 4px;">Start typing your name or employee #</div>
  </div>
+ <div id="auth-empty-state" style="display:none;"></div>
  </div>
  <!-- Step 2: Enter PIN -->
  <div id="auth-step-pin" style="display:none;">
@@ -794,7 +797,9 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  <input id="m-initials" autocomplete="off" placeholder="e.g. CM" maxlength="4" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();checkInitialsDuplicate();updateCardPreview()">
  <div class="form-hint" id="initials-hint"></div>
  </div>
- <div class="fg"></div>
+ <div class="fg"><label>Employee #</label><input id="m-employee-num" autocomplete="off" placeholder="e.g. 1042" oninput="checkEmployeeNumDuplicate()">
+ <div class="form-hint" id="employee-num-hint"></div>
+ </div>
  </div>
  <div class="frow">
  <div class="fg"><label>Role</label>
@@ -1489,7 +1494,7 @@ function showLoader(msg){
 function hideLoader(){const el=document.getElementById('sb-loader');if(el)el.style.display='none';}
 
 // map Supabase snake_case to our camelCase DB shape
-function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||'',pinHash:r.pin_hash||'',pinToken:r.pin_token||'',role:r.role||'employee',active:r.active!==false,lastLogin:r.last_login||''};}
+function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||'',pinHash:r.pin_hash||'',pinToken:r.pin_token||'',role:r.role||'employee',active:r.active!==false,lastLogin:r.last_login||'',employeeNum:r.employee_num||'',company:r.company||''};}
 function mapGC(r){return{id:parseInt(r.id),name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:(r.member_ids||[]).map(Number)};}
 function mapTeam(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),name:r.name};}
 function mapContact(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
@@ -2473,7 +2478,7 @@ function openMemberModal(defaultType){
  EDIT.memberIdx=null;
  document.getElementById('member-modal-title').textContent='Add team member';
  document.getElementById('btn-delete-member').style.display='none';
- ['m-first','m-last','m-title','m-email','m-phone','m-initials','m-card-bg','m-card-txt','m-card-grad'].forEach(id=>document.getElementById(id).value='');document.getElementById('initials-hint').textContent='';document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));const defS=document.querySelector('.color-swatch[data-grad=""][data-bg=""][data-txt=""]');if(defS)defS.classList.add('selected');updateCardPreview();
+ ['m-first','m-last','m-title','m-email','m-phone','m-initials','m-card-bg','m-card-txt','m-card-grad','m-employee-num'].forEach(id=>document.getElementById(id).value='');document.getElementById('initials-hint').textContent='';document.getElementById('employee-num-hint').textContent='';document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));const defS=document.querySelector('.color-swatch[data-grad=""][data-bg=""][data-txt=""]');if(defS)defS.classList.add('selected');updateCardPreview();
  document.getElementById('m-type').value=defaultType||'PM';
  document.getElementById('m-series').value='';
  document.getElementById('series-hint').textContent='';
@@ -2495,6 +2500,8 @@ function openMemberEdit(){
  toggleCompanyField();
  document.getElementById('m-initials').value=m.initials||'';
  document.getElementById('initials-hint').textContent='';
+ document.getElementById('m-employee-num').value=m.employeeNum||'';
+ document.getElementById('employee-num-hint').textContent='';
  document.getElementById('m-card-bg').value=m.cardBg||'';
  document.getElementById('m-card-txt').value=m.cardTxt||'';
  document.getElementById('m-card-grad').value=m.cardGradient||'';
@@ -2512,7 +2519,7 @@ async function saveMember(){
  if(!first){alert('First name required.');return;}
  const type=document.getElementById('m-type').value;
  const series=type==='PM'?document.getElementById('m-series').value:'';
- const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const ewcompany=(document.getElementById('m-company')||{}).value||'';const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase(),card_bg:document.getElementById('m-card-bg').value,card_txt:document.getElementById('m-card-txt').value,card_gradient:document.getElementById('m-card-grad').value,company:ewcompany};
+ const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const ewcompany=(document.getElementById('m-company')||{}).value||'';const employeeNumVal=document.getElementById('m-employee-num').value.trim();const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase(),card_bg:document.getElementById('m-card-bg').value,card_txt:document.getElementById('m-card-txt').value,card_gradient:document.getElementById('m-card-grad').value,company:ewcompany,employee_num:employeeNumVal};
  showLoader();
  try{
  if(EDIT.memberIdx!==null){
@@ -3475,6 +3482,14 @@ function checkInitialsDuplicate(){
  if(taken.length){hint.textContent='! Already used by '+taken.join(', ');hint.style.color='var(--red)';}
  else{hint.textContent='✓ Available';hint.style.color='var(--green)';}
 }
+function checkEmployeeNumDuplicate(){
+ const val=document.getElementById('m-employee-num').value.trim();
+ const hint=document.getElementById('employee-num-hint');
+ if(!val){hint.textContent='';return;}
+ const taken=DB.members.filter((m,i)=>m.employeeNum&&m.employeeNum===val&&i!==EDIT.memberIdx).map(m=>m.first+' '+m.last);
+ if(taken.length){hint.textContent='! Already used by '+taken.join(', ');hint.style.color='var(--red)';}
+ else{hint.textContent='✓ Available';hint.style.color='var(--green)';}
+}
 
 function selectCardColor(el){
  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
@@ -3538,10 +3553,14 @@ function memberAvatarStyle(m){
  if(grad)return`background:${grad};color:#fff;`;
  return`background:${bg};color:${txt};`;
 }
+function memberTypeLabel(type){
+ return type==='PM'?'Project Manager':type==='EST'?'Estimator':type==='PC'?'Project Coordinator':type==='FOR'?'Foreman':type==='SUP'?'Superintendent':type==='ACCMGR'?'Accounting Manager':type==='ACC'?'Accounting':'Member';
+}
 
 // ═══════════════════════════════════════ AUTH ════════════════════════════════════════
 let SESSION={user:null}; // {id, first, last, type, role, initials, ...}
 let AUTH_SELECTED=null; // member selected on login screen
+let AUTH_ALL_MEMBERS=[]; // cached active members for name search
 
 // Simple hash (not cryptographic — for PIN obfuscation only)
 async function hashPin(pin){
@@ -3600,10 +3619,16 @@ async function loadMembersForAuth(){
 }
 
 function renderAuthUserList(){
+ AUTH_ALL_MEMBERS=DB.members.filter(m=>m.active!==false);
+ const searchUI=document.getElementById('auth-search-ui');
+ const emptyState=document.getElementById('auth-empty-state');
+ const input=document.getElementById('auth-name-input');
  const list=document.getElementById('auth-user-list');
- const activeMembers=DB.members.filter(m=>m.active!==false);
- if(!activeMembers.length){
- list.innerHTML=`<div style="text-align:center;padding:24px 16px;">
+ const hint=document.getElementById('auth-name-hint');
+ if(!AUTH_ALL_MEMBERS.length){
+ searchUI.style.display='none';
+ emptyState.style.display='block';
+ emptyState.innerHTML=`<div style="text-align:center;padding:24px 16px;">
  <div style="font-size:32px;margin-bottom:10px;">👋</div>
  <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Welcome to BidSum</div>
  <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">No accounts exist yet. Create the first account to get started.</div>
@@ -3611,15 +3636,50 @@ function renderAuthUserList(){
  </div>`;
  return;
  }
- list.innerHTML=activeMembers.map(m=>{
+ searchUI.style.display='block';
+ emptyState.style.display='none';
+ if(input)input.value='';
+ if(list){list.style.display='none';list.innerHTML='';}
+ if(hint){hint.style.display='block';hint.textContent='Start typing your name or employee #';}
+ setTimeout(()=>input&&input.focus(),80);
+}
+function onAuthNameInput(){
+ const q=(document.getElementById('auth-name-input').value||'').trim().toLowerCase();
+ const list=document.getElementById('auth-user-list');
+ const hint=document.getElementById('auth-name-hint');
+ if(!q){
+ list.style.display='none';list.innerHTML='';
+ hint.style.display='block';hint.textContent='Start typing your name or employee #';
+ return;
+ }
+ const matches=AUTH_ALL_MEMBERS.filter(m=>{
+ const full=(m.first+' '+m.last).toLowerCase();
+ const empNum=(m.employeeNum||'').toLowerCase();
+ return full.includes(q)||(m.first||'').toLowerCase().startsWith(q)||(m.last||'').toLowerCase().startsWith(q)||(empNum&&empNum.startsWith(q));
+ }).slice(0,8);
+ if(!matches.length){
+ list.style.display='none';list.innerHTML='';
+ hint.style.display='block';hint.textContent='No matches — check the spelling and try again';
+ return;
+ }
+ hint.style.display='none';
+ list.style.display='flex';
+ list.innerHTML=matches.map(m=>{
  const style=memberAvatarStyle(m);
  const ini=m.initials||(m.first[0]+m.last[0]).toUpperCase();
- const roleLabel=m.role==='manager'?'Manager':m.type==='PM'?'Project Manager':'Estimator';
+ const roleLabel=(m.role==='manager'?'Manager':memberTypeLabel(m.type))+(m.employeeNum?' · #'+m.employeeNum:'');
  return`<button class="auth-user-btn" onclick="selectAuthUser(${m.id})">
  <div class="auth-avatar" style="${style}">${ini}</div>
  <div><div class="auth-user-name">${m.first} ${m.last}</div><div class="auth-user-role">${roleLabel}</div></div>
  </button>`;
  }).join('');
+}
+function onAuthNameKeydown(e){
+ if(e.key==='Enter'){
+ const list=document.getElementById('auth-user-list');
+ const btn=list&&list.querySelector('.auth-user-btn');
+ if(btn)btn.click();
+ }
 }
 
 function selectAuthUser(id){
@@ -3648,6 +3708,13 @@ function backToSelect(){
  document.getElementById('auth-step-pin').style.display='none';
  document.getElementById('auth-step-setup').style.display='none';
  document.getElementById('auth-step-select').style.display='block';
+ const input=document.getElementById('auth-name-input');
+ const list=document.getElementById('auth-user-list');
+ const hint=document.getElementById('auth-name-hint');
+ if(input)input.value='';
+ if(list){list.style.display='none';list.innerHTML='';}
+ if(hint){hint.style.display='block';hint.textContent='Start typing your name or employee #';}
+ setTimeout(()=>input&&input.focus(),80);
 }
 
 function onPinInput(){
@@ -3721,7 +3788,8 @@ function memberToBody(m){
  series:m.series||'',email:m.email||'',phone:m.phone||'',
  initials:m.initials||'',card_bg:m.cardBg||'',
  card_txt:m.cardTxt||'',card_gradient:m.cardGradient||'',
- role:m.role||'employee',active:m.active!==false
+ role:m.role||'employee',active:m.active!==false,
+ employee_num:m.employeeNum||'',company:m.company||''
  };
 }
 
@@ -6257,6 +6325,7 @@ function renderTeam(){
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:14px;">
               <div><span style="color:var(--text3);">Email: </span>${m.email||'—'}</div>
               <div><span style="color:var(--text3);">Phone: </span>${m.phone||'—'}</div>
+              <div><span style="color:var(--text3);">Employee #: </span>${m.employeeNum||'—'}</div>
               ${m.type==='PM'||m.type==='EST'?`<div><span style="color:var(--text3);">Bids: </span>${myBids.length}</div><div><span style="color:var(--text3);">Wins: </span>${awarded.length}</div>`:''}
               <div style="grid-column:1/-1;"><span style="color:var(--text3);">Last login: </span>${lastLogin}</div>
             </div>
@@ -6330,6 +6399,7 @@ function renderMyProfile(){
           <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Email</div><div style="font-size:13px;">${m.email||'—'}</div></div>
           <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Phone</div><div style="font-size:13px;">${m.phone||'—'}</div></div>
           <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Initials</div><div style="font-size:13px;font-weight:600;">${m.initials||'—'}</div></div>
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Employee #</div><div style="font-size:13px;font-weight:600;">${m.employeeNum||'—'}</div></div>
           ${m.type==='PM'?`<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Bid Series</div><div style="font-size:13px;">${m.series||'—'}</div></div>`:''}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
