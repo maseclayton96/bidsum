@@ -1361,6 +1361,7 @@ const MODULES = [
   {id:'team',   label:'Team',   desc:'Team directory, member management'},
   {id:'admin',  label:'Admin',  desc:'User access, role management'},
   {id:'reports',label:'Reports',desc:'Reports and analytics'},
+  {id:'ewo',    label:'EWOs',   desc:'Field extra work orders, GC signatures'},
 ];
 const ROLES = [
   {id:'PM',label:'Project Manager'},{id:'EST',label:'Estimator'},
@@ -1369,13 +1370,13 @@ const ROLES = [
   {id:'ACCMGR',label:'Accounting Manager'},
 ];
 const DEFAULT_ROLE_MATRIX = {
-  PM:     {bidsum:2, jobs:2, accounting:1, team:1, admin:0, reports:2},
-  EST:    {bidsum:2, jobs:1, accounting:0, team:1, admin:0, reports:1},
-  PC:     {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
-  FOR:    {bidsum:0, jobs:1, accounting:0, team:0, admin:0, reports:0},
-  SUP:    {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1},
-  ACC:    {bidsum:0, jobs:1, accounting:2, team:0, admin:0, reports:1},
-  ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2},
+  PM:     {bidsum:2, jobs:2, accounting:1, team:1, admin:0, reports:2, ewo:0},
+  EST:    {bidsum:2, jobs:1, accounting:0, team:1, admin:0, reports:1, ewo:0},
+  PC:     {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1, ewo:0},
+  FOR:    {bidsum:0, jobs:1, accounting:0, team:0, admin:0, reports:0, ewo:2},
+  SUP:    {bidsum:0, jobs:2, accounting:0, team:1, admin:0, reports:1, ewo:2},
+  ACC:    {bidsum:0, jobs:1, accounting:2, team:0, admin:0, reports:1, ewo:0},
+  ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2, ewo:0},
 };
 let ROLE_MATRIX = {};
 // ═══ VIEW AS ROLE (manager preview mode) ════
@@ -1434,7 +1435,7 @@ function saveRoleMatrix(){
 }
 function getNavModules(){
   if(!SESSION.user)return[];
-  if(isManagerMode())return['bidsum','jobs','reports','accounting','team','admin'];
+  if(isManagerMode())return['bidsum','jobs','reports','accounting','team','admin','ewo'];
   loadRoleMatrix();
   const type=effectiveRoleType();
   const perms=ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{};
@@ -1549,6 +1550,7 @@ function render(){
  else if(NAV.screen==='jobs'){if(NAV.jobCompany)renderCompanyJobList(NAV.jobCompany);else renderJobsHome();}
  else if(NAV.screen==='jobdetail')renderJobDetail();
  else if(NAV.screen==='reports')renderReports();
+ else if(NAV.screen==='ewo')renderEWOHome();
  setTimeout(initAllDraggables,50);
  renderCurrentUserNav();
 }
@@ -1569,6 +1571,7 @@ function renderNav(){
      ${navMods.includes('reports')?`<button class="btn-nav ${NAV.screen==='reports'?'btn-nav-active':''}" onclick="goReports()">Reports</button>`:''}
      ${navMods.includes('accounting')?`<button class="btn-nav ${NAV.screen==='accounting'?'btn-nav-active':''}" onclick="goAccounting()">Accounting</button>`:''}
      ${navMods.includes('team')?`<button class="btn-nav ${NAV.screen==='team'?'btn-nav-active':''}" onclick="goTeam()">Team</button>`:''}
+     ${navMods.includes('ewo')?`<button class="btn-nav ${NAV.screen==='ewo'?'btn-nav-active':''}" onclick="goEWOHome()">EWOs</button>`:''}
      ${navMods.includes('admin')?`<button class="btn-nav ${NAV.screen==='manager'?'btn-nav-active':''}" onclick="goAdmin()">Admin</button>`:''}
      ${isManager?`<button class="btn-nav-primary" onclick="openMemberModal()">+ Add Team</button>`:''}
    `;
@@ -1601,6 +1604,9 @@ function renderNav(){
  `;
  } else if(NAV.screen==='reports'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Reports</span>`;
+
+ } else if(NAV.screen==='ewo'){
+ bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">EWOs</span>`;
 
  } else if(NAV.screen==='jobdetail'){
  const _j=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
@@ -9348,6 +9354,7 @@ async function saveEWO(){
     }
     closeEWOModal();
     reRenderEWOTab(jobId);
+    if(NAV.screen==='ewo') render();
   } catch(e){ alert('Error saving EWO: '+e.message); }
   finally{ hideLoader(); }
 }
@@ -9363,8 +9370,147 @@ async function deleteEWO(){
     EWO_RECORDS = EWO_RECORDS.filter(r=>String(r.id)!==String(EWO_EDIT_ID));
     closeEWOModal();
     reRenderEWOTab(jobId);
+    if(NAV.screen==='ewo') render();
   } catch(e){ alert('Error deleting EWO: '+e.message); }
   finally{ hideLoader(); }
+}
+
+// ═══════════════════════════════════════ EWO HOME (top-level nav) ═══════════════════
+let EWO_HOME_RECORDS = []; // flattened records across jobs, for the EWO Home screen
+
+function goEWOHome(){
+  NAV.screen='ewo';
+  NAV.ewoFilter=null;
+  render();
+}
+
+function ewoHomeMyJobs(){
+  loadJobs();
+  const user = SESSION.user;
+  const myId = user?parseInt(user.id):null;
+  if(isManagerMode()) return JOBS.filter(j=>j.status!=='Closed');
+  return JOBS.filter(j=>j.status!=='Closed'&&(parseInt(j.foremanId)===myId||parseInt(j.superId)===myId));
+}
+
+function renderEWOHome(){
+  const jobs = ewoHomeMyJobs();
+  if(!NAV.ewoFilter) renderEWOHomeMenu(jobs);
+  else renderEWOHomeList(jobs, NAV.ewoFilter);
+}
+
+function renderEWOHomeMenu(jobs){
+  const cardStyle = 'background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;margin-bottom:12px;display:flex;align-items:center;gap:16px;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;';
+  const iconStyle = 'width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;color:#fff;';
+  document.getElementById('app').innerHTML =
+    '<div style="margin-bottom:20px;">'
+    +'<div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">Extra Work Orders</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">'+jobs.length+' job'+(jobs.length!==1?'s':'')+' assigned to you</div>'
+    +'</div>'
+    +'<div style="max-width:640px;">'
+    +'<div style="'+cardStyle+'" onclick="openEWOJobPicker()">'
+      +'<div style="'+iconStyle+'background:#CC0000;">📝</div>'
+      +'<div><div style="font-size:15px;font-weight:700;">New Extra Work Order</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Create a new EWO from the field</div></div>'
+    +'</div>'
+    +'<div style="'+cardStyle+'" onclick="NAV.ewoFilter=\'pending\';render()">'
+      +'<div style="'+iconStyle+'background:#CC7000;">✍</div>'
+      +'<div><div style="font-size:15px;font-weight:700;">Pending (GC Signature)</div><div style="font-size:12px;color:var(--text3);margin-top:2px;" id="ewo-home-pending-sub">Loading…</div></div>'
+    +'</div>'
+    +'<div style="'+cardStyle+'" onclick="NAV.ewoFilter=\'approved\';render()">'
+      +'<div style="'+iconStyle+'background:var(--green);">✓</div>'
+      +'<div><div style="font-size:15px;font-weight:700;">Approved / Verified</div><div style="font-size:12px;color:var(--text3);margin-top:2px;" id="ewo-home-approved-sub">Loading…</div></div>'
+    +'</div>'
+    +'<div style="'+cardStyle+'" onclick="NAV.ewoFilter=\'all\';render()">'
+      +'<div style="'+iconStyle+'background:#333;">📁</div>'
+      +'<div><div style="font-size:15px;font-weight:700;">All EWOs</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Full history — view, edit</div></div>'
+    +'</div>'
+    +'</div>';
+  loadEWOHomeCounts(jobs);
+}
+
+async function loadEWOHomeCounts(jobs){
+  try{
+    const results = await Promise.all(jobs.map(j=>ewoGet(j.id).catch(()=>[])));
+    const all = results.flat().map(mapEWO);
+    const pending = all.filter(e=>e.status==='Pending');
+    const approved = all.filter(e=>e.status==='Approved');
+    const pendEl = document.getElementById('ewo-home-pending-sub');
+    const apprEl = document.getElementById('ewo-home-approved-sub');
+    if(pendEl) pendEl.textContent = pending.length+' awaiting GC signature';
+    if(apprEl) apprEl.textContent = approved.length+' approved';
+  }catch(e){}
+}
+
+function renderEWOHomeList(jobs, filter){
+  const title = filter==='pending'?'Pending (GC Signature)':filter==='approved'?'Approved / Verified':'All EWOs';
+  document.getElementById('app').innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">'
+    +'<div><div style="font-size:22px;font-weight:800;">'+title+'</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;" id="ewo-home-list-sub">Loading…</div></div>'
+    +'<button class="btn-sm" onclick="NAV.ewoFilter=null;render()">← Back</button>'
+    +'</div>'
+    +'<div id="ewo-home-list-body"><div class="empty"><div class="empty-icon" style="font-size:20px;">&#8987;</div><div class="empty-text">Loading EWOs…</div></div></div>';
+  loadEWOHomeList(jobs, filter);
+}
+
+async function loadEWOHomeList(jobs, filter){
+  try{
+    const results = await Promise.all(jobs.map(async j=>{
+      const rows = await ewoGet(j.id).catch(()=>[]);
+      return rows.map(r=>Object.assign(mapEWO(r), {_job:j}));
+    }));
+    let all = results.flat();
+    if(filter==='pending') all = all.filter(e=>e.status==='Pending');
+    else if(filter==='approved') all = all.filter(e=>e.status==='Approved');
+    EWO_HOME_RECORDS = all;
+    const sub = document.getElementById('ewo-home-list-sub');
+    if(sub) sub.textContent = all.length+' record'+(all.length!==1?'s':'');
+    const body = document.getElementById('ewo-home-list-body');
+    if(!body) return;
+    if(!all.length){ body.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No EWOs found</div></div>'; return; }
+    body.innerHTML = all.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).map(e=>{
+      const statusCls = e.status==='Pending'?'ewo-status-pending':e.status==='Approved'?'ewo-status-approved':'ewo-status-void';
+      return '<div class="ewo-card" onclick="openEWOFromHome(\''+e.id+'\')">'
+        +'<div class="ewo-card-header">'
+        +'<div><div class="ewo-card-num">EWO #'+e.ewo_num+' · '+(e._job?e._job.name:'')+'</div>'
+        +'<div class="ewo-card-title">'+(e.description||'No description')+'</div></div>'
+        +'<span class="badge '+statusCls+'">'+e.status+'</span>'
+        +'</div>'
+        +'<div class="ewo-card-meta"><span>📅 '+(e.date||'—')+'</span><span>👷 '+(e.foreman||'—')+'</span></div>'
+        +'</div>';
+    }).join('');
+  }catch(e){
+    const body = document.getElementById('ewo-home-list-body');
+    if(body) body.innerHTML = '<div class="empty"><div class="empty-icon">⚠</div><div class="empty-text">Could not load EWOs</div></div>';
+  }
+}
+
+function openEWOFromHome(id){
+  const rec = EWO_HOME_RECORDS.find(r=>String(r.id)===String(id));
+  if(!rec) return;
+  EWO_RECORDS = EWO_HOME_RECORDS;
+  openEditEWO(id);
+}
+
+function openEWOJobPicker(){
+  const jobs = ewoHomeMyJobs();
+  if(!jobs.length){ alert('No active jobs are assigned to you.'); return; }
+  if(jobs.length===1){ openNewEWO(jobs[0].id, jobs[0].company||'Bonas'); return; }
+  const overlay = document.createElement('div');
+  overlay.id='ewo-job-picker-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML =
+    '<div style="background:var(--bg2);border-radius:var(--rlg);box-shadow:var(--shadow);padding:24px;width:380px;max-width:90vw;max-height:80vh;overflow-y:auto;">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px;">Select a job</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Which job is this EWO for?</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;">'
+    +jobs.map(function(j){
+      return '<button class="btn" style="text-align:left;width:100%;" onclick="document.getElementById(\'ewo-job-picker-overlay\').remove();openNewEWO(\''+j.id+'\',\''+(j.company||'Bonas').replace(/'/g,"\\'")+'\')">'+(j.num||'—')+' · '+j.name+'</button>';
+    }).join('')
+    +'</div>'
+    +'<button class="btn" style="width:100%;margin-top:14px;" onclick="document.getElementById(\'ewo-job-picker-overlay\').remove();">Cancel</button>'
+    +'</div>';
+  document.body.appendChild(overlay);
 }
 
 
