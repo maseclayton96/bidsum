@@ -3755,7 +3755,7 @@ async function finishLoad(){
  }
  }catch(e){console.error('Load error',e);}
  finally{hideLoader();}
- NAV.screen='landing';
+ NAV.screen=(!isManagerMode()&&effectiveRoleType()==='FOR')?'pmhome':'landing';
  render();
  renderCurrentUserNav();
 }
