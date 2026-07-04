@@ -27,6 +27,8 @@ export default async function handler(req, res) {
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'employee'`;
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`;
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ`;
+    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS employee_num TEXT`;
+    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS company TEXT`;
     await sql`ALTER TABLE bids ADD COLUMN IF NOT EXISTS company TEXT DEFAULT 'ACI'`;
   } catch(e) { console.error('Init error:', e.message); }
 
@@ -43,7 +45,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const b = req.body; let rows;
-      if (table === 'members') rows = await sql`INSERT INTO members (first,last,type,title,series,email,phone,initials,card_bg,card_txt,card_gradient,role,active) VALUES (${b.first},${b.last},${b.type},${b.title||''},${b.series||''},${b.email||''},${b.phone||''},${b.initials||null},${b.card_bg||null},${b.card_txt||null},${b.card_gradient||null},${b.role||'employee'},${b.active!==false}) RETURNING *`;
+      if (table === 'members') rows = await sql`INSERT INTO members (first,last,type,title,series,email,phone,initials,card_bg,card_txt,card_gradient,role,active,employee_num,company) VALUES (${b.first},${b.last},${b.type},${b.title||''},${b.series||''},${b.email||''},${b.phone||''},${b.initials||null},${b.card_bg||null},${b.card_txt||null},${b.card_gradient||null},${b.role||'employee'},${b.active!==false},${b.employee_num||null},${b.company||null}) RETURNING *`;
       else if (table === 'gcs') rows = await sql`INSERT INTO gcs (name,office,web,logo,street,city,phone,member_ids) VALUES (${b.name},${b.office||''},${b.web||''},${b.logo||''},${b.street||''},${b.city||''},${b.phone||''},${JSON.stringify(b.member_ids||[])}) RETURNING *`;
       else if (table === 'teams') rows = await sql`INSERT INTO teams (gc_id,name) VALUES (${b.gc_id},${b.name}) RETURNING *`;
       else if (table === 'contacts') rows = await sql`INSERT INTO contacts (gc_id,first,last,role,team,email,phone,cell,notes,linkedin,photo) VALUES (${b.gc_id},${b.first},${b.last},${b.role||''},${b.team||''},${b.email||''},${b.phone||''},${b.cell||''},${b.notes||''},${b.linkedin||''},${b.photo||''}) RETURNING *`;
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const b = req.body; const rid = parseInt(id); let rows;
-      if (table === 'members') rows = await sql`UPDATE members SET first=${b.first},last=${b.last},type=${b.type},title=${b.title||''},series=${b.series||''},email=${b.email||''},phone=${b.phone||''},initials=${b.initials||null},card_bg=${b.card_bg||null},card_txt=${b.card_txt||null},card_gradient=${b.card_gradient||null},role=${b.role||'employee'},active=${b.active!==false},pin_hash=${b.pin_hash||null},pin_token=${b.pin_token||null},last_login=${b.last_login||null} WHERE id=${rid} RETURNING *`;
+      if (table === 'members') rows = await sql`UPDATE members SET first=${b.first},last=${b.last},type=${b.type},title=${b.title||''},series=${b.series||''},email=${b.email||''},phone=${b.phone||''},initials=${b.initials||null},card_bg=${b.card_bg||null},card_txt=${b.card_txt||null},card_gradient=${b.card_gradient||null},role=${b.role||'employee'},active=${b.active!==false},pin_hash=${b.pin_hash||null},pin_token=${b.pin_token||null},last_login=${b.last_login||null},employee_num=${b.employee_num||null},company=${b.company||null} WHERE id=${rid} RETURNING *`;
       else if (table === 'gcs') rows = await sql`UPDATE gcs SET name=${b.name},office=${b.office||''},web=${b.web||''},logo=${b.logo||''},street=${b.street||''},city=${b.city||''},phone=${b.phone||''} WHERE id=${rid} RETURNING *`;
       else if (table === 'teams') rows = await sql`UPDATE teams SET name=${b.name} WHERE id=${rid} RETURNING *`;
       else if (table === 'contacts') rows = await sql`UPDATE contacts SET first=${b.first},last=${b.last},role=${b.role||''},team=${b.team||''},email=${b.email||''},phone=${b.phone||''},cell=${b.cell||''},notes=${b.notes||''},linkedin=${b.linkedin||''},photo=${b.photo||''} WHERE id=${rid} RETURNING *`;
