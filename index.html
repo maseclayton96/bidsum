@@ -686,6 +686,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  <div class="nav-actions" id="nav-actions" style="flex-shrink:0;margin-left:8px;"></div>
 </nav>
 
+<div id="view-as-banner" style="display:none;align-items:center;gap:14px;background:#7A3E0A;color:#fff;padding:8px 20px;font-size:12px;"></div>
 <div class="page" id="app"></div>
 
 
@@ -1372,6 +1373,51 @@ const DEFAULT_ROLE_MATRIX = {
   ACCMGR: {bidsum:0, jobs:1, accounting:2, team:1, admin:1, reports:2},
 };
 let ROLE_MATRIX = {};
+// ═══ VIEW AS ROLE (manager preview mode) ════
+let VIEW_AS_ROLE = null; // e.g. 'FOR' — when set, a real manager is previewing the app as that role
+function isRealManager(){ return !!(SESSION.user && SESSION.user.role==='manager'); }
+function isManagerMode(){ return isRealManager() && !VIEW_AS_ROLE; }
+function effectiveRoleType(){ return VIEW_AS_ROLE || (SESSION.user?SESSION.user.type:'PM') || 'PM'; }
+function startViewAs(roleId){
+  if(!isRealManager())return;
+  VIEW_AS_ROLE=roleId;
+  NAV.screen='landing';
+  render();
+}
+function exitViewAs(){
+  VIEW_AS_ROLE=null;
+  NAV.screen='landing';
+  render();
+}
+function openViewAsPicker(){
+  if(!isRealManager())return;
+  const overlay=document.createElement('div');
+  overlay.id='view-as-picker-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML=`
+    <div style="background:var(--bg2);border-radius:var(--rlg);box-shadow:var(--shadow);padding:24px;width:360px;max-width:90vw;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px;">View as…</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">See exactly what a role sees, using the current Role Matrix permissions.</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${ROLES.map(r=>`<button class="btn" style="text-align:left;width:100%;" onclick="document.getElementById('view-as-picker-overlay').remove();startViewAs('${r.id}')">${r.label}</button>`).join('')}
+      </div>
+      <button class="btn" style="width:100%;margin-top:14px;" onclick="document.getElementById('view-as-picker-overlay').remove();">Cancel</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+function renderViewAsBanner(){
+  const el=document.getElementById('view-as-banner');
+  if(!el)return;
+  if(!VIEW_AS_ROLE){el.style.display='none';el.innerHTML='';return;}
+  const role=ROLES.find(r=>r.id===VIEW_AS_ROLE);
+  el.style.display='flex';
+  el.innerHTML=`
+    <span style="font-weight:700;">👁 Previewing as: ${role?role.label:VIEW_AS_ROLE}</span>
+    <span style="opacity:.85;">You're seeing exactly what this role sees. Changes you make are real.</span>
+    <button onclick="exitViewAs()" style="margin-left:auto;background:#fff;color:#7A3E0A;border:none;border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">Exit Preview</button>
+  `;
+}
 function loadRoleMatrix(){
   try{const s=localStorage.getItem('bidsum-role-matrix');
     if(s)ROLE_MATRIX=JSON.parse(s);
@@ -1383,24 +1429,26 @@ function saveRoleMatrix(){
 }
 function getNavModules(){
   if(!SESSION.user)return[];
-  if(SESSION.user.role==='manager')return['bidsum','jobs','reports','accounting','team','admin'];
+  if(isManagerMode())return['bidsum','jobs','reports','accounting','team','admin'];
   loadRoleMatrix();
-  const type=SESSION.user.type||'PM';
+  const type=effectiveRoleType();
   const perms=ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{};
   return MODULES.map(m=>m.id).filter(id=>perms[id]>0);
 }
 function canAccess(module){
   if(!SESSION.user)return false;
-  if(SESSION.user.role==='manager')return true;
+  if(isManagerMode())return true;
   loadRoleMatrix();
-  const p=(ROLE_MATRIX[SESSION.user.type||'PM']||DEFAULT_ROLE_MATRIX[SESSION.user.type||'PM']||{})[module]||0;
+  const type=effectiveRoleType();
+  const p=(ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{})[module]||0;
   return p>0;
 }
 function canEdit(module){
   if(!SESSION.user)return false;
-  if(SESSION.user.role==='manager')return true;
+  if(isManagerMode())return true;
   loadRoleMatrix();
-  const p=(ROLE_MATRIX[SESSION.user.type||'PM']||DEFAULT_ROLE_MATRIX[SESSION.user.type||'PM']||{})[module]||0;
+  const type=effectiveRoleType();
+  const p=(ROLE_MATRIX[type]||DEFAULT_ROLE_MATRIX[type]||{})[module]||0;
   return p>=2;
 }
 // ═══════════════════════════════════════ STATE ═══════════════════════════════════════
@@ -1508,7 +1556,7 @@ function renderNav(){
  const modBtns=document.getElementById('nav-module-btns');
  if(modBtns&&SESSION.user){
    const navMods=getNavModules();
-   const isManager=SESSION.user.role==='manager';
+   const isManager=isManagerMode();
    modBtns.innerHTML=`
      ${navMods.includes('bidsum')?`<button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">BidSum</button>`:''}
      <button class="btn-nav ${NAV.screen==='pmhome'?'btn-nav-active':''}" onclick="goPMHome()">Home</button>
@@ -1718,7 +1766,7 @@ function renderLanding(){
  <div class="module-desc">Annual summaries, PM performance, revenue trends</div>
  <div class="module-stat" style="color:var(--blue);">Click to open</div>
  </div>
- <div class="module-card" onclick="${SESSION.user&&SESSION.user.role==='manager'?'openManagerPanel()':''}">
+ <div class="module-card" onclick="${isManagerMode()?'openManagerPanel()':''}">
  <div class="module-icon"></div>
  <div class="module-name">Team</div>
  <div class="module-desc">${pms.map(m=>`${m.first} ${m.last}`).join(', ')||'No PMs yet'}</div>
@@ -3717,7 +3765,7 @@ function renderCurrentUserNav(){
  const na=document.getElementById('nav-actions');
  if(!na||!SESSION.user)return;
  const u=SESSION.user;
- const isManager=u.role==='manager';
+ const isManager=isManagerMode();
  const existing=document.getElementById('nav-user-pill');
  if(existing)existing.remove();
  const pill=document.createElement('div');
@@ -3727,15 +3775,19 @@ function renderCurrentUserNav(){
  <div style="${memberAvatarStyle(u)}width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${u.initials||(u.first[0]+u.last[0]).toUpperCase()}</div>
  <span style="color:rgba(255,255,255,.7);font-size:12px;">${u.first}</span>
  ${isManager?`<button class="btn-nav" onclick="openManagerPanel()" style="font-size:11px;">Admin</button>`:''}
+ ${isRealManager()&&!VIEW_AS_ROLE?`<button class="btn-nav" onclick="openViewAsPicker()" style="font-size:11px;">View as…</button>`:''}
+ ${VIEW_AS_ROLE?`<button class="btn-nav" onclick="exitViewAs()" style="font-size:11px;background:#CC0000;color:#fff;">Exit Preview</button>`:''}
  <button class="btn-nav" onclick="openChangePinModal()" style="font-size:11px;">PIN</button>
  <button class="btn-nav" onclick="logout()" style="font-size:11px;">Sign out</button>
  `;
  na.appendChild(pill);
+ renderViewAsBanner();
 }
 
 function logout(){
  clearRememberToken();
  SESSION.user=null;
+ VIEW_AS_ROLE=null;
  document.getElementById('auth-overlay').style.display='flex';
  document.getElementById('auth-step-pin').style.display='none';
  document.getElementById('auth-step-setup').style.display='none';
@@ -4784,9 +4836,9 @@ function renderRoleMatrix(){
           <thead>
             <tr style="background:var(--bg3);">
               <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:700;border-bottom:2px solid var(--border);min-width:120px;">Role</th>
-              ${MODULES.map(m=>`<th style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;border-bottom:2px solid var(--border);border-left:1px solid var(--border);min-width:90px;">
-                <div>${m.label}</div>
-                <div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;">${m.desc}</div>
+              ${MODULES.map(m=>`<th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;border-bottom:2px solid var(--border);border-left:1px solid var(--border);min-width:110px;white-space:normal;text-transform:none;vertical-align:top;">
+                <div style="text-transform:uppercase;letter-spacing:.05em;">${m.label}</div>
+                <div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:3px;text-transform:none;letter-spacing:normal;line-height:1.35;white-space:normal;">${m.desc}</div>
               </th>`).join('')}
             </tr>
           </thead>
@@ -4794,7 +4846,12 @@ function renderRoleMatrix(){
             ${ROLES.map((role,ri)=>{
               const perms = ROLE_MATRIX[role.id]||DEFAULT_ROLE_MATRIX[role.id]||{};
               return`<tr style="border-bottom:1px solid var(--border);height:44px;">
-                <td style="padding:7px 12px;font-weight:700;font-size:12px;">${role.label}</td>
+                <td style="padding:7px 12px;font-weight:700;font-size:12px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span>${role.label}</span>
+                    <button class="btn-sm" style="font-size:10px;padding:3px 8px;" onclick="startViewAs('${role.id}')" title="Preview the app as this role">👁 View as</button>
+                  </div>
+                </td>
                 ${MODULES.map(mod=>{
                   const p=perms[mod.id]||0;
                   return`<td style="padding:4px 6px;text-align:center;border-left:1px solid var(--border);">
@@ -6176,7 +6233,7 @@ function renderTeam(){
     ACC: DB.members.filter(m=>(m.type==='ACC'||m.type==='ACCMGR')&&m.active!==false),
     inactive: DB.members.filter(m=>m.active===false)
   };
-  const isAdmin = SESSION.user&&(SESSION.user.role==='manager'||SESSION.user.type==='ACCMGR');
+  const isAdmin = SESSION.user&&(isManagerMode()||effectiveRoleType()==='ACCMGR');
   const typeLabel = m => m.type==='PM'?'Project Manager':m.type==='EST'?'Estimator':m.type==='PC'?'Project Coordinator':m.type==='FOR'?'Foreman':m.type==='SUP'?'Superintendent':m.type==='ACCMGR'?'Accounting Manager':m.type==='ACC'?'Accounting':'Member';
 
   const renderMemberSection = (title, members) => {
@@ -6232,7 +6289,7 @@ function renderTeam(){
 
 function renderAccounting(){
   loadJobs();loadLaborRates();
-  const isAccMgr=SESSION.user&&(SESSION.user.type==='ACCMGR'||SESSION.user.role==='manager');
+  const isAccMgr=SESSION.user&&(effectiveRoleType()==='ACCMGR'||isManagerMode());
   document.getElementById('app').innerHTML=`
     <div style="font-size:22px;font-weight:700;margin-bottom:20px;">Accounting</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
@@ -6280,7 +6337,7 @@ function renderMyProfile(){
           <button class="btn" onclick="openChangePinModal()">Change PIN</button>
         </div>
       </div>
-      ${SESSION.user.role==='manager'?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);"><div style="font-size:13px;font-weight:700;margin-bottom:12px;">Manager Tools</div><button class="btn-primary" onclick="openManagerPanel()">Team Access Management</button></div>`:''}
+      ${isManagerMode()?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);"><div style="font-size:13px;font-weight:700;margin-bottom:12px;">Manager Tools</div><button class="btn-primary" onclick="openManagerPanel()">Team Access Management</button></div>`:''}
     </div>`;
 }
 
@@ -6375,7 +6432,7 @@ function openEditJob(jobId){
   document.getElementById('j-end').value=job.end||'';
   document.getElementById('j-notes').value=job.notes||'';
   const _adminSec=document.getElementById('j-admin-section');
-  if(_adminSec)_adminSec.style.display=(SESSION.user&&SESSION.user.role==='manager')?'block':'none';
+  if(_adminSec)_adminSec.style.display=isManagerMode()?'block':'none';
   if(document.getElementById('j-class'))document.getElementById('j-class').value=job.classCode||'';
   if(document.getElementById('j-prelim'))document.getElementById('j-prelim').checked=job.prelimClosed||false;
   const gcSel=document.getElementById('j-gc');
@@ -7315,7 +7372,7 @@ function jobsHomeSearch(term){
 function renderPMHome(){
   loadJobs();
   const user = SESSION.user;
-  const isManager = user&&user.role==='manager';
+  const isManager = isManagerMode();
   const now = new Date();
 
   // Manager can view a specific PM's dashboard via viewPMHome()
