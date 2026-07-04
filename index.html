@@ -1537,6 +1537,7 @@ function setGCTab(t){NAV.gcTab=t;render();}
 
 // ═══════════════════════════════════════ RENDER ROUTER ═══════════════════════════════
 function render(){
+ stopEWOPolling();
  renderNav();
  if(NAV.screen==='landing')renderLanding();
  else if(NAV.screen==='home')renderHome();
@@ -1553,6 +1554,11 @@ function render(){
  else if(NAV.screen==='ewo')renderEWOHome();
  setTimeout(initAllDraggables,50);
  renderCurrentUserNav();
+ if(NAV.screen==='jobdetail'&&CUR_JOB_TAB==='ewo'&&CUR_JOB_ID){
+   startEWOPollingForJobTab(CUR_JOB_ID);
+ } else if(NAV.screen==='ewo'){
+   startEWOPollingForHome();
+ }
 }
 
 function renderNav(){
@@ -3859,6 +3865,7 @@ function renderCurrentUserNav(){
 }
 
 function logout(){
+ stopEWOPolling();
  clearRememberToken();
  SESSION.user=null;
  VIEW_AS_ROLE=null;
@@ -9491,26 +9498,118 @@ function openEWOFromHome(id){
   openEditEWO(id);
 }
 
+let EWO_PICKER_MATCHED_JOB = null;
+
 function openEWOJobPicker(){
-  const jobs = ewoHomeMyJobs();
-  if(!jobs.length){ alert('No active jobs are assigned to you.'); return; }
-  if(jobs.length===1){ openNewEWO(jobs[0].id, jobs[0].company||'Bonas'); return; }
+  loadJobs();
+  EWO_PICKER_MATCHED_JOB = null;
   const overlay = document.createElement('div');
   overlay.id='ewo-job-picker-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
   overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
   overlay.innerHTML =
-    '<div style="background:var(--bg2);border-radius:var(--rlg);box-shadow:var(--shadow);padding:24px;width:380px;max-width:90vw;max-height:80vh;overflow-y:auto;">'
-    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px;">Select a job</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Which job is this EWO for?</div>'
-    +'<div style="display:flex;flex-direction:column;gap:6px;">'
-    +jobs.map(function(j){
-      return '<button class="btn" style="text-align:left;width:100%;" onclick="document.getElementById(\'ewo-job-picker-overlay\').remove();openNewEWO(\''+j.id+'\',\''+(j.company||'Bonas').replace(/'/g,"\\'")+'\')">'+(j.num||'—')+' · '+j.name+'</button>';
-    }).join('')
+    '<div style="background:var(--bg2);border-radius:var(--rlg);box-shadow:var(--shadow);padding:24px;width:380px;max-width:90vw;">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px;">New Extra Work Order</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Enter the job number — the job name pulls in automatically, so a mistyped name won\'t send this to the wrong project.</div>'
+    +'<label class="auth-label" style="display:block;margin-bottom:5px;">Job #</label>'
+    +'<input id="ewo-picker-jobnum" class="auth-input" style="letter-spacing:0;margin-bottom:4px;" placeholder="e.g. 5624 or 13973" autocomplete="off" oninput="onEWOPickerJobNumInput()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();continueEWOFromPicker();}">'
+    +'<div id="ewo-picker-jobnum-hint" style="font-size:12px;margin-bottom:14px;min-height:16px;color:var(--text3);">Start typing a job number…</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn" style="flex:1;" onclick="document.getElementById(\'ewo-job-picker-overlay\').remove();">Cancel</button>'
+    +'<button class="btn-primary" style="flex:1;" id="ewo-picker-continue-btn" onclick="continueEWOFromPicker()" disabled>Continue</button>'
     +'</div>'
-    +'<button class="btn" style="width:100%;margin-top:14px;" onclick="document.getElementById(\'ewo-job-picker-overlay\').remove();">Cancel</button>'
     +'</div>';
   document.body.appendChild(overlay);
+  setTimeout(function(){ const el=document.getElementById('ewo-picker-jobnum'); if(el) el.focus(); },50);
+}
+
+function onEWOPickerJobNumInput(){
+  const input = document.getElementById('ewo-picker-jobnum');
+  const hint = document.getElementById('ewo-picker-jobnum-hint');
+  const btn = document.getElementById('ewo-picker-continue-btn');
+  if(!input||!hint||!btn) return;
+  const q = input.value.trim();
+  EWO_PICKER_MATCHED_JOB = null;
+  if(!q){
+    hint.textContent = 'Start typing a job number…';
+    hint.style.color = 'var(--text3)';
+    btn.disabled = true;
+    return;
+  }
+  const exact = JOBS.find(j=>String(j.num||'').trim()===q);
+  if(exact){
+    EWO_PICKER_MATCHED_JOB = exact;
+    hint.innerHTML = '\u2713 <strong>'+exact.name+'</strong> \u00b7 '+(exact.company||'')+(exact.status==='Closed'?' <span style="color:#CC0000;">(Closed)</span>':'');
+    hint.style.color = 'var(--green)';
+    btn.disabled = false;
+    return;
+  }
+  const partial = JOBS.filter(j=>String(j.num||'').includes(q)).slice(0,5);
+  btn.disabled = true;
+  if(partial.length){
+    hint.innerHTML = 'Did you mean: '+partial.map(function(j){
+      return '<span style="cursor:pointer;text-decoration:underline;color:var(--blue);" onclick="selectEWOPickerJob(\''+j.id+'\')">'+j.num+' \u2014 '+j.name+'</span>';
+    }).join(', ');
+    hint.style.color = 'var(--text3)';
+  } else {
+    hint.textContent = 'No job found with that number \u2014 double check before continuing.';
+    hint.style.color = '#CC7000';
+  }
+}
+
+function selectEWOPickerJob(jobId){
+  const job = JOBS.find(function(j){return String(j.id)===String(jobId);});
+  if(!job) return;
+  const input = document.getElementById('ewo-picker-jobnum');
+  if(input) input.value = job.num||'';
+  onEWOPickerJobNumInput();
+}
+
+function continueEWOFromPicker(){
+  if(!EWO_PICKER_MATCHED_JOB) return;
+  const job = EWO_PICKER_MATCHED_JOB;
+  const overlay = document.getElementById('ewo-job-picker-overlay');
+  if(overlay) overlay.remove();
+  openNewEWO(job.id, job.company||'Bonas');
+}
+
+// ── Live polling (near-real-time updates without a websocket layer) ───────────
+let EWO_POLL_TIMER = null;
+let EWO_POLL_LAST_SNAPSHOT = null;
+
+function stopEWOPolling(){
+  if(EWO_POLL_TIMER){ clearInterval(EWO_POLL_TIMER); EWO_POLL_TIMER = null; }
+  EWO_POLL_LAST_SNAPSHOT = null;
+}
+
+function startEWOPollingForJobTab(jobId){
+  stopEWOPolling();
+  EWO_POLL_TIMER = setInterval(async function(){
+    if(document.hidden) return;
+    if(!(NAV.screen==='jobdetail'&&CUR_JOB_TAB==='ewo'&&String(CUR_JOB_ID)===String(jobId))){ stopEWOPolling(); return; }
+    try{
+      const rows = await ewoGet(jobId);
+      const sig = JSON.stringify(rows.map(function(r){return [r.id,r.status,r.updated_at||r.created_at];}));
+      if(sig!==EWO_POLL_LAST_SNAPSHOT){
+        EWO_POLL_LAST_SNAPSHOT = sig;
+        EWO_RECORDS = rows.map(mapEWO);
+        const job = JOBS.find(function(j){return String(j.id)===String(jobId);});
+        const container = document.getElementById('ewo-tab-content');
+        if(container && job) container.innerHTML = buildEWOTabHTML(job);
+      }
+    }catch(e){}
+  }, 12000);
+}
+
+function startEWOPollingForHome(){
+  stopEWOPolling();
+  EWO_POLL_TIMER = setInterval(function(){
+    if(document.hidden) return;
+    if(NAV.screen!=='ewo'){ stopEWOPolling(); return; }
+    const jobs = ewoHomeMyJobs();
+    if(!NAV.ewoFilter) loadEWOHomeCounts(jobs);
+    else loadEWOHomeList(jobs, NAV.ewoFilter);
+  }, 12000);
 }
 
 
