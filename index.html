@@ -7369,7 +7369,53 @@ function jobsHomeSearch(term){
   render();
 }
 
+function renderForemanHome(){
+  loadJobs();
+  const user = SESSION.user;
+  const previewing = isRealManager() && !isManagerMode(); // manager using "View as Foreman"
+  const myId = user?parseInt(user.id):null;
+  const myJobs = previewing
+    ? JOBS.filter(j=>j.foremanId&&j.status==='Active')
+    : JOBS.filter(j=>parseInt(j.foremanId)===myId&&j.status==='Active');
+
+  const cardsHtml = myJobs.length ? myJobs.map(job=>{
+    const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
+    const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:14px;cursor:pointer;" onclick="openVisibleJob(\''+job.id+'\')">'
+      +'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
+      +'<div style="font-size:17px;font-weight:700;">'+job.name+'</div>'
+      +'<div style="font-size:12px;font-weight:700;color:#CC0000;">Job # '+(job.num||'—')+'</div>'
+      +'</div>'
+      +(job.address||job.city?'<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(job.address||'')+(job.address&&job.city?', ':'')+(job.city||'')+'</div>':'')
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">'
+      +'<div>'
+      +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;">General Contractor</div>'
+      +'<div style="font-size:13px;font-weight:600;">'+(gc?gc.name:job.gcName||'—')+'</div>'
+      +(gc&&gc.phone?'<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+gc.phone+'</div>':'')
+      +(gc&&gc.street?'<div style="font-size:12px;color:var(--text3);margin-top:1px;">'+gc.street+(gc.city?', '+gc.city:'')+'</div>':'')
+      +'</div>'
+      +'<div>'
+      +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;">Contact</div>'
+      +'<div style="font-size:13px;font-weight:600;">'+(contact?contact.first+' '+contact.last:job.contactName||'—')+'</div>'
+      +(contact&&contact.role?'<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+contact.role+'</div>':'')
+      +(contact&&(contact.phone||contact.cell)?'<div style="font-size:12px;color:var(--text3);margin-top:1px;">'+(contact.cell||contact.phone)+'</div>':'')
+      +(contact&&contact.email?'<div style="font-size:12px;color:var(--text3);margin-top:1px;">'+contact.email+'</div>':'')
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('') : '<div style="padding:48px;text-align:center;color:var(--text3);">No jobs currently assigned to you.</div>';
+
+  document.getElementById('app').innerHTML =
+    '<div style="margin-bottom:20px;">'
+    +'<div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">'+(previewing?'Foreman Dashboard (Preview)':(user?user.first+"'s Jobs":'My Jobs'))+'</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">'+myJobs.length+' job'+(myJobs.length!==1?'s':'')+' assigned</div>'
+    +'</div>'
+    +cardsHtml;
+}
+
 function renderPMHome(){
+  const isForemanView = !isManagerMode() && effectiveRoleType()==='FOR';
+  if(isForemanView){ renderForemanHome(); return; }
   loadJobs();
   const user = SESSION.user;
   const isManager = isManagerMode();
@@ -7432,23 +7478,6 @@ function renderPMHome(){
     }).join('');
   }
 
-  const activeRows = activeJobs
-    .sort((a,b)=>jobContract(b)-jobContract(a))
-    .map(job=>{
-      const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
-      const ini = pm?(pm.first[0]+pm.last[0]):'—';
-      const openCOR = (job.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s,c)=>s+c.total,0);
-      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openVisibleJob(\''+job.id+'\')">'
-        +'<td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">'+(job.num||'—')+'</span></td>'
-        +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
-        +'<div style="font-size:11px;color:var(--text3);">'+(job.gcName||'—')+' \u00b7 '+(job.city||'')+'</div></td>'
-        +'<td style="padding:9px 12px;"><span style="font-size:11px;background:var(--bg3);border-radius:4px;padding:2px 6px;font-weight:600;">'+job.company+'</span></td>'
-        +(showAll?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
-        +'<td style="padding:9px 12px;text-align:right;font-weight:700;">'+fmtVal(jobContract(job))+'</td>'
-        +'<td style="padding:9px 12px;text-align:right;font-weight:700;color:'+(openCOR>0?'#CC0000':'var(--text3)')+';">'+(openCOR>0?fmtVal(openCOR):'—')+'</td>'
-        +'</tr>';
-    }).join('');
-
   const corRows = openCORs
     .sort((a,b)=>b.cor.total-a.cor.total)
     .map(({job,cor,corIdx})=>{
@@ -7465,6 +7494,40 @@ function renderPMHome(){
         +'<td style="padding:9px 12px;font-size:11px;color:'+(days>30?'#CC0000':days>14?'#CC7000':'var(--text3)')+';">'+(days!==null?days+'d ago':'—')+'</td>'
         +'</tr>';
     }).join('');
+
+  const buildJobRows = (list) => list
+    .sort((a,b)=>jobContract(b)-jobContract(a))
+    .map(job=>{
+      const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
+      const ini = pm?(pm.first[0]+pm.last[0]):'—';
+      const openCOR = (job.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s,c)=>s+c.total,0);
+      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openVisibleJob(\''+job.id+'\')">'
+        +'<td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">'+(job.num||'—')+'</span></td>'
+        +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);">'+(job.gcName||'—')+' \u00b7 '+(job.city||'')+'</div></td>'
+        +(showAll?'<td style="padding:9px 12px;font-size:12px;color:var(--text2);">'+ini+'</td>':'')
+        +'<td style="padding:9px 12px;text-align:right;font-weight:700;">'+fmtVal(jobContract(job))+'</td>'
+        +'<td style="padding:9px 12px;text-align:right;font-weight:700;color:'+(openCOR>0?'#CC0000':'var(--text3)')+';">'+(openCOR>0?fmtVal(openCOR):'—')+'</td>'
+        +'</tr>';
+    }).join('');
+
+  const bonasActiveJobs = activeJobs.filter(j=>j.company==='Bonas');
+  const aciActiveJobs   = activeJobs.filter(j=>j.company==='ACI');
+
+  const buildCompanyCard = (label, list, company, accentColor) =>
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">'
+    +'<div><div style="font-size:14px;font-weight:700;color:'+accentColor+';">'+label+'</div><div style="font-size:11px;color:var(--text3);margin-top:1px;">'+list.length+' active \u00b7 sorted by contract value</div></div>'
+    +'<button class="btn-sm" onclick="goJobsCompany(\''+company+'\')">View all</button>'
+    +'</div>'
+    +(list.length
+      ?'<div style="overflow-x:auto;"><table style="'+tS+'"><thead><tr style="background:var(--bg3);">'
+       +'<th style="'+th+'width:60px;">Job #</th><th style="'+th+'">Job</th>'
+       +(isManager?'<th style="'+th+'width:40px;">PM</th>':'')
+       +'<th style="'+thR+'width:90px;">Contract</th><th style="'+thR+'width:90px;">Open COR</th>'
+       +'</tr></thead><tbody>'+buildJobRows(list)+'</tbody></table></div>'
+      :'<div style="padding:32px;text-align:center;color:var(--text3);">No active '+label.toLowerCase()+'</div>')
+    +'</div>';
 
   const tS = 'width:100%;border-collapse:collapse;font-size:12px;';
   const th = 'padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);white-space:nowrap;';
@@ -7494,21 +7557,13 @@ function renderPMHome(){
       :'')
     +'</div>'
 
-    +'<div style="display:grid;grid-template-columns:1fr 400px;gap:16px;align-items:start;">'
-    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
-    +'<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:14px;font-weight:700;">Active Jobs</div><div style="font-size:11px;color:var(--text3);margin-top:1px;">Sorted by contract value</div></div><button class="btn-sm" onclick="goJobs()">View all</button></div>'
-    +(activeJobs.length
-      ?'<div style="overflow-x:auto;"><table style="'+tS+'"><thead><tr style="background:var(--bg3);">'
-       +'<th style="'+th+'width:60px;">Job #</th><th style="'+th+'">Job</th><th style="'+th+'width:60px;">Co.</th>'
-       +(isManager?'<th style="'+th+'width:40px;">PM</th>':'')
-       +'<th style="'+thR+'width:90px;">Contract</th><th style="'+thR+'width:90px;">Open COR</th>'
-       +'</tr></thead><tbody>'+activeRows+'</tbody></table></div>'
-      :'<div style="padding:32px;text-align:center;color:var(--text3);">No active jobs assigned to you</div>')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:16px;">'
+    +buildCompanyCard('Bonas — Active Jobs', bonasActiveJobs, 'Bonas', 'var(--blue)')
+    +buildCompanyCard('ACI — Active Jobs', aciActiveJobs, 'ACI', 'var(--purple)')
     +'</div>'
 
-    +'<div style="display:flex;flex-direction:column;gap:16px;">'
-    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
-    +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF8F0;">'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF8F0;display:flex;align-items:center;justify-content:space-between;">'
     +'<div style="font-size:14px;font-weight:700;color:#CC7000;">Open CORs <span style="font-size:12px;font-weight:400;margin-left:6px;">'+openCORs.length+' pending \u00b7 '+fmtVal(totalOpenCOR)+'</span></div></div>'
     +(openCORs.length
       ?'<div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table style="'+tS+'">'
@@ -7519,6 +7574,12 @@ function renderPMHome(){
        +'</tr></thead><tbody>'+corRows+'</tbody></table></div>'
       :'<div style="padding:24px;text-align:center;color:var(--text3);">No open CORs \u2014 great work!</div>')
     +'</div>'
+
+    +'<div style="background:var(--bg2);border:1px dashed var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:16px;">'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:4px;">Notes &amp; To-Dos</div>'
+    +'<div style="font-size:12px;color:var(--text3);">Coming soon \u2014 this space will let you jot down reminders and follow-ups.</div>'
+    +'</div>'
+
     +(showAll&&pmRowsHtml
       ?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;">'
        +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);"><div style="font-size:14px;font-weight:700;">By Project Manager</div></div>'
@@ -7526,9 +7587,7 @@ function renderPMHome(){
        +'<th style="'+th+'">PM</th><th style="'+th+'text-align:center;width:60px;">Jobs</th>'
        +'<th style="'+thR+'width:90px;">Contract</th><th style="'+thR+'width:90px;">Open COR</th>'
        +'</tr></thead><tbody>'+pmRowsHtml+'</tbody></table></div>'
-      :'')
-    +'</div>'
-    +'</div>';
+      :'');
 }
 
 function viewPMHome(memberId){
