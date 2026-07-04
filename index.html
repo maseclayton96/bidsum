@@ -797,7 +797,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  </div>
  <div class="frow">
  <div class="fg"><label>Role</label>
- <select id="m-type" onchange="toggleSeriesField()">
+ <select id="m-type" onchange="toggleSeriesField();toggleCompanyField()">
  <option value="PM">Project Manager</option>
  <option value="EST">Estimator</option>
  <option value="SUP">Superintendent</option>
@@ -808,6 +808,14 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  </select>
  </div>
  <div class="fg"><label>Title / speciality</label><input id="m-title" autocomplete="off" placeholder="e.g. Senior PM"></div>
+ </div>
+ <div class="fg" id="company-field" style="display:none;">
+   <label>Company</label>
+   <select id="m-company">
+     <option value="">— select company —</option>
+     <option value="Bonas">Bonas Company</option>
+     <option value="ACI">Architectural Coatings Inc. (ACI)</option>
+   </select>
  </div>
  <div class="fg" id="series-field">
  <label>Bid number series</label>
@@ -2400,6 +2408,11 @@ function toggleSeriesField(){
  const t=document.getElementById('m-type').value;
  document.getElementById('series-field').style.display=t==='PM'?'block':'none';
 }
+function toggleCompanyField(){
+  var t=document.getElementById('m-type').value;
+  var f=document.getElementById('company-field');
+  if(f) f.style.display=(t==='FOR'||t==='SUP')?'''none';
+}
 function updateSeriesHint(){
  const s=document.getElementById('m-series').value;
  const hint=document.getElementById('series-hint');
@@ -2430,6 +2443,8 @@ function openMemberEdit(){
  document.getElementById('m-title').value=m.title||'';
  document.getElementById('m-email').value=m.email||'';
  document.getElementById('m-phone').value=m.phone||'';
+ const mco=document.getElementById('m-company');if(mco)mco.value=m.company||'';
+ toggleCompanyField();
  document.getElementById('m-initials').value=m.initials||'';
  document.getElementById('initials-hint').textContent='';
  document.getElementById('m-card-bg').value=m.cardBg||'';
@@ -2449,7 +2464,7 @@ async function saveMember(){
  if(!first){alert('First name required.');return;}
  const type=document.getElementById('m-type').value;
  const series=type==='PM'?document.getElementById('m-series').value:'';
- const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase(),card_bg:document.getElementById('m-card-bg').value,card_txt:document.getElementById('m-card-txt').value,card_gradient:document.getElementById('m-card-grad').value};
+ const initials_val=document.getElementById('m-initials').value.trim().toUpperCase();const ewcompany=(document.getElementById('m-company')||{}).value||'';const body={first,last:document.getElementById('m-last').value.trim(),type,title:document.getElementById('m-title').value.trim(),series,email:document.getElementById('m-email').value.trim(),phone:document.getElementById('m-phone').value.trim(),initials:initials_val||((first[0]||'')+(document.getElementById('m-last').value.trim()[0]||'')).toUpperCase(),card_bg:document.getElementById('m-card-bg').value,card_txt:document.getElementById('m-card-txt').value,card_gradient:document.getElementById('m-card-grad').value,company:ewcompany};
  showLoader();
  try{
  if(EDIT.memberIdx!==null){
@@ -4185,6 +4200,11 @@ function saveJob(){
     sovMonths:_editJob?(_editJob.sovMonths||[]):[],
     corRates:_editJob?(_editJob.corRates||{}):{},
   };
+  // Auto-assign Project Coordinator if not already set
+  if(!job.coordId){
+    const autoPC = DB.members.find(m=>m.type==='PC'&&m.active!==false);
+    if(autoPC) job.coordId = autoPC.id;
+  }
   if(_editJob){
     const _idx=JOBS.findIndex(j=>j.id===_editJob.id);
     if(_idx>=0)JOBS[_idx]=job; else JOBS.push(job);
@@ -5192,8 +5212,7 @@ function openEditTeamModal(jobId){
     {label:'Project Manager',field:'pmId',type:'PM'},
     {label:'Superintendent',field:'superId',type:'SUP'},
     {label:'Foreman',field:'foremanId',type:'FOR'},
-    {label:'Project Coordinator',field:'coordId',type:'PC'},
-  ];
+  ]; // PC is auto-assigned from DB.members
   const html=fields.map(f=>{
     const members=DB.members.filter(m=>m.type===f.type&&m.active!==false);
     return`<div class="fg"><label>${f.label}</label>
@@ -5696,6 +5715,9 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
                 </td>
                 <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
                   ${cor&&cor.total>0?`<button onclick="event.stopPropagation();printCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);" title="Print COR ${rowNum}">⎙</button>`:''}
+                </td>
+                <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
+                  ${cor?`<button onclick="event.stopPropagation();deleteCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);" title="Delete COR ${rowNum}">🗑</button>`:''}
                 </td>
               </tr>`;
             }).join('')}
@@ -9342,6 +9364,18 @@ function ewoModalRenderPhotos(){
 function ewoModalRemovePhoto(i){
   EWO_MODAL_PHOTOS.splice(i,1);
   ewoModalRenderPhotos();
+}
+
+function deleteCOR(jobId, corIdx){
+  const job = JOBS.find(j=>j.id===jobId);
+  if(!job || !job.cors) return;
+  const cor = job.cors[corIdx];
+  if(!cor) return;
+  const label = cor.num ? 'COR #'+cor.num : 'this COR';
+  if(!confirm('Permanently delete '+label+'? This cannot be undone.')) return;
+  job.cors.splice(corIdx, 1);
+  saveJobs('Delete COR');
+  openJobDetail(jobId, 'corlog');
 }
 </script>
 
