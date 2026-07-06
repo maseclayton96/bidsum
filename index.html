@@ -1424,14 +1424,41 @@ function renderViewAsBanner(){
     <button onclick="exitViewAs()" style="margin-left:auto;background:#fff;color:#7A3E0A;border:none;border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">Exit Preview</button>
   `;
 }
+let ROLE_MATRIX_LOADED = false; // becomes true once we've fetched from the server at least once
 function loadRoleMatrix(){
+  if(ROLE_MATRIX_LOADED) return; // server copy (or default) already in memory — don't clobber with stale local cache
   try{const s=localStorage.getItem('bidsum-role-matrix');
     if(s)ROLE_MATRIX=JSON.parse(s);
     else ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
   }catch(e){ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));}
 }
-function saveRoleMatrix(){
+async function fetchRoleMatrixFromServer(){
+  try{
+    const remote = await settingsGet('role_matrix');
+    if(remote){
+      ROLE_MATRIX = remote;
+      // Fill in any modules/roles added since this was last saved
+      MODULES.forEach(function(m){
+        Object.keys(DEFAULT_ROLE_MATRIX).forEach(function(roleId){
+          if(!ROLE_MATRIX[roleId])ROLE_MATRIX[roleId]={};
+          if(ROLE_MATRIX[roleId][m.id]===undefined) ROLE_MATRIX[roleId][m.id]=DEFAULT_ROLE_MATRIX[roleId][m.id]||0;
+        });
+      });
+    } else {
+      ROLE_MATRIX = JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
+    }
+  }catch(e){
+    // Offline fallback: use whatever's cached locally, else defaults
+    try{const s=localStorage.getItem('bidsum-role-matrix'); ROLE_MATRIX = s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));}
+    catch(e2){ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));}
+  }
+  ROLE_MATRIX_LOADED = true;
   try{localStorage.setItem('bidsum-role-matrix',JSON.stringify(ROLE_MATRIX));}catch(e){}
+}
+async function saveRoleMatrix(){
+  try{localStorage.setItem('bidsum-role-matrix',JSON.stringify(ROLE_MATRIX));}catch(e){}
+  try{ await settingsSet('role_matrix', ROLE_MATRIX); }
+  catch(e){ console.error('Could not save role matrix to server:', e.message); }
 }
 function getNavModules(){
   if(!SESSION.user)return[];
@@ -1485,6 +1512,8 @@ let currentBidPDFs=[];// already-saved PDFs for bid being edited
 async function sbGet(table){const r=await fetch('/api/data?table='+table);if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbPost(table,body){const r=await fetch('/api/data?table='+table,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbPatch(table,id,body){const r=await fetch('/api/data?table='+table+'&id='+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function settingsGet(key){const r=await fetch('/api/data?table=settings&key='+encodeURIComponent(key));if(!r.ok)throw new Error(await r.text());const rows=await r.json();return rows&&rows[0]?rows[0].value:null;}
+async function settingsSet(key,value){const r=await fetch('/api/data?table=settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value})});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbDelete(table,id){const r=await fetch('/api/data?table='+table+'&id='+id,{method:'DELETE'});if(!r.ok)throw new Error(await r.text());}
 
 function showLoader(msg){
@@ -3817,6 +3846,7 @@ async function finishLoad(){
  try{
  const[members,gcs,teams,contacts,bids]=await Promise.all([
  sbGet('members'),sbGet('gcs'),sbGet('teams'),sbGet('contacts'),sbGet('bids'),
+ fetchRoleMatrixFromServer(),
  ]);
  DB.members=members.map(mapMember);
  DB.gcs=gcs.map(mapGC);DB.teams=teams.map(mapTeam);
@@ -4900,7 +4930,7 @@ function renderRoleMatrix(){
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="resetRoleMatrix()">Reset defaults</button>
-        <button class="btn-primary" onclick="saveRoleMatrix();showSaved('✓ Role matrix saved')">Save Changes</button>
+        <button class="btn-primary" onclick="saveRoleMatrix().then(()=>showSaved('✓ Role matrix saved')).catch(()=>alert('Saved on this device, but couldn\'t reach the server — check your connection and try Save again.'))">Save Changes</button>
       </div>
     </div>
     <!-- Legend -->
@@ -4966,13 +4996,13 @@ function cyclePermission(roleId, moduleId){
   if(!ROLE_MATRIX[roleId])ROLE_MATRIX[roleId]={};
   ROLE_MATRIX[roleId][moduleId]=next;
   // Auto-save so next click reads correctly
-  saveRoleMatrix();
+  saveRoleMatrix().catch(function(e){console.error('Role matrix auto-save failed:',e.message);});
 }
 
 function resetRoleMatrix(){
   if(!confirm('Reset role matrix to defaults?')) return;
   ROLE_MATRIX=JSON.parse(JSON.stringify(DEFAULT_ROLE_MATRIX));
-  saveRoleMatrix();
+  saveRoleMatrix().then(()=>showSaved('✓ Reset to defaults')).catch(()=>alert('Reset locally, but couldn\'t reach the server — check your connection.'));
   renderRoleMatrix();
 }
 
