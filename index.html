@@ -1773,6 +1773,98 @@ function dayOfYear(d){
   return Math.floor((d-start)/86400000);
 }
 
+// ── Field Hub weather (Open-Meteo — free, no API key) ──────────────────────────
+const WEATHER_CODE_INFO = {
+  0:{label:'Clear',icon:'\u2600\ufe0f'},1:{label:'Mostly Clear',icon:'\ud83c\udf24\ufe0f'},2:{label:'Partly Cloudy',icon:'\u26c5'},3:{label:'Overcast',icon:'\u2601\ufe0f'},
+  45:{label:'Foggy',icon:'\ud83c\udf2b\ufe0f'},48:{label:'Freezing Fog',icon:'\ud83c\udf2b\ufe0f'},
+  51:{label:'Light Drizzle',icon:'\ud83c\udf26\ufe0f'},53:{label:'Drizzle',icon:'\ud83c\udf26\ufe0f'},55:{label:'Heavy Drizzle',icon:'\ud83c\udf26\ufe0f'},
+  61:{label:'Light Rain',icon:'\ud83c\udf27\ufe0f'},63:{label:'Rain',icon:'\ud83c\udf27\ufe0f'},65:{label:'Heavy Rain',icon:'\ud83c\udf27\ufe0f'},
+  71:{label:'Light Snow',icon:'\ud83c\udf28\ufe0f'},73:{label:'Snow',icon:'\ud83c\udf28\ufe0f'},75:{label:'Heavy Snow',icon:'\u2744\ufe0f'},
+  80:{label:'Showers',icon:'\ud83c\udf26\ufe0f'},81:{label:'Rain Showers',icon:'\ud83c\udf27\ufe0f'},82:{label:'Heavy Showers',icon:'\u26c8\ufe0f'},
+  95:{label:'Thunderstorm',icon:'\u26c8\ufe0f'},96:{label:'Thunderstorm w/ Hail',icon:'\u26c8\ufe0f'},99:{label:'Severe Thunderstorm',icon:'\u26c8\ufe0f'}
+};
+function weatherCodeInfo(code){ return WEATHER_CODE_INFO[code]||{label:'Unknown',icon:'\ud83c\udf21\ufe0f'}; }
+
+function fieldHubMyJobsWithCity(){
+  loadJobs();
+  const user = SESSION.user;
+  const myId = user?parseInt(user.id):null;
+  return JOBS.filter(function(j){return j.city&&j.status!=='Closed'&&(parseInt(j.foremanId)===myId||parseInt(j.superId)===myId);});
+}
+
+async function fetchWeatherByCity(cityQuery){
+  const geoResp = await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(cityQuery)+'&count=1&language=en&format=json');
+  const geoData = await geoResp.json();
+  if(!geoData.results||!geoData.results.length) throw new Error('City not found');
+  const g = geoData.results[0];
+  const wxResp = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+g.latitude+'&longitude='+g.longitude+'&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1');
+  const wx = await wxResp.json();
+  return { cur: wx.current, daily: wx.daily, resolvedName: g.name+(g.admin1?', '+g.admin1:'') };
+}
+
+async function loadFieldHubWeather(query){
+  const body = document.getElementById('fh-weather-body');
+  if(!body) return;
+  if(!query||!query.trim()){ body.innerHTML='Pick a job site or type a city to see the forecast.'; body.style.color='var(--text3)'; return; }
+  body.style.color='var(--text3)';
+  body.innerHTML = 'Loading weather\u2026';
+  try{
+    const data = await fetchWeatherByCity(query.trim());
+    const info = weatherCodeInfo(data.cur.weathercode);
+    const hi = (data.daily&&data.daily.temperature_2m_max)?Math.round(data.daily.temperature_2m_max[0]):null;
+    const lo = (data.daily&&data.daily.temperature_2m_min)?Math.round(data.daily.temperature_2m_min[0]):null;
+    body.innerHTML =
+      '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
+      +'<div style="font-size:36px;">'+info.icon+'</div>'
+      +'<div>'
+      +'<div style="font-size:28px;font-weight:800;color:var(--text);">'+Math.round(data.cur.temperature_2m)+'\u00b0F</div>'
+      +'<div style="font-size:13px;color:var(--text2);">'+info.label+' \u00b7 '+data.resolvedName+'</div>'
+      +'<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(hi!==null?'H: '+hi+'\u00b0  L: '+lo+'\u00b0  \u00b7  ':'')+'Wind '+Math.round(data.cur.windspeed_10m)+' mph  \u00b7  Humidity '+Math.round(data.cur.relative_humidity_2m)+'%</div>'
+      +'</div></div>';
+    try{ localStorage.setItem('bidsum-fieldhub-weather-query', query.trim()); }catch(e){}
+  }catch(e){
+    body.style.color='var(--red)';
+    body.innerHTML = 'Could not find weather for "'+query+'" \u2014 check the spelling and try again.';
+  }
+}
+
+function onFieldHubWeatherJobChange(){
+  const sel = document.getElementById('fh-weather-job-select');
+  if(!sel||!sel.value) return;
+  const jobs = fieldHubMyJobsWithCity();
+  const job = jobs.find(function(j){return String(j.id)===sel.value;});
+  if(!job) return;
+  const cityInput = document.getElementById('fh-weather-city-input');
+  if(cityInput) cityInput.value = job.city;
+  loadFieldHubWeather(job.city);
+  try{ localStorage.setItem('bidsum-fieldhub-weather-jobid', job.id); }catch(e){}
+}
+
+function initFieldHubWeather(jobsWithCity){
+  setTimeout(function(){
+    let savedJobId=null;
+    try{ savedJobId = localStorage.getItem('bidsum-fieldhub-weather-jobid'); }catch(e){}
+    const savedJob = savedJobId?jobsWithCity.find(function(j){return String(j.id)===String(savedJobId);}):null;
+    if(savedJob){
+      const sel=document.getElementById('fh-weather-job-select'); if(sel) sel.value=savedJob.id;
+      const cityInput=document.getElementById('fh-weather-city-input'); if(cityInput) cityInput.value=savedJob.city;
+      loadFieldHubWeather(savedJob.city);
+      return;
+    }
+    let savedQuery=''; try{ savedQuery = localStorage.getItem('bidsum-fieldhub-weather-query')||''; }catch(e){}
+    if(savedQuery){
+      const cityInput=document.getElementById('fh-weather-city-input'); if(cityInput) cityInput.value=savedQuery;
+      loadFieldHubWeather(savedQuery);
+      return;
+    }
+    if(jobsWithCity.length){
+      const sel=document.getElementById('fh-weather-job-select'); if(sel) sel.value=jobsWithCity[0].id;
+      const cityInput=document.getElementById('fh-weather-city-input'); if(cityInput) cityInput.value=jobsWithCity[0].city;
+      loadFieldHubWeather(jobsWithCity[0].city);
+    }
+  },50);
+}
+
 function renderFieldHub(){
   const user = SESSION.user;
   const now = new Date();
@@ -1780,6 +1872,7 @@ function renderFieldHub(){
   const greeting = hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
   const dateStr = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const tip = FIELD_TIPS[dayOfYear(now)%FIELD_TIPS.length];
+  const jobsWithCity = fieldHubMyJobsWithCity();
 
   document.getElementById('app').innerHTML =
     '<div style="margin-bottom:24px;">'
@@ -1800,10 +1893,29 @@ function renderFieldHub(){
     +'</div>'
     +'</div>'
 
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;max-width:760px;margin-bottom:20px;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">'
+    +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Weather</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    +(jobsWithCity.length?
+      '<select id="fh-weather-job-select" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;" onchange="onFieldHubWeatherJobChange()">'
+      +'<option value="">My job sites\u2026</option>'
+      +jobsWithCity.map(function(j){return '<option value="'+j.id+'">'+(j.num||'\u2014')+' \u00b7 '+j.name+'</option>';}).join('')
+      +'</select>'
+      :'')
+    +'<input id="fh-weather-city-input" placeholder="Or type a city\u2026" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;font-size:12px;font-family:var(--font);color:var(--text);outline:none;width:150px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();loadFieldHubWeather(this.value);}">'
+    +'<button class="btn-sm" onclick="loadFieldHubWeather(document.getElementById(\'fh-weather-city-input\').value)">Go</button>'
+    +'</div>'
+    +'</div>'
+    +'<div id="fh-weather-body" style="font-size:13px;color:var(--text3);">Pick a job site or type a city to see the forecast.</div>'
+    +'</div>'
+
     +'<div style="background:var(--bg2);border:1px dashed var(--border);border-radius:var(--rlg);padding:20px 24px;max-width:760px;">'
     +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:8px;">Jobsite Tip of the Day</div>'
     +'<div style="font-size:14px;line-height:1.5;">'+tip+'</div>'
     +'</div>';
+
+  initFieldHubWeather(jobsWithCity);
 }
 
 function renderLanding(){
