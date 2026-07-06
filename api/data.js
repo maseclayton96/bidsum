@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   const sql = neon(process.env.DATABASE_URL);
   const { table, id } = req.query;
-  const allowed = ['members','gcs','teams','contacts','bids'];
+  const allowed = ['members','gcs','teams','contacts','bids','settings'];
   if (!allowed.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
   try {
@@ -30,6 +30,7 @@ export default async function handler(req, res) {
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS employee_num TEXT`;
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS company TEXT`;
     await sql`ALTER TABLE bids ADD COLUMN IF NOT EXISTS company TEXT DEFAULT 'ACI'`;
+    await sql`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ DEFAULT NOW())`;
   } catch(e) { console.error('Init error:', e.message); }
 
   try {
@@ -40,6 +41,11 @@ export default async function handler(req, res) {
       else if (table === 'teams') rows = await sql`SELECT * FROM teams ORDER BY id ASC`;
       else if (table === 'contacts') rows = await sql`SELECT * FROM contacts ORDER BY id ASC`;
       else if (table === 'bids') rows = await sql`SELECT * FROM bids ORDER BY id DESC`;
+      else if (table === 'settings') {
+        rows = req.query.key
+          ? await sql`SELECT * FROM app_settings WHERE key=${req.query.key}`
+          : await sql`SELECT * FROM app_settings ORDER BY key ASC`;
+      }
       return res.json(rows);
     }
 
@@ -50,6 +56,7 @@ export default async function handler(req, res) {
       else if (table === 'teams') rows = await sql`INSERT INTO teams (gc_id,name) VALUES (${b.gc_id},${b.name}) RETURNING *`;
       else if (table === 'contacts') rows = await sql`INSERT INTO contacts (gc_id,first,last,role,team,email,phone,cell,notes,linkedin,photo) VALUES (${b.gc_id},${b.first},${b.last},${b.role||''},${b.team||''},${b.email||''},${b.phone||''},${b.cell||''},${b.notes||''},${b.linkedin||''},${b.photo||''}) RETURNING *`;
       else if (table === 'bids') rows = await sql`INSERT INTO bids (num,member_id,gc_id,gc_name,contact_id,contact_name,job,value,date,follow_days,decision,status,notes,pdfs,company) VALUES (${b.num||''},${b.member_id||null},${b.gc_id||null},${b.gc_name||''},${b.contact_id||null},${b.contact_name||''},${b.job||''},${b.value||0},${b.date||''},${b.follow_days||7},${b.decision||null},${b.status||'Submitted'},${b.notes||''},${JSON.stringify(b.pdfs||[])},${b.company||'ACI'}) RETURNING *`;
+      else if (table === 'settings') rows = await sql`INSERT INTO app_settings (key,value) VALUES (${b.key},${JSON.stringify(b.value)}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW() RETURNING *`;
       return res.json(rows[0]);
     }
 
