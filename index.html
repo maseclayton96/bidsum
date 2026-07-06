@@ -5189,6 +5189,7 @@ const JOB_TABS = ['overview','bid','lumpsum','breakdown','alternate','submittal'
 const JOB_TAB_LABELS = ['Overview','Proposal','Lump Sum','Breakdown','Alternate','Submittal','Status','RFI','Transmittal','Field Budget','COR Log','COR','SOV','Documents','EWOs'];
 
 // Override renderJobDetail to use new tab list
+const FOREMAN_JOB_TABS = ['overview','budget','documents','ewo'];
 function renderJobDetail(){
   const job = JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
   if(!job){ if(NAV.jobCompany)renderCompanyJobList(NAV.jobCompany);else renderJobsHome();return; }
@@ -5204,8 +5205,11 @@ function renderJobDetail(){
   const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
   const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
 
+  const isForemanView = !isManagerMode()&&effectiveRoleType()==='FOR';
+  if(isForemanView && !FOREMAN_JOB_TABS.includes(CUR_JOB_TAB)) CUR_JOB_TAB='overview';
+
   let tabContent = '';
-  if(CUR_JOB_TAB==='overview') tabContent = renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct);
+  if(CUR_JOB_TAB==='overview') tabContent = isForemanView ? renderJobOverviewDashboardForeman(job,pm,sup,gc,contract) : renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct);
   else if(CUR_JOB_TAB==='submittal') tabContent = renderSubmittal(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='status') tabContent = renderStatusPage(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='corlog') tabContent = renderCORLog(job,coHdr,coAddr,coPhone,ct);
@@ -5221,6 +5225,8 @@ function renderJobDetail(){
   else if(CUR_JOB_TAB==='documents') tabContent = renderDocumentsTab(job);
   else if(CUR_JOB_TAB==='ewo') tabContent = renderEWOTab(job);
 
+  const visibleTabs = JOB_TABS.map((t,i)=>({t,label:JOB_TAB_LABELS[i]})).filter(x=>!isForemanView||FOREMAN_JOB_TABS.includes(x.t));
+
   document.getElementById('app').innerHTML = `
     <!-- Job Hero -->
     <div class="job-hero" style="margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;">
@@ -5232,25 +5238,32 @@ function renderJobDetail(){
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
           <button class="btn-sm" onclick="goJobs()">← Jobs</button>
+          ${isForemanView?'':`
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openCostImport('${job.id}')">Import Cost</button>
           ${job.status==='Closed'?`<button class="btn-sm" style="background:#D9EFE3;color:#1E5C3A;border-color:#B2DFCA;" onclick="reopenJob('${job.id}')">↩ Reopen</button>`:`<button class="btn-sm" style="background:#FFF0F0;color:#CC0000;border-color:#FFAAAA;" onclick="closeJob('${job.id}')">✓ Close Job</button>`}
           <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Cost</button>
+          `}
         </div>
       </div>
       <!-- KPIs -->
       <div class="job-kpis">
+        ${isForemanView?`
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;"><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
+        `:`
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(ct.req)}</div><div class="jkpi-lbl">CORs Requested</div></div>
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val" style="color:#CC0000;">${fmtVal(costs)}</div><div class="jkpi-lbl">Total Costs</div></div>
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);border-right:none;"><div class="jkpi-val" style="color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</div><div class="jkpi-lbl">${gp>=0?'Gross Profit':'Loss'}</div></div>
+        `}
       </div>
     </div>
     <!-- Tab Bar -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;">
       <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;flex-wrap:wrap;">
-        ${JOB_TABS.map((t,i)=>`<div class="job-tab ${CUR_JOB_TAB===t?'active':''}" data-jobid="${job.id}" data-tab="${t}" onclick="openJobDetail(this.dataset.jobid,this.dataset.tab)">${JOB_TAB_LABELS[i]}</div>`).join('')}
+        ${visibleTabs.map(x=>`<div class="job-tab ${CUR_JOB_TAB===x.t?'active':''}" data-jobid="${job.id}" data-tab="${x.t}" onclick="openJobDetail(this.dataset.jobid,this.dataset.tab)">${x.label}</div>`).join('')}
       </div>
     </div>
     ${tabContent}`;
@@ -5407,6 +5420,98 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
         </div>`:`<div style="color:var(--text3);font-size:12px;padding:20px 0;text-align:center;">No schedule uploaded yet.<br>Upload a PDF to attach the project schedule.</div>`}
     </div>
 
+  </div>`;
+}
+
+// ══ OVERVIEW DASHBOARD — Foreman view (Project Info minus Contact/Gross Profit; no COR/financial panel) ══
+function renderJobOverviewDashboardForeman(job,pm,sup,gc,contract){
+  const foreman = DB.members.find(m=>parseInt(m.id)===parseInt(job.foremanId));
+  const coord = DB.members.find(m=>parseInt(m.id)===parseInt(job.coordId));
+  return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+    <!-- Project Information (no Contact, no Gross Profit) -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Information</div>
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.7;">
+        <span style="color:var(--text3);font-weight:600;">Job #</span><span style="font-weight:700;color:#CC0000;">${job.num||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Company</span><span style="font-weight:600;">${job.company}</span>
+        <span style="color:var(--text3);font-weight:600;">Customer</span><span>${gc?gc.name:job.gcName||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Address</span><span>${[job.address,job.city,job.zip].filter(Boolean).join(', ')||'—'}</span>
+        <span style="color:var(--text3);font-weight:600;">Status</span><span><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span></span>
+        <span style="color:var(--text3);font-weight:600;">Contract</span><span style="font-weight:700;">${fmtVal(contract)}</span>
+      </div>
+    </div>
+
+    <!-- Internal Project Team -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">Internal Project Team</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${[
+          {label:'Project Manager', m:pm},
+          {label:'Superintendent', m:sup},
+          {label:'Foreman', m:foreman},
+          {label:'Coordinator', m:coord},
+        ].map(({label,m})=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;${m?memberAvatarStyle(m):'background:var(--bg4);border:1px dashed var(--border2);'}display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${m?'inherit':'var(--text3)'};">
+            ${m?(m.initials||(m.first[0]+m.last[0]).toUpperCase()):'?'}
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">${label}</div>
+            <div style="font-size:13px;font-weight:600;">${m?m.first+' '+m.last:'<span style="color:var(--text3);font-weight:400;">Not assigned</span>'}</div>
+          </div>
+          ${m?`<div style="font-size:11px;color:var(--text3);">${m.email||''}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Row 2: Jobsite Instructions + GC Team -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+
+    <!-- Jobsite Instructions + Weather -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">Jobsite Instructions</div>
+      ${job.notes?`<div style="font-size:12px;line-height:1.7;color:var(--text2);white-space:pre-wrap;max-height:160px;overflow-y:auto;">${job.notes}</div>`:`<div style="color:var(--text3);font-size:12px;">No instructions added yet.</div>`}
+      ${job.address&&job.city?`
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div id="weather-panel-${job.id}" style="font-size:12px;color:var(--text3);">Loading weather...</div>
+      </div>`:''}
+    </div>
+
+    <!-- GC / Client Team -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">GC / Client Team</div>
+      ${(job.gcTeam||[]).length?`<div style="display:flex;flex-direction:column;gap:8px;">
+        ${(job.gcTeam||[]).map((p)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="width:32px;height:32px;border-radius:50%;background:#1B3F6E;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">
+            ${(p.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">${p.role||'Contact'}</div>
+            <div style="font-size:13px;font-weight:600;">${p.name||'—'}</div>
+            ${p.email?`<div style="font-size:11px;color:var(--text3);">${p.email}</div>`:''}
+          </div>
+        </div>`).join('')}
+      </div>`:`<div style="color:var(--text3);font-size:12px;">No GC contacts added.</div>`}
+    </div>
+
+  </div>
+
+  <!-- Row 3: Project Schedule -->
+  <div style="margin-top:16px;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">Project Schedule</div>
+      ${job.schedulePDF?`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="font-size:24px;">📄</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${job.schedulePDFName||'Schedule.pdf'}</div>
+            <div style="font-size:11px;color:var(--text3);">Uploaded ${job.schedulePDFDate?new Date(job.schedulePDFDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</div>
+          </div>
+          <button class="btn-sm-primary" onclick="viewSchedulePDF('${job.id}')">View</button>
+        </div>`:`<div style="color:var(--text3);font-size:12px;padding:12px 0;">No schedule uploaded yet.</div>`}
+    </div>
   </div>`;
 }
 
