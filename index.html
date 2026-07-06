@@ -1745,7 +1745,69 @@ function renderReports(){
  `;
 }
 // ═══════════════════════════════════════ LANDING ════════════════════════════════════════
+const FIELD_TIPS = [
+  "Always inspect your ladder before use \u2014 check for cracks, loose rungs, and worn feet.",
+  "Two thin coats beat one heavy coat. They dry faster, level better, and last longer.",
+  "Test a small area for adhesion and color before committing to a full wall or ceiling.",
+  "Keep your work area ventilated, especially when using oil-based products or solvents.",
+  "Store solvent-soaked rags in a sealed metal container \u2014 they can spontaneously combust.",
+  "Cut in edges first, then roll \u2014 it blends better while the paint is still wet.",
+  "Wear safety glasses any time you're using a sprayer or working overhead.",
+  "Check the weather before exterior work \u2014 most coatings need 50\u00b0F+ and low humidity to cure right.",
+  "Label paint cans with the room, area, and date mixed \u2014 especially for custom colors.",
+  "A 5-gallon bucket with a screen insert speeds up roller loading and cuts down on drips.",
+  "Report any safety hazard on site immediately \u2014 don't wait for the next check-in.",
+  "Keep your PPE \u2014 respirator, gloves, safety glasses \u2014 within reach at all times.",
+  "Box multiple gallons of the same color together to avoid visible batch variation on the wall.",
+  "Let primer fully cure before topcoating \u2014 rushing this step is a common cause of adhesion failure.",
+  "Clean brushes and rollers the same day \u2014 dried paint shortens tool life fast.",
+  "Double-check drop cloths are secured before starting overhead or spray work.",
+  "Keep emergency contact numbers handy on every jobsite.",
+  "Take photos of your work area before and after \u2014 it protects you if damage is ever disputed.",
+  "Never mix incompatible chemicals \u2014 like bleach and ammonia-based cleaners \u2014 in a closed space.",
+  "Stretch before a long day of overhead work \u2014 shoulder strain is one of the most common jobsite injuries."
+];
+
+function dayOfYear(d){
+  const start = new Date(d.getFullYear(),0,0);
+  return Math.floor((d-start)/86400000);
+}
+
+function renderFieldHub(){
+  const user = SESSION.user;
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
+  const dateStr = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const tip = FIELD_TIPS[dayOfYear(now)%FIELD_TIPS.length];
+
+  document.getElementById('app').innerHTML =
+    '<div style="margin-bottom:24px;">'
+    +'<div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">'+greeting+(user?', '+user.first:'')+'</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">'+dateStr+'</div>'
+    +'</div>'
+
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px;max-width:760px;">'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:pointer;" onclick="goPMHome()">'
+    +'<div style="font-size:26px;margin-bottom:8px;">\ud83d\uddc2</div>'
+    +'<div style="font-size:15px;font-weight:700;">My Jobs</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-top:2px;">Job name, GC, and contact info</div>'
+    +'</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:pointer;" onclick="goEWOHome()">'
+    +'<div style="font-size:26px;margin-bottom:8px;">\ud83d\udcdd</div>'
+    +'<div style="font-size:15px;font-weight:700;">Extra Work Orders</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-top:2px;">Create or check the status of an EWO</div>'
+    +'</div>'
+    +'</div>'
+
+    +'<div style="background:var(--bg2);border:1px dashed var(--border);border-radius:var(--rlg);padding:20px 24px;max-width:760px;">'
+    +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:8px;">Jobsite Tip of the Day</div>'
+    +'<div style="font-size:14px;line-height:1.5;">'+tip+'</div>'
+    +'</div>';
+}
+
 function renderLanding(){
+ if(!isManagerMode()&&effectiveRoleType()==='FOR'){ renderFieldHub(); return; }
  const now=new Date();
  const curYear=now.getFullYear().toString();
  const allBids=DB.bids;
