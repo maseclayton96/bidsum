@@ -5220,7 +5220,7 @@ function renderJobDetail(){
   else if(CUR_JOB_TAB==='alternate') tabContent = renderAlternateTab(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='rfi') tabContent = renderRFITab(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='transmittal') tabContent = renderTransmittalTab(job,coHdr,coAddr,coPhone);
-  else if(CUR_JOB_TAB==='budget') tabContent = renderBudgetTab(job);
+  else if(CUR_JOB_TAB==='budget') tabContent = isForemanView ? renderBudgetTabForeman(job) : renderBudgetTab(job);
   else if(CUR_JOB_TAB==='bid') tabContent = renderProposalTab(job,coHdr,coAddr,coPhone);
   else if(CUR_JOB_TAB==='documents') tabContent = renderDocumentsTab(job);
   else if(CUR_JOB_TAB==='ewo') tabContent = renderEWOTab(job);
@@ -5249,8 +5249,8 @@ function renderJobDetail(){
       <!-- KPIs -->
       <div class="job-kpis">
         ${isForemanView?`
-        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
-        <div style="flex:1;min-width:0;padding:10px 14px;"><div class="jkpi-val">${fmtVal(contract)}</div><div class="jkpi-lbl">Revised Contract</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val"><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span></div><div class="jkpi-lbl">Job Status</div></div>
+        <div style="flex:1;min-width:0;padding:10px 14px;"><div class="jkpi-val">${fmtDate(job.start)||'Not set'} \u2192 ${fmtDate(job.end)||'TBD'}</div><div class="jkpi-lbl">Schedule</div></div>
         `:`
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(job.value)}</div><div class="jkpi-lbl">Base Contract</div></div>
         <div style="flex:1;min-width:0;padding:10px 14px;border-right:1px solid var(--border);"><div class="jkpi-val">${fmtVal(ct.req)}</div><div class="jkpi-lbl">CORs Requested</div></div>
@@ -5438,7 +5438,6 @@ function renderJobOverviewDashboardForeman(job,pm,sup,gc,contract){
         <span style="color:var(--text3);font-weight:600;">Customer</span><span>${gc?gc.name:job.gcName||'—'}</span>
         <span style="color:var(--text3);font-weight:600;">Address</span><span>${[job.address,job.city,job.zip].filter(Boolean).join(', ')||'—'}</span>
         <span style="color:var(--text3);font-weight:600;">Status</span><span><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span></span>
-        <span style="color:var(--text3);font-weight:600;">Contract</span><span style="font-weight:700;">${fmtVal(contract)}</span>
       </div>
     </div>
 
@@ -5626,6 +5625,78 @@ function saveBudget(jobId){
   });
   saveJobs();
   showSaved('✓ Budget saved');
+}
+
+// ══ FIELD BUDGET TAB — Foreman view: Hours Used, no dollar figures ══
+function renderBudgetTabForeman(job){
+  const placeholder = '<div id="fb-hours-content"><div class="empty"><div class="empty-icon" style="font-size:20px;">&#8987;</div><div class="empty-text">Loading hours\u2026</div></div></div>';
+  setTimeout(function(){
+    ewoGet(job.id).then(function(rows){
+      const records = rows.map(mapEWO);
+      const container = document.getElementById('fb-hours-content');
+      if(container) container.innerHTML = buildBudgetHoursHTML(records);
+    }).catch(function(e){
+      const container = document.getElementById('fb-hours-content');
+      if(container) container.innerHTML = '<div class="empty"><div class="empty-icon">\u26a0</div><div class="empty-text">Could not load hours: '+e.message+'</div></div>';
+    });
+  }, 0);
+  return placeholder;
+}
+
+function buildBudgetHoursHTML(records){
+  const byWorker = {};
+  let totalST=0, totalOT=0, totalPT=0;
+  records.forEach(function(e){
+    (e.workers||[]).forEach(function(w){
+      const name = w.name||'Unnamed';
+      if(!byWorker[name]) byWorker[name]={st:0,ot:0,pt:0};
+      const st=parseFloat(w.st)||0, ot=parseFloat(w.ot)||0, pt=parseFloat(w.pt)||0;
+      byWorker[name].st+=st; byWorker[name].ot+=ot; byWorker[name].pt+=pt;
+      totalST+=st; totalOT+=ot; totalPT+=pt;
+    });
+  });
+  const totalHours = totalST+totalOT+totalPT;
+  const workerNames = Object.keys(byWorker).sort();
+
+  const summary = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--border);">'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total Hours Used</div><div style="font-size:22px;font-weight:700;margin-top:4px;">'+totalHours.toFixed(1)+'</div></div>'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Straight Time</div><div style="font-size:22px;font-weight:700;margin-top:4px;">'+totalST.toFixed(1)+'</div></div>'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Overtime</div><div style="font-size:22px;font-weight:700;margin-top:4px;">'+totalOT.toFixed(1)+'</div></div>'
+    +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Premium Time</div><div style="font-size:22px;font-weight:700;margin-top:4px;">'+totalPT.toFixed(1)+'</div></div>'
+    +'</div>';
+
+  if(!workerNames.length){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">'
+      +'<div style="font-size:14px;font-weight:700;margin-bottom:18px;">Hours Used</div>'
+      +summary
+      +'<div class="empty"><div class="empty-icon">\u23f1</div><div class="empty-text">No hours logged yet \u2014 hours come from Extra Work Orders submitted for this job.</div></div>'
+      +'</div>';
+  }
+
+  const rows = workerNames.map(function(name){
+    const w = byWorker[name];
+    const total = w.st+w.ot+w.pt;
+    return '<tr style="border-bottom:1px solid var(--border);">'
+      +'<td style="padding:10px 12px;font-weight:600;font-size:13px;">'+name+'</td>'
+      +'<td style="padding:10px 12px;text-align:right;font-size:13px;">'+w.st.toFixed(1)+'</td>'
+      +'<td style="padding:10px 12px;text-align:right;font-size:13px;">'+w.ot.toFixed(1)+'</td>'
+      +'<td style="padding:10px 12px;text-align:right;font-size:13px;">'+w.pt.toFixed(1)+'</td>'
+      +'<td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:700;">'+total.toFixed(1)+'</td>'
+      +'</tr>';
+  }).join('');
+
+  return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:18px;">Hours Used</div>'
+    +summary
+    +'<table style="width:100%;"><thead><tr style="background:var(--bg3);">'
+    +'<th style="padding:10px 12px;text-align:left;">Worker</th>'
+    +'<th style="padding:10px 12px;text-align:right;width:100px;">ST</th>'
+    +'<th style="padding:10px 12px;text-align:right;width:100px;">OT</th>'
+    +'<th style="padding:10px 12px;text-align:right;width:100px;">PT</th>'
+    +'<th style="padding:10px 12px;text-align:right;width:100px;">Total</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:14px;">Hours are pulled from Extra Work Orders submitted for this job.</div>'
+    +'</div>';
 }
 
 // ══ DOCUMENTS TAB ══
