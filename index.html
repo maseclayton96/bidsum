@@ -7337,55 +7337,6 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   return`
   <div style="max-width:820px;margin:0 auto;">
     <!-- Rate Settings Banner (collapsible) -->
-      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleEl('cor-rates-panel-${job.id}')">
-        <span style="font-size:12px;font-weight:700;color:#1B3F6E;">⚙ Job Hourly &amp; Material Rates <span style="font-weight:400;font-size:11px;">(click to edit — these set all auto-fill rates)</span></span>
-        <span style="font-size:11px;color:#1B3F6E;" id="cor-rates-chevron-${job.id}">▼</span>
-      </div>
-      <div id="cor-rates-panel-${job.id}" style="display:none;margin-top:10px;">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px;">
-          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
-            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Regular Time ($/hr)</div>
-            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
-            <input type="number" step="0.01" value="${R.regular}" id="crate-regular-${job.id}"
-              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
-          </div>
-          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
-            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Overtime ($/hr)</div>
-            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
-            <input type="number" step="0.01" value="${R.overtime}" id="crate-overtime-${job.id}"
-              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
-          </div>
-          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
-            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Premium Time ($/hr)</div>
-            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
-            <input type="number" step="0.01" value="${R.premium}" id="crate-premium-${job.id}"
-              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
-          </div>
-          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
-            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Flat Paint ($/gal)</div>
-            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
-            <input type="number" step="0.01" value="${R.flat}" id="crate-flat-${job.id}"
-              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
-          </div>
-          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
-            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Enamel Paint ($/gal)</div>
-            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
-            <input type="number" step="0.01" value="${R.enamel}" id="crate-enamel-${job.id}"
-              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
-          </div>
-          <div style="background:#fff;border-radius:4px;padding:8px 10px;border:1px solid #C0D8EE;">
-            <div style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">DTM Paint ($/gal)</div>
-            <div style="display:flex;align-items:center;gap:3px;"><span style="font-size:11px;color:#888;">$</span>
-            <input type="number" step="0.01" value="${R.dtm}" id="crate-dtm-${job.id}"
-              style="width:70px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;font-size:11px;"></div>
-          </div>
-        </div>
-        <div style="font-size:10px;color:#555;margin-top:4px;">📌 Sundries auto-calculates as 8% of straight time + overtime labor cost</div>
-        <button class="btn-sm-primary" onclick="saveCORRates('${job.id}',${corIdx})" style="margin-top:8px;">Save Rates &amp; Apply to This COR</button>
-      </div>
-    </div>
-
-    <!-- Rate Settings Banner (collapsible) -->
     <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleEl('cor-rates-panel-${job.id}')">
         <span style="font-size:12px;font-weight:700;color:#1B3F6E;">⚙ Job Hourly &amp; Material Rates <span style="font-weight:400;font-size:11px;">(click to edit — these set all auto-fill rates)</span></span>
@@ -8925,7 +8876,7 @@ function printProposal(jobId){
   if(!el){alert('Please open the Proposal tab first.');return;}
   // Print just the paper section
   const html=`<!DOCTYPE html><html><head><title>Proposal \u2014 ${job.name}</title>
-  <style>body{margin:0;padding:0;font-family:Arial,sans-serif;}input,textarea{border:none!important;border-bottom:1px solid #ccc!important;outline:none;background:transparent;font-family:Arial,sans-serif;}@media print{@page{margin:0.5in;}}</style>
+  <style>body{margin:0;padding:0;font-family:Arial,sans-serif;}input,textarea{border:none!important;outline:none!important;background:transparent!important;box-shadow:none!important;font-family:Arial,sans-serif;-webkit-appearance:none;appearance:none;}input[type=checkbox]{accent-color:#000;-webkit-appearance:checkbox;appearance:auto;}@media print{@page{margin:0.5in;}}</style>
   </head><body>${el.outerHTML}</body></html>`;
   const w=window.open('','_blank','width=900,height=1100');
   w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
@@ -9223,16 +9174,37 @@ function renderRFITab(job, coHdr, coAddr, coPhone){
       <div style="font-size:15px;font-weight:bold;text-align:center;margin-bottom:4px;letter-spacing:.5px;">REQUEST FOR INFORMATION</div>
       <div style="font-size:14px;font-weight:bold;text-align:center;margin-bottom:14px;"># <input value="${p.rfiNum||'1'}" oninput="updateProposalField('${job.id}','rfiNum',this.value)" style="${iS}width:40px;text-align:center;font-size:14px;font-weight:bold;"></div>
       <!-- Info grid matching template -->
-      <div style="display:grid;grid-template-columns:80px 1fr 80px 1fr;gap:0;font-size:11px;margin-bottom:12px;">
-        <div style="padding:4px 0;font-weight:bold;">CUSTOMER:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;"><br><input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
-        <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
-        <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
+      <div style="display:flex;gap:28px;font-size:11px;margin-bottom:14px;">
+        <div style="flex:1.4;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">CUSTOMER:</div>
+            <input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;">
+            <input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">ATTN:</div>
+            <input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;">
+            <div style="display:flex;gap:10px;margin-top:3px;">
+              <input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}flex:1;">
+              <input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" placeholder="Fax" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}flex:1;">
+            </div>
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">PROJECT:</div>
+            <input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;">
+            <input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+          </div>
+        </div>
+        <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">BID #:</div>
+            <input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;">
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">DATE:</div>
+            <input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;">
+          </div>
+        </div>
       </div>
       <div style="border-top:1px solid #000;margin-bottom:14px;"></div>
       <div style="font-size:11px;margin-bottom:14px;">Please provide the following information regarding the above stated project:</div>
@@ -9272,18 +9244,41 @@ function renderTransmittalTab(job, coHdr, coAddr, coPhone){
     ${proposalPaper(`
       ${coHeaderHTML(job)}
       <div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:16px;">TRANSMITTAL</div>
-      <div style="display:grid;grid-template-columns:60px 1fr 80px 1fr;gap:0;font-size:11px;margin-bottom:12px;">
-        <div style="padding:4px 0;font-weight:bold;">TO:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;"><br><input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;">BID #:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;"></div>
-        <div style="padding:4px 0;font-weight:bold;">ATTN:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;"></div>        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}width:100%;"><br><input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}width:100%;margin-top:2px;"></div>
-        <div style="padding:4px 0;font-weight:bold;">PROJECT:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;"><br><input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:2px;font-size:10px;"></div>        <div style="padding:4px 6px;font-weight:bold;text-align:right;">DATE:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;"></div>
-        <div style="padding:4px 6px;font-weight:bold;text-align:right;font-size:10px;">PAGES INCLUDED:</div>
-        <div style="padding:3px 6px;border-bottom:1px solid #ccc;"><input value="${p.transmittalPages||'1'}" oninput="updateProposalField('${job.id}','transmittalPages',this.value)" style="${iS}width:40px;"></div>
+      <div style="display:flex;gap:28px;font-size:11px;margin-bottom:14px;">
+        <div style="flex:1.4;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">TO:</div>
+            <input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;">
+            <input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">ATTN:</div>
+            <input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;">
+            <div style="display:flex;gap:10px;margin-top:3px;">
+              <input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}flex:1;">
+              <input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" placeholder="Fax" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}flex:1;">
+            </div>
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">PROJECT:</div>
+            <input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;">
+            <input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+          </div>
+        </div>
+        <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">BID #:</div>
+            <input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;">
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;">DATE:</div>
+            <input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;">
+          </div>
+          <div>
+            <div style="font-weight:bold;margin-bottom:2px;font-size:10px;">PAGES INCLUDED:</div>
+            <input value="${p.transmittalPages||'1'}" oninput="updateProposalField('${job.id}','transmittalPages',this.value)" style="${iS}width:60px;">
+          </div>
+        </div>
       </div>
       <div style="border-top:1px solid #000;padding-top:12px;margin-bottom:12px;">
         <div style="font-weight:bold;font-size:12px;margin-bottom:8px;">Transmitted here within:</div>
@@ -9356,8 +9351,8 @@ function _printPaper(el, job, title){
   const html=`<!DOCTYPE html><html><head><title>${title} \u2014 ${job.name}</title>
   <style>
     body{margin:0;padding:0;font-family:Arial,sans-serif;}
-    input,textarea{border:none!important;border-bottom:1px solid #bbb!important;outline:none;background:transparent;font-family:Arial,sans-serif;}
-    input[type=checkbox]{accent-color:#000;}
+    input,textarea{border:none!important;outline:none!important;background:transparent!important;box-shadow:none!important;font-family:Arial,sans-serif;-webkit-appearance:none;appearance:none;}
+    input[type=checkbox]{accent-color:#000;-webkit-appearance:checkbox;appearance:auto;}
     @media print{@page{margin:0.5in;size:letter;}}
   </style></head><body>${el.outerHTML}</body></html>`;
   const w=window.open('','_blank','width=900,height=1100');
