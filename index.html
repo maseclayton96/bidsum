@@ -4024,6 +4024,7 @@ async function finishLoad(){
  const[members,gcs,teams,contacts,bids]=await Promise.all([
  sbGet('members'),sbGet('gcs'),sbGet('teams'),sbGet('contacts'),sbGet('bids'),
  fetchRoleMatrixFromServer(),
+ fetchCORRatesFromServer(),
  ]);
  DB.members=members.map(mapMember);
  DB.gcs=gcs.map(mapGC);DB.teams=teams.map(mapTeam);
@@ -6795,7 +6796,7 @@ function renderMyProfile(){
           ${m.type==='PM'?`<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:3px;">Bid Series</div><div style="font-size:13px;">${m.series||'—'}</div></div>`:''}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn-primary" onclick="openMemberEditForSelf()">Edit Profile</button>
+          <button class="btn-primary" onclick="openMemberEditById(SESSION.user.id)">Edit Profile</button>
           <button class="btn" onclick="openChangePinModal()">Change PIN</button>
         </div>
       </div>
@@ -6957,8 +6958,130 @@ function openCostImport(jobId){
 
 function openBulkImport(jobId){openCostImport(jobId);}
 
-function openLaborRates(){
-  loadLaborRates();renderRatesContainer();openModal('rates');
+// NOTE: CSV parsing/preview/confirm is not yet implemented — this only prevents
+// the modal from crashing. Building the real pipeline (matching CSV rows to jobs,
+// applying labor class rates, handling unmatched rows) is a separate, larger task.
+function resetImport(){
+  const s1=document.getElementById('import-step-1');
+  const s2=document.getElementById('import-step-2');
+  if(s1)s1.style.display='block';
+  if(s2)s2.style.display='none';
+  const fi=document.getElementById('import-file-input');
+  if(fi)fi.value='';
+  const warn=document.getElementById('import-unmatched-warn');
+  if(warn){warn.style.display='none';warn.innerHTML='';}
+  const rows=document.getElementById('import-rows-container');
+  if(rows)rows.innerHTML='';
+  const summary=document.getElementById('import-summary');
+  if(summary)summary.textContent='';
+}
+function onImportDrop(event){
+  event.preventDefault();
+  const zone=document.getElementById('import-drop-zone');
+  if(zone)zone.classList.remove('drag-over');
+  const file=event.dataTransfer&&event.dataTransfer.files&&event.dataTransfer.files[0];
+  if(file)_showImportNotBuiltYet(file.name);
+}
+function onImportFileSelect(event){
+  const file=event.target.files&&event.target.files[0];
+  if(file)_showImportNotBuiltYet(file.name);
+}
+function _showImportNotBuiltYet(filename){
+  const s1=document.getElementById('import-step-1');
+  const s2=document.getElementById('import-step-2');
+  if(s1)s1.style.display='none';
+  if(s2)s2.style.display='block';
+  const summary=document.getElementById('import-summary');
+  if(summary)summary.textContent=filename||'';
+  const warn=document.getElementById('import-unmatched-warn');
+  if(warn){
+    warn.style.display='block';
+    warn.style.background='#FFF8E0';warn.style.borderColor='#FFDDAA';warn.style.color='#7A5800';
+    warn.innerHTML='CSV parsing for Cost Import isn\u2019t built yet \u2014 this screen is a placeholder so it doesn\u2019t crash. Nothing has been imported.';
+  }
+  const rowsContainer=document.getElementById('import-rows-container');
+  if(rowsContainer)rowsContainer.innerHTML='';
+  const btn=document.getElementById('import-confirm-btn');
+  if(btn)btn.disabled=true;
+}
+function confirmImport(){
+  alert('Cost Import isn\u2019t built yet, so there\u2019s nothing to confirm. Talk to Clayton about scoping this feature.');
+}
+
+// ── Labor Rates by Class (server-backed via the settings table) ──────────
+let LABOR_CLASS_RATES = [];
+let LABOR_CLASS_RATES_LOADED = false;
+async function loadLaborRates(){
+  try{
+    const remote = await settingsGet('labor_class_rates');
+    LABOR_CLASS_RATES = Array.isArray(remote) ? remote : [];
+  }catch(e){
+    console.error('Could not load labor rates:', e.message);
+  }
+  LABOR_CLASS_RATES_LOADED = true;
+}
+async function openLaborRates(){
+  openModal('rates');
+  const container = document.getElementById('rates-container');
+  if(container) container.innerHTML = '<div style="padding:12px 0;color:var(--text3);font-size:12px;">Loading\u2026</div>';
+  await loadLaborRates();
+  renderRatesContainer();
+}
+function renderRatesContainer(){
+  const container = document.getElementById('rates-container');
+  if(!container) return;
+  if(!LABOR_CLASS_RATES.length){
+    container.innerHTML = '<div style="padding:8px 0 14px;color:var(--text3);font-size:12px;">No class codes yet \u2014 add one below.</div>';
+    return;
+  }
+  container.innerHTML = LABOR_CLASS_RATES.map(function(r,i){
+    return '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">'
+      +'<input value="'+(r.code||'').toString().replace(/"/g,'&quot;')+'" placeholder="Class code" data-idx="'+i+'" data-field="code" style="width:110px;border:1px solid var(--border);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:var(--font);">'
+      +'<input value="'+(r.label||'').toString().replace(/"/g,'&quot;')+'" placeholder="Label (optional)" data-idx="'+i+'" data-field="label" style="flex:1;border:1px solid var(--border);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:var(--font);">'
+      +'<div style="display:flex;align-items:center;gap:4px;">'
+      +'<span style="font-size:12px;color:var(--text3);">$</span>'
+      +'<input type="number" step="0.01" value="'+(r.rate!=null&&r.rate!==''?r.rate:'')+'" placeholder="0.00" data-idx="'+i+'" data-field="rate" style="width:75px;border:1px solid var(--border);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:var(--font);">'
+      +'<span style="font-size:11px;color:var(--text3);">/hr</span>'
+      +'</div>'
+      +'<button onclick="removeRateRow('+i+')" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:16px;padding:0 4px;line-height:1;" title="Remove">\u00d7</button>'
+      +'</div>';
+  }).join('');
+}
+function addRateRow(){
+  LABOR_CLASS_RATES.push({code:'',label:'',rate:''});
+  renderRatesContainer();
+}
+function removeRateRow(idx){
+  LABOR_CLASS_RATES.splice(idx,1);
+  renderRatesContainer();
+}
+async function saveRates(){
+  const container = document.getElementById('rates-container');
+  const rowsByIdx = {};
+  if(container){
+    container.querySelectorAll('input').forEach(function(inp){
+      const idx = inp.dataset.idx, field = inp.dataset.field;
+      if(!rowsByIdx[idx]) rowsByIdx[idx]={};
+      rowsByIdx[idx][field] = inp.value;
+    });
+  }
+  const rows = Object.keys(rowsByIdx).sort(function(a,b){return a-b;}).map(function(i){
+    const r = rowsByIdx[i];
+    return { code:(r.code||'').trim(), label:(r.label||'').trim(), rate: parseFloat(r.rate)||0 };
+  }).filter(function(r){ return r.code; });
+  LABOR_CLASS_RATES = rows;
+  try{
+    await settingsSet('labor_class_rates', LABOR_CLASS_RATES);
+    showSaved('\u2713 Labor rates saved');
+    closeModal('rates');
+  }catch(e){
+    alert('Could not save labor rates \u2014 check your connection and try again.\n\n'+e.message);
+  }
+}
+function getLaborClassRate(code){
+  if(!code) return null;
+  const row = LABOR_CLASS_RATES.find(function(r){ return r.code===code; });
+  return row ? row.rate : null;
 }
 
 function renderImportHistory(){
@@ -8251,16 +8374,37 @@ function fmtMoney(v){
   return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
-// ── Global Default COR Rates (stored in localStorage) ──────────────────
-function loadGlobalCORRates(company){
+// ── Global Default COR Rates (server-backed via settings table) ────────
+let COR_RATES_CACHE = {};
+let COR_RATES_LOADED = false;
+async function fetchCORRatesFromServer(){
   try{
-    const key = 'bidsum-global-cor-rates-'+(company||'Bonas');
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : {};
-  }catch(e){ return {}; }
+    const remote = await settingsGet('cor_rates');
+    COR_RATES_CACHE = remote && typeof remote==='object' ? remote : {};
+  }catch(e){
+    try{
+      const bonas = localStorage.getItem('bidsum-global-cor-rates-Bonas');
+      const aci = localStorage.getItem('bidsum-global-cor-rates-ACI');
+      COR_RATES_CACHE = { Bonas: bonas?JSON.parse(bonas):{}, ACI: aci?JSON.parse(aci):{} };
+    }catch(e2){ COR_RATES_CACHE = {}; }
+  }
+  COR_RATES_LOADED = true;
+  try{ localStorage.setItem('bidsum-global-cor-rates-Bonas', JSON.stringify(COR_RATES_CACHE.Bonas||{})); }catch(e){}
+  try{ localStorage.setItem('bidsum-global-cor-rates-ACI', JSON.stringify(COR_RATES_CACHE.ACI||{})); }catch(e){}
 }
-function saveGlobalCORRates(rates, company){
-  try{ localStorage.setItem('bidsum-global-cor-rates-'+(company||'Bonas'), JSON.stringify(rates)); }catch(e){}
+function loadGlobalCORRates(company){
+  const co = company || 'Bonas';
+  if(!COR_RATES_LOADED){
+    // Fallback for any call site that somehow runs before bootstrap fetch completes
+    try{ const s=localStorage.getItem('bidsum-global-cor-rates-'+co); return s?JSON.parse(s):{}; }catch(e){ return {}; }
+  }
+  return COR_RATES_CACHE[co] || {};
+}
+async function saveGlobalCORRates(rates, company){
+  const co = company || 'Bonas';
+  COR_RATES_CACHE[co] = rates;
+  try{ localStorage.setItem('bidsum-global-cor-rates-'+co, JSON.stringify(rates)); }catch(e){}
+  await settingsSet('cor_rates', COR_RATES_CACHE);
 }
 function getEffectiveCORRate(job, key){
   const defaults = { regular:89.24, overtime:99.54, premium:86.30, flat:40.77, enamel:45.68, dtm:55.50 };
@@ -8324,7 +8468,7 @@ function renderGlobalCORRates(){
 }
 
 
-function saveGlobalCORRatesFromUI(company){
+async function saveGlobalCORRatesFromUI(company){
   const co = company || window._GCR_COMPANY || 'Bonas';
   const keys = ['regular','overtime','premium','flat','enamel','dtm'];
   const rates = {};
@@ -8334,14 +8478,19 @@ function saveGlobalCORRatesFromUI(company){
     if(el){ const v=parseFloat(el.value); if(!isNaN(v)&&v>=0)rates[k]=v; else valid=false; }
   });
   if(!valid){ alert('Please enter valid dollar amounts for all rates.'); return; }
-  saveGlobalCORRates(rates, co);
-  showSaved('\u2713 '+co+' COR rate defaults saved — will apply to new jobs only');
+  try{
+    await saveGlobalCORRates(rates, co);
+    showSaved('\u2713 '+co+' COR rate defaults saved — will apply to new jobs only');
+  }catch(e){
+    alert('Saved on this device, but couldn\'t reach the server — check your connection and try again.');
+  }
 }
 
-function resetGlobalCORRates(company){
+async function resetGlobalCORRates(company){
   const co = company || window._GCR_COMPANY || 'Bonas';
   if(!confirm('Reset '+co+' default COR rates to factory values?')) return;
-  localStorage.removeItem('bidsum-global-cor-rates-'+co);
+  try{ await saveGlobalCORRates({}, co); }catch(e){}
+  try{ localStorage.removeItem('bidsum-global-cor-rates-'+co); }catch(e){}
   ADMIN_TAB='corrates';
   renderManagerScreen();
   showSaved('\u2713 '+co+' rates reset to factory defaults');
