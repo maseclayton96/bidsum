@@ -4106,12 +4106,13 @@ function openManagerPanel(){
 
 function renderManagerScreen(){
  document.getElementById('app').innerHTML=`
-   <div style="display:flex;gap:8px;margin-bottom:18px;">
+   <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
      <button class="btn ${ADMIN_TAB==='users'?'btn-primary':''}" onclick="ADMIN_TAB='users';renderManagerScreen()">Team Access</button>
      <button class="btn ${ADMIN_TAB==='roles'?'btn-primary':''}" onclick="ADMIN_TAB='roles';renderManagerScreen()">Role Matrix</button>
      <button class="btn ${ADMIN_TAB==='corrates'?'btn-primary':''}" onclick="ADMIN_TAB='corrates';renderManagerScreen()">COR Rates</button>
+     <button class="btn ${ADMIN_TAB==='storage'?'btn-primary':''}" onclick="ADMIN_TAB='storage';renderManagerScreen()">Storage</button>
    </div>
-   ${ADMIN_TAB==='corrates'?renderGlobalCORRates():ADMIN_TAB==='roles'?`<div id="role-matrix-container"></div>`:`
+   ${ADMIN_TAB==='corrates'?renderGlobalCORRates():ADMIN_TAB==='roles'?`<div id="role-matrix-container"></div>`:ADMIN_TAB==='storage'?renderStorageTab():`
    <div class="mgr-panel">
      <div class="mgr-panel-title" style="display:flex;align-items:center;justify-content:space-between;">
        <span>Team Access Management</span>
@@ -8421,6 +8422,103 @@ function getEffectiveCORRate(job, key){
   return jobRate != null ? jobRate : (global[key]!=null ? global[key] : defaults[key]);
 }
 
+// ── Storage tab: EWO photo count/size across every job, with delete ──────────
+function estimatePhotoBytes(dataUrl){
+  if(!dataUrl) return 0;
+  const commaIdx = dataUrl.indexOf(',');
+  const b64 = commaIdx>=0 ? dataUrl.slice(commaIdx+1) : dataUrl;
+  let padding = 0;
+  if(b64.endsWith('==')) padding = 2; else if(b64.endsWith('=')) padding = 1;
+  return Math.max(0, Math.floor(b64.length*0.75) - padding);
+}
+function fmtBytes(bytes){
+  if(bytes < 1024) return bytes+' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1)+' KB';
+  return (bytes/(1024*1024)).toFixed(2)+' MB';
+}
+function renderStorageTab(){
+  setTimeout(loadStorageData, 0);
+  return '<div id="storage-tab-content"><div class="empty"><div class="empty-icon" style="font-size:20px;">&#8987;</div><div class="empty-text">Loading storage data\u2026</div></div></div>';
+}
+async function loadStorageData(){
+  loadJobs();
+  const jobs = JOBS;
+  const container = document.getElementById('storage-tab-content');
+  try{
+    const results = await Promise.all(jobs.map(async function(j){
+      const rows = await ewoGet(j.id).catch(function(){return [];});
+      return rows.map(function(r){ return Object.assign(mapEWO(r), {_job:j}); });
+    }));
+    const allEWOs = results.flat();
+    if(container) container.innerHTML = buildStorageHTML(allEWOs);
+  }catch(e){
+    if(container) container.innerHTML = '<div class="empty"><div class="empty-icon">\u26a0</div><div class="empty-text">Could not load storage data: '+e.message+'</div></div>';
+  }
+}
+function buildStorageHTML(allEWOs){
+  const ewosWithPhotos = allEWOs.filter(function(e){ return (e.photos||[]).length>0; });
+  let totalPhotos = 0, totalBytes = 0;
+  ewosWithPhotos.forEach(function(e){
+    (e.photos||[]).forEach(function(p){ totalPhotos++; totalBytes += estimatePhotoBytes(p); });
+  });
+  const tile = function(label,value){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);">'
+      +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">'+label+'</div>'
+      +'<div style="font-size:24px;font-weight:800;margin-top:6px;">'+value+'</div></div>';
+  };
+  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;max-width:900px;">'
+    +tile('Total Photos', totalPhotos)
+    +tile('Estimated Storage', fmtBytes(totalBytes))
+    +tile('EWOs with Photos', ewosWithPhotos.length)
+    +'</div>';
+
+  if(!ewosWithPhotos.length){
+    return '<div style="max-width:900px;">'+summary+'<div class="empty"><div class="empty-icon">\ud83d\udcf7</div><div class="empty-text">No EWO photos stored yet.</div></div></div>';
+  }
+
+  ewosWithPhotos.sort(function(a,b){
+    var aSize=(a.photos||[]).reduce(function(s,p){return s+estimatePhotoBytes(p);},0);
+    var bSize=(b.photos||[]).reduce(function(s,p){return s+estimatePhotoBytes(p);},0);
+    return bSize-aSize;
+  });
+
+  const groups = ewosWithPhotos.map(function(e){
+    const size = (e.photos||[]).reduce(function(s,p){return s+estimatePhotoBytes(p);},0);
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;margin-bottom:12px;box-shadow:var(--shadow);">'
+      +'<div style="margin-bottom:10px;">'
+      +'<div style="font-weight:700;font-size:13px;">EWO #'+(e.ewo_num||'\u2014')+' \u00b7 '+(e._job?e._job.name:'')+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">'+(e.date||'\u2014')+' \u00b7 '+(e.photos||[]).length+' photo'+((e.photos||[]).length!==1?'s':'')+' \u00b7 '+fmtBytes(size)+'</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px;">'
+      +(e.photos||[]).map(function(p,i){
+        return '<div style="position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--bg3);flex-shrink:0;">'
+          +'<img src="'+p+'" style="width:100%;height:100%;object-fit:cover;">'
+          +'<button onclick="deleteStoragePhoto(\''+e.id+'\',\''+(e._job?e._job.id:'')+'\','+i+')" title="Delete this photo" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.7);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;">\u00d7</button>'
+          +'</div>';
+      }).join('')
+      +'</div></div>';
+  }).join('');
+
+  return '<div style="max-width:900px;">'+summary
+    +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:10px;">Largest first \u2014 click \u00d7 on any photo to delete it permanently</div>'
+    +groups+'</div>';
+}
+async function deleteStoragePhoto(ewoId, jobId, photoIdx){
+  if(!confirm('Delete this photo permanently? This cannot be undone.')) return;
+  try{
+    const rows = await ewoGet(jobId);
+    const record = rows.map(mapEWO).find(function(r){ return String(r.id)===String(ewoId); });
+    if(!record){ alert('Could not find that EWO record \u2014 it may have already been changed. Refreshing.'); loadStorageData(); return; }
+    const photos = (record.photos||[]).slice();
+    photos.splice(photoIdx,1);
+    await ewoPatch(ewoId, {photos: photos});
+    showSaved('\u2713 Photo deleted');
+    loadStorageData();
+  }catch(e){
+    alert('Could not delete photo: '+e.message);
+  }
+}
+
 function renderGlobalCORRates(){
   const activeCo = window._GCR_COMPANY || 'Bonas';
   const G = loadGlobalCORRates(activeCo);
@@ -9580,6 +9678,7 @@ function mapEWO(r){
     workers: r.workers||[],
     materials: r.materials||[],
     equipment: r.equipment||[],
+    photos: r.photos||[],
     sundries: r.sundries||'',
     status: r.status||'Pending',
     gc_super: r.gc_super||'',
