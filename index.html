@@ -1645,11 +1645,7 @@ function renderNav(){
 
  } else if(NAV.screen==='jobdetail'){
  const _j=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
- bc.innerHTML=`<span class="bc-item" onclick="goJobs()">Jobs</span><span class="bc-sep">›</span><span class="bc-item" onclick="NAV.jobCompany&&renderCompanyJobList(NAV.jobCompany)">${NAV.jobCompany||''}</span><span class="bc-sep">›</span><span class="bc-item cur">${_j?_j.name:'Job'}</span>`;
- } else if(NAV.screen==='jobdetail'){
- const _jd=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));
- const _co=NAV.jobCompany==='ACI'?'ACI':'Bonas';
- bc.innerHTML=`<span class="bc-item" onclick="goJobs()">Jobs</span><span class="bc-sep">›</span><span class="bc-item" onclick="goJobs()">${_co}</span><span class="bc-sep">›</span><span class="bc-item cur">${_jd?_jd.name:'Job'}</span>`;
+ bc.innerHTML=`<span class="bc-item" onclick="goJobs()">Jobs</span><span class="bc-sep">›</span><span class="bc-item" onclick="goJobs()">${NAV.jobCompany||''}</span><span class="bc-sep">›</span><span class="bc-item cur">${_j?_j.name:'Job'}</span>`;
  } else if(NAV.screen==='accounting'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">Accounting</span>`;
  
@@ -4025,6 +4021,7 @@ async function finishLoad(){
  sbGet('members'),sbGet('gcs'),sbGet('teams'),sbGet('contacts'),sbGet('bids'),
  fetchRoleMatrixFromServer(),
  fetchCORRatesFromServer(),
+ fetchJobsFromServer(),
  ]);
  DB.members=members.map(mapMember);
  DB.gcs=gcs.map(mapGC);DB.teams=teams.map(mapTeam);
@@ -4482,18 +4479,19 @@ function renderJobsHome(){
 
 // Job CRUD
 function openNewJobModal(){
-  EDIT_JOB=null;EDIT_JOB_IDX=null;
+  EDIT_JOB=null;EDIT_JOB_IDX=null;EDIT_JOB_ID=null;
   document.getElementById('job-modal-title').textContent='New Job';
   document.getElementById('btn-delete-job').style.display='none';
-  ['j-name','j-notes'].forEach(id=>document.getElementById(id).value='');
+  ['j-name','j-notes','j-address','j-city','j-zip','j-class'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('j-value').value='0';
   if(document.getElementById('j-status'))document.getElementById('j-status').value='Active';
+  if(document.getElementById('j-prelim'))document.getElementById('j-prelim').checked=false;
   document.getElementById('j-start').value=new Date().toISOString().split('T')[0];
   document.getElementById('j-end').value='';
   document.getElementById('j-company').value='ACI';
+  if(document.getElementById('j-num'))document.getElementById('j-num').value=nextJobNum('ACI');
   // Populate GC and PM dropdowns
   document.getElementById('j-gc').innerHTML='<option value="">— select GC —</option>'+DB.gcs.map(g=>`<option value="${g.id}">${g.name}${g.office?' ('+g.office+')':''}</option>`).join('');
-  if(document.getElementById('j-status'))document.getElementById('j-status').value=job.status||'Active';
   document.getElementById('j-pm').innerHTML='<option value="">— select PM —</option>'+DB.members.filter(m=>m.type==='PM').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
   document.getElementById('j-super').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='SUP').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
   if(document.getElementById('j-foreman'))document.getElementById('j-foreman').innerHTML='<option value="">— none —</option>'+DB.members.filter(m=>m.type==='FOR').map(m=>`<option value="${m.id}">${m.first} ${m.last}</option>`).join('');
@@ -4512,11 +4510,17 @@ function saveJob(){
   const pmId=parseInt(document.getElementById('j-pm').value)||null;
   const contactId=parseInt(document.getElementById('j-contact')&&document.getElementById('j-contact').value)||null;
   const contact=contactId?DB.contacts.find(c=>parseInt(c.id)===contactId):null;
-  const job={
-    id:_editJob?_editJob.id:'job-'+Date.now(),
-    bidId:_editJob?_editJob.bidId:(window._IMPORT_BID_ID||null),
+  // Start from the existing job so fields not on this form (documents, schedule PDF,
+  // proposal/Lump Sum/Breakdown data, budget, GC team, etc.) are preserved on edit
+  // instead of being silently wiped out.
+  const job = _editJob ? Object.assign({}, _editJob) : {
+    id:'job-'+Date.now(),
+    bidId:window._IMPORT_BID_ID||null,
+    costs:[], changeOrders:[], cors:[], sov:[], sovMonths:[], corRates:{},
+  };
+  Object.assign(job, {
     name,gcId,gcName:gc?gc.name:'',pmId,
-    contactId,contactName:contact?contact.first+' '+contact.last:(_editJob&&_editJob.contactName)||'',
+    contactId,contactName:contact?contact.first+' '+contact.last:(job.contactName||''),
     value:parseFloat(document.getElementById('j-value').value)||0,
     status:document.getElementById('j-status').value,
     start:document.getElementById('j-start').value,
@@ -4528,15 +4532,11 @@ function saveJob(){
     superId:parseInt(document.getElementById('j-super').value)||null,
     foremanId:document.getElementById('j-foreman')?parseInt(document.getElementById('j-foreman').value)||null:null,
     coordId:document.getElementById('j-coord')?parseInt(document.getElementById('j-coord').value)||null:null,
-    foremanId:document.getElementById('j-foreman')?parseInt(document.getElementById('j-foreman').value)||null:null,
-    coordId:document.getElementById('j-coord')?parseInt(document.getElementById('j-coord').value)||null:null,
-    costs:_editJob?(_editJob.costs||[]):[],
-    changeOrders:_editJob?(_editJob.changeOrders||[]):[],
-    cors:_editJob?(_editJob.cors||[]):[],
-    sov:_editJob?(_editJob.sov||[]):[],
-    sovMonths:_editJob?(_editJob.sovMonths||[]):[],
-    corRates:_editJob?(_editJob.corRates||{}):{},
-  };
+    num:document.getElementById('j-num')?document.getElementById('j-num').value.trim():(job.num||''),
+    address:document.getElementById('j-address')?document.getElementById('j-address').value.trim():(job.address||''),
+    city:document.getElementById('j-city')?document.getElementById('j-city').value.trim():(job.city||''),
+    zip:document.getElementById('j-zip')?document.getElementById('j-zip').value.trim():(job.zip||''),
+  });
   // Auto-assign Project Coordinator if not already set
   if(!job.coordId){
     const autoPC = DB.members.find(m=>m.type==='PC'&&m.active!==false);
@@ -4556,7 +4556,7 @@ function saveJob(){
 // ═══════════════════════════════════════ JOBS HOME ════════════════════════════════════════
 
 // ═══════════════════════════════════════ JOB TRACKER ════════════════════════════════════
-// Storage: localStorage (will move to Neon in future session)
+// Storage: Neon Postgres `jobs` table (see mapJob/jobToBody, fetchJobsFromServer, saveJobs)
 // Job shape: {id, num, company, name, gcId, gcName, contactId, contactName, pmId, superId,
 //             address, city, zip, value, status, start, end, notes,
 //             costs[], submittalPaint[], submittalWC[], cors[]}
@@ -4576,11 +4576,132 @@ function nextJobNum(company){
 }
 
 // ── Persist ──
-function saveJobs(undoLabel){ if(undoLabel&&typeof pushUndo==='function') pushUndo(undoLabel); try{ localStorage.setItem('bidsum-jobs', JSON.stringify(JOBS)); }catch(e){} }
+// ── Jobs (server-backed via Neon `jobs` table — fetched once at login, kept in memory) ──
+function mapJob(r){
+  return {
+    id: r.id,
+    bidId: r.bid_id!=null?parseInt(r.bid_id):null,
+    num: r.num||'',
+    name: r.name||'',
+    company: r.company||'Bonas',
+    status: r.status||'Active',
+    value: parseFloat(r.value)||0,
+    gcId: r.gc_id!=null?parseInt(r.gc_id):null,
+    gcName: r.gc_name||'',
+    contactId: r.contact_id!=null?parseInt(r.contact_id):null,
+    contactName: r.contact_name||'',
+    pmId: r.pm_id!=null?parseInt(r.pm_id):null,
+    superId: r.super_id!=null?parseInt(r.super_id):null,
+    foremanId: r.foreman_id!=null?parseInt(r.foreman_id):null,
+    coordId: r.coord_id!=null?parseInt(r.coord_id):null,
+    address: r.address||'',
+    city: r.city||'',
+    zip: r.zip||'',
+    start: r.start_date||'',
+    end: r.end_date||'',
+    closedDate: r.closed_date||'',
+    notes: r.notes||'',
+    classCode: r.class_code||'',
+    prelimClosed: !!r.prelim_closed,
+    plansHighlighted: !!r.plans_highlighted,
+    costs: r.costs||[],
+    changeOrders: r.change_orders||[],
+    cors: r.cors||[],
+    sov: r.sov||[],
+    sovMonths: r.sov_months||[],
+    corRates: r.cor_rates||{},
+    budget: r.budget||{},
+    gcTeam: r.gc_team||[],
+    documents: r.documents||[],
+    docFolders: r.doc_folders||[],
+    proposal: r.proposal||{},
+    specifiers: r.specifiers||[],
+    statusPaint: r.status_paint||[],
+    statusWC: r.status_wc||[],
+    submittalPaint: r.submittal_paint||[],
+    submittalWC: r.submittal_wc||[],
+    payrollImports: r.payroll_imports||[],
+    schedulePDF: r.schedule_pdf||null,
+    schedulePDFName: r.schedule_pdf_name||null,
+    schedulePDFDate: r.schedule_pdf_date||null,
+  };
+}
+function jobToBody(job){
+  return {
+    id: job.id,
+    bid_id: job.bidId||null,
+    num: job.num||'',
+    name: job.name||'',
+    company: job.company||'Bonas',
+    status: job.status||'Active',
+    value: job.value||0,
+    gc_id: job.gcId||null,
+    gc_name: job.gcName||'',
+    contact_id: job.contactId||null,
+    contact_name: job.contactName||'',
+    pm_id: job.pmId||null,
+    super_id: job.superId||null,
+    foreman_id: job.foremanId||null,
+    coord_id: job.coordId||null,
+    address: job.address||'',
+    city: job.city||'',
+    zip: job.zip||'',
+    start_date: job.start||'',
+    end_date: job.end||'',
+    closed_date: job.closedDate||'',
+    notes: job.notes||'',
+    class_code: job.classCode||'',
+    prelim_closed: !!job.prelimClosed,
+    plans_highlighted: !!job.plansHighlighted,
+    costs: job.costs||[],
+    change_orders: job.changeOrders||[],
+    cors: job.cors||[],
+    sov: job.sov||[],
+    sov_months: job.sovMonths||[],
+    cor_rates: job.corRates||{},
+    budget: job.budget||{},
+    gc_team: job.gcTeam||[],
+    documents: job.documents||[],
+    doc_folders: job.docFolders||[],
+    proposal: job.proposal||{},
+    specifiers: job.specifiers||[],
+    status_paint: job.statusPaint||[],
+    status_wc: job.statusWC||[],
+    submittal_paint: job.submittalPaint||[],
+    submittal_wc: job.submittalWC||[],
+    payroll_imports: job.payrollImports||[],
+    schedule_pdf: job.schedulePDF||null,
+    schedule_pdf_name: job.schedulePDFName||null,
+    schedule_pdf_date: job.schedulePDFDate||null,
+  };
+}
+let JOBS_LOADED = false;
+async function fetchJobsFromServer(){
+  try{
+    const rows = await sbGet('jobs');
+    JOBS = rows.map(mapJob);
+  }catch(e){
+    console.error('Could not load jobs from server:', e.message);
+    if(!JOBS) JOBS = [];
+  }
+  JOBS_LOADED = true;
+}
 function loadJobs(){
-  try{ const s = localStorage.getItem('bidsum-jobs'); if(s) JOBS = JSON.parse(s); }catch(e){ JOBS=[]; }
+  // Jobs are fetched once from the server at login (fetchJobsFromServer, called from
+  // finishLoad). This is kept as a safe no-op so the many existing call sites throughout
+  // the app don't need to change.
+  if(!JOBS_LOADED && !JOBS) JOBS = [];
   autoCreateFromBids();
   syncJobsFromBids();
+}
+async function saveJobs(undoLabel){
+  if(undoLabel&&typeof pushUndo==='function') pushUndo(undoLabel);
+  const snapshot = JOBS.slice();
+  try{
+    await Promise.all(snapshot.map(job=>sbPost('jobs', jobToBody(job))));
+  }catch(e){
+    console.error('Could not save jobs to server:', e.message);
+  }
 }
 function autoCreateFromBids(){
   // Auto-create disabled — jobs are manually created only
@@ -4691,41 +4812,6 @@ function openJobDetail(jobId, tab){
   render();
 }
 
-
-function renderJobOverview_OLD(job, pm, sup, gc, contract, costs, gp, margin, ct){
-  return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="pl-card">
-        <div class="pl-card-label">Job Details</div>
-        <div style="font-size:13px;margin-top:8px;display:grid;grid-template-columns:100px 1fr;gap:6px;line-height:1.6;">
-          <span style="color:var(--text3);">Company</span><span style="font-weight:600;">${job.company}</span>
-          <span style="color:var(--text3);">Status</span><span><span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':job.status==='Closed'?'job-closed':'job-status-active'}">${job.status}</span></span>
-          <span style="color:var(--text3);">Start</span><span>${fmtDate(job.start)||'—'}</span>
-          <span style="color:var(--text3);">End</span><span>${fmtDate(job.end)||'TBD'}</span>
-          <span style="color:var(--text3);">PM</span><span>${pm?pm.first+' '+pm.last:'—'}</span>
-          <span style="color:var(--text3);">Super</span><span>${sup?sup.first+' '+sup.last:'—'}</span>
-        </div>
-      </div>
-      <div class="pl-card">
-        <div class="pl-card-label">P&L Summary</div>
-        <div style="font-size:13px;margin-top:8px;display:grid;grid-template-columns:130px 1fr;gap:6px;line-height:1.6;">
-          <span style="color:var(--text3);">Base Contract</span><span style="font-weight:600;">${fmtVal(job.value)}</span>
-          <span style="color:var(--text3);">COR Awarded</span><span style="font-weight:600;">${fmtVal(ct.awd)}</span>
-          <span style="color:var(--text3);">Revised Contract</span><span style="font-weight:700;">${fmtVal(contract)}</span>
-          <span style="color:var(--text3);">Total Costs</span><span style="font-weight:600;color:#CC0000;">${fmtVal(costs)}</span>
-          <span style="color:var(--text3);">Gross Profit</span><span style="font-weight:700;color:${gp>=0?'var(--green)':'#CC0000'};">${fmtVal(Math.abs(gp))} (${margin}%)</span>
-        </div>
-      </div>
-    </div>
-    <div style="margin-top:16px;">
-      <div class="section-hd" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-        <div class="section-title">Cost Breakdown</div>
-        <button class="btn-sm-primary" onclick="openAddCost('${job.id}')">+ Add cost</button>
-      </div>
-      ${renderCostBreakdown(job)}
-    </div>
-    ${job.notes?`<div style="margin-top:16px;"><div class="pl-card"><div class="pl-card-label">Notes</div><div style="font-size:13px;margin-top:6px;line-height:1.6;white-space:pre-wrap;">${job.notes}</div></div></div>`:''}`;
-}
 
 // ══════════════════════════════════════════════════════════════
 // SUBMITTAL TAB
@@ -5053,25 +5139,6 @@ function saveSOV(jobId){
   openJobDetail(jobId,'sov');
 }
 
-// ═══════════════════════════════════════ FOREMAN VIEW ═══════════════════════════════════
-function renderFormanJobList(company,jobs){
-  const coHdr=company==='ACI'?'Architectural Coatings Inc.':'Bonas Company';
-  if(!jobs.length){
-    document.getElementById('app').innerHTML=`<div style="text-align:center;padding:60px;"><div style="font-size:16px;font-weight:600;margin-bottom:8px;">No assigned jobs</div><div style="color:var(--text3);font-size:13px;">You have no jobs assigned to you for ${coHdr}.</div></div>`;
-    return;
-  }
-  document.getElementById('app').innerHTML=`
-    <div style="font-size:22px;font-weight:700;margin-bottom:20px;">My Jobs — ${coHdr}</div>
-    <div style="display:grid;gap:12px;">
-      ${jobs.map(job=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;" onclick="NAV.jobCompany='${company}';openJobDetail('${job.id}')" onmouseover="this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.boxShadow='var(--shadow)'">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div><div style="font-weight:700;font-size:15px;">${job.name}</div><div style="font-size:12px;color:var(--text3);margin-top:3px;">${coHdr} · Job #${job.num||'—'} · ${job.gcName||'—'}</div></div>
-          <span class="job-status-badge ${job.status==='Complete'?'job-status-complete':job.status==='On Hold'?'job-status-onhold':'job-status-active'}">${job.status}</span>
-        </div>
-      </div>`).join('')}
-    </div>`;
-}
-
 
 // ═══════════════════════════════════════ ROLE MATRIX ════════════════════════════════════
 // Permission levels: 0=None, 1=View, 2=Full
@@ -5279,21 +5346,12 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
   const openCORs = (job.cors||[]).filter(c=>!c.void&&!c.custAmount&&c.total>0);
   const rcvdCORs = (job.cors||[]).filter(c=>!c.void&&c.custAmount>0);
 
-  const widgetOrder=getWidgetOrder(job.id);
-  const widgets={
-    info: `<!-- Panel 1: Project Information -->`,
-    team: `<!-- Panel 2: Internal Project Team -->`,
-    dates: `<!-- Panel 3: Project Dates -->`,
-    notes: `<!-- Panel 4: Jobsite Instructions -->`,
-    gcteam: `<!-- Panel 5: GC Team -->`,
-    schedule: `<!-- Panel 6: Schedule -->`,
-  };
   return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
 
     <!-- Panel 1: Project Information -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="cursor:grab;color:var(--text3);margin-right:6px;" title="Drag to rearrange">⠿</span>Project Information
+        Project Information
         <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
       </div>
       <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.7;">
@@ -5311,7 +5369,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     <!-- Panel 2: Internal Project Team -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="cursor:grab;color:var(--text3);margin-right:6px;" title="Drag to rearrange">⠿</span>Internal Project Team
+        Internal Project Team
         <button class="btn-sm" onclick="openEditTeamModal('${job.id}')">Edit Team</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
@@ -5334,7 +5392,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Panel 3: Project Dates & COR Summary -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'dates')" ondragover="onWidgetDragOver(event,'dates')" ondrop="onWidgetDrop(event,'${job.id}','dates')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Project Dates & Change Orders</div>
       <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:12px;line-height:1.8;margin-bottom:16px;">
         <span style="color:var(--text3);font-weight:600;">Start Date</span><span style="font-weight:600;">${fmtDate(job.start)||'Not set'}</span>
@@ -5357,7 +5415,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Panel 4: Jobsite Instructions + Weather -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'notes')" ondragover="onWidgetDragOver(event,'notes')" ondrop="onWidgetDrop(event,'${job.id}','notes')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
         Jobsite Instructions
         <button class="btn-sm" onclick="editJobsiteNotes('${job.id}')">Edit</button>
@@ -5375,7 +5433,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
 
     <!-- GC Project Team -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'gcteam')" ondragover="onWidgetDragOver(event,'gcteam')" ondrop="onWidgetDrop(event,'${job.id}','gcteam')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
         GC / Client Team
         <button class="btn-sm" onclick="openAddGCTeamModal('${job.id}')">+ Add</button>
@@ -5399,7 +5457,7 @@ function renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct){
     </div>
 
     <!-- Schedule PDF -->
-    <div draggable="true" ondragstart="onWidgetDragStart(event,'schedule')" ondragover="onWidgetDragOver(event,'schedule')" ondrop="onWidgetDrop(event,'${job.id}','schedule')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);cursor:default;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--shadow);">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
         Project Schedule
         <label class="btn-sm" style="cursor:pointer;">
@@ -6034,45 +6092,6 @@ function printSubmittal(job){
   win.document.write(printHTML);
   win.document.close();
   setTimeout(()=>win.print(),500);
-}
-
-// ═══════════════════════════════════════ WIDGET LAYOUT ══════════════════════════════════
-// Draggable panel order stored per job in localStorage
-const WIDGET_ORDER_KEY = 'bidsum-widget-order';
-let WIDGET_ORDERS = {};
-
-function loadWidgetOrders(){
-  try{const s=localStorage.getItem(WIDGET_ORDER_KEY);if(s)WIDGET_ORDERS=JSON.parse(s);}catch(e){WIDGET_ORDERS={};}
-}
-function saveWidgetOrders(){
-  try{localStorage.setItem(WIDGET_ORDER_KEY,JSON.stringify(WIDGET_ORDERS));}catch(e){}
-}
-function getWidgetOrder(jobId){
-  loadWidgetOrders();
-  return WIDGET_ORDERS[jobId]||['info','team','dates','notes','gcteam','schedule'];
-}
-function setWidgetOrder(jobId,order){
-  loadWidgetOrders();
-  WIDGET_ORDERS[jobId]=order;
-  saveWidgetOrders();
-}
-
-// Drag state for widgets
-let DRAGGING_WIDGET = null;
-function onWidgetDragStart(e,id){ DRAGGING_WIDGET=id; e.dataTransfer.effectAllowed='move'; }
-function onWidgetDragOver(e,id){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
-function onWidgetDrop(e,jobId,targetId){
-  e.preventDefault();
-  if(!DRAGGING_WIDGET||DRAGGING_WIDGET===targetId)return;
-  const order=getWidgetOrder(jobId);
-  const fromIdx=order.indexOf(DRAGGING_WIDGET);
-  const toIdx=order.indexOf(targetId);
-  if(fromIdx<0||toIdx<0)return;
-  order.splice(fromIdx,1);
-  order.splice(toIdx,0,DRAGGING_WIDGET);
-  setWidgetOrder(jobId,order);
-  DRAGGING_WIDGET=null;
-  openJobDetail(jobId,'overview');
 }
 
 
@@ -6913,10 +6932,13 @@ function openEditJob(jobId){
   openModal('job');
 }
 
-function deleteJob(){
+async function deleteJob(){
   if(!confirm('Delete this job? This cannot be undone.'))return;
-  JOBS=JOBS.filter(j=>j.id!==EDIT_JOB_ID);
-  saveJobs();closeModal('job');renderJobs();
+  const idToDelete = EDIT_JOB_ID;
+  JOBS=JOBS.filter(j=>j.id!==idToDelete);
+  closeModal('job');renderJobs();
+  try{ await sbDelete('jobs', idToDelete); }
+  catch(e){ alert('Removed locally, but could not delete it from the server — check your connection.\n\n'+e.message); }
 }
 
 function openAddCost(jobId){
