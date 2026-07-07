@@ -10301,16 +10301,50 @@ function ewoToCOR(ewoId){
 }
 
 // ── EWO Modal Photo Helpers ──────────────────────────────────────────
-function ewoModalHandlePhotos(inp){
-  Array.from(inp.files).forEach(function(f){
-    var r = new FileReader();
-    r.onload = function(e){
-      EWO_MODAL_PHOTOS.push(e.target.result);
-      ewoModalRenderPhotos();
+// Resize + re-compress an image file before it becomes a base64 string, so a
+// 3-8MB phone photo turns into ~100-300KB instead of bloating the database.
+function compressImageFile(file, maxDim, quality){
+  return new Promise(function(resolve, reject){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w >= h){ h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        try{
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        }catch(err){ reject(err); }
+      };
+      img.onerror = function(){ reject(new Error('Could not read image')); };
+      img.src = e.target.result;
     };
-    r.readAsDataURL(f);
+    reader.onerror = function(){ reject(new Error('Could not read file')); };
+    reader.readAsDataURL(file);
   });
+}
+function ewoModalHandlePhotos(inp){
+  var files = Array.from(inp.files);
   inp.value = '';
+  files.forEach(function(f){
+    compressImageFile(f, 1600, 0.75).then(function(dataUrl){
+      EWO_MODAL_PHOTOS.push(dataUrl);
+      ewoModalRenderPhotos();
+    }).catch(function(err){
+      // If compression fails for any reason (unsupported format, etc.), fall back
+      // to the original file rather than silently losing the photo.
+      console.error('Photo compression failed, using original:', err.message);
+      var r = new FileReader();
+      r.onload = function(e){ EWO_MODAL_PHOTOS.push(e.target.result); ewoModalRenderPhotos(); };
+      r.readAsDataURL(f);
+    });
+  });
 }
 function ewoModalRenderPhotos(){
   var grid = document.getElementById('ewo-photo-grid');
