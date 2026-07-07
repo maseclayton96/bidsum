@@ -611,6 +611,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 .import-zone{border:2px dashed var(--border2);border-radius:var(--rlg);padding:28px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg2);}
 .import-zone:hover{border-color:#CC0000;background:#FFF8F8;}
 .import-zone.drag-over{border-color:#CC0000;background:#FFEAEA;border-style:solid;}
+#excel-import-drop-zone.drag-over{border-color:#CC0000;background:#FFEAEA;border-style:solid;}
 .import-zone-title{font-size:14px;font-weight:700;margin-bottom:4px;}
 .import-zone-sub{font-size:12px;color:var(--text3);}
 .import-preview{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;margin-top:16px;}
@@ -677,6 +678,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
   .ewo-modal{width:96vw;}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1311,6 +1313,36 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
   </div>
 </div>
 
+<!-- EXCEL JOB IMPORT MODAL -->
+<div class="modal-overlay" id="modal-excel-import">
+  <div class="modal" style="width:640px;max-width:94vw;">
+    <div class="modal-head">
+      <div class="modal-title">Import Job from Excel</div>
+      <div class="modal-close" onclick="closeModal('excel-import')">×</div>
+    </div>
+    <div class="modal-body">
+      <div id="excel-import-step-1">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Drop a job's Excel file (.xls/.xlsx). We'll pull the job info from the Bid Sheet and COR history from the Change Log, then show you a preview before anything is saved.</div>
+        <div id="excel-import-drop-zone" style="border:2px dashed var(--border2);border-radius:var(--rlg);padding:36px 20px;text-align:center;cursor:pointer;background:var(--bg3);" ondragover="event.preventDefault();this.classList.add('drag-over');" ondragleave="this.classList.remove('drag-over');" ondrop="onExcelFileDrop(event)" onclick="document.getElementById('excel-import-file-input').click();">
+          <div style="font-size:32px;margin-bottom:8px;">📊</div>
+          <div style="font-size:13px;font-weight:600;">Drop Excel file here, or click to browse</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">.xls or .xlsx</div>
+        </div>
+        <input type="file" id="excel-import-file-input" accept=".xls,.xlsx" style="display:none" onchange="onExcelFileSelect(event)">
+        <div id="excel-import-error" style="display:none;background:#FFEAEA;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;font-size:12px;color:#CC0000;margin-top:12px;"></div>
+      </div>
+      <div id="excel-import-step-2" style="display:none;">
+        <div id="excel-import-preview"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('excel-import')">Cancel</button>
+      <button class="btn" id="excel-import-back-btn" onclick="resetExcelImport()" style="display:none;">← Choose a different file</button>
+      <button class="btn-primary" id="excel-import-confirm-btn" onclick="confirmExcelImport()" style="display:none;">Create Job</button>
+    </div>
+  </div>
+</div>
+
 <!-- LABOR RATES MODAL -->
 <div class="modal-overlay" id="modal-rates">
   <div class="modal" style="width:480px;">
@@ -1635,6 +1667,7 @@ function renderNav(){
  <button class="btn-nav" onclick="goHome()">BidSum</button>
  <button class="btn-nav btn-nav-active" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
+ <button class="btn-nav" onclick="openExcelImportModal()">Import from Excel</button>
  <button class="btn-nav-primary" onclick="openNewJobModal()">+ New ${NAV.jobCompany||''} Job</button>
  `;
  } else if(NAV.screen==='reports'){
@@ -4464,6 +4497,315 @@ function renderJobsHome(){
 
 
 // Job CRUD
+// ══════════════════════════════════════════════════════════════
+// EXCEL JOB IMPORT — reads a job's Bid Sheet + Change Log from .xls/.xlsx
+// and pre-fills a new job. Parsing logic validated against real job files
+// before shipping; still always shows a preview before writing anything.
+// ══════════════════════════════════════════════════════════════
+let EXCEL_IMPORT_PARSED = null;
+
+function excelFindLabel(grid, labels){
+  const norm = labels.map(function(l){ return l.toLowerCase().replace(/[:#]/g,'').trim(); });
+  for(let r=0;r<grid.length;r++){
+    const row = grid[r]||[];
+    for(let c=0;c<row.length;c++){
+      const cell = row[c];
+      if(cell==null) continue;
+      const cn = String(cell).toLowerCase().replace(/[:#]/g,'').trim();
+      if(norm.includes(cn)) return {row:r, col:c};
+    }
+  }
+  return null;
+}
+function excelValueRightOf(grid, row, col, maxScan){
+  maxScan = maxScan||6;
+  const rowData = grid[row]||[];
+  for(let c=col+1;c<col+1+maxScan;c++){
+    const v = rowData[c];
+    if(v!=null && String(v).trim()!=='') return {value:v, col:c};
+  }
+  return null;
+}
+function excelValuesBelow(grid, row, col, count){
+  const out=[];
+  for(let i=1;i<=count;i++){
+    const v = (grid[row+i]||[])[col];
+    if(v==null || String(v).trim()==='') break;
+    out.push(String(v).trim());
+  }
+  return out;
+}
+function excelSerialToISO(v){
+  if(v==null) return '';
+  if(typeof v==='number'){
+    const d = XLSX.SSF.parse_date_code(v);
+    if(d) return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
+  }
+  const s = String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  return '';
+}
+function parseBidSheetHeader(grid){
+  const out = {};
+  let hit, res;
+  hit = excelFindLabel(grid, ['CUSTOMER']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res){
+    out.customerName = String(res.value).trim();
+    out.customerAddr = excelValuesBelow(grid, hit.row, res.col, 3).join(', ');
+  }}
+  hit = excelFindLabel(grid, ['BID #','JOB #']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res) out.bidNum = String(res.value).trim(); }
+  hit = excelFindLabel(grid, ['ESTIMATOR']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res) out.estimator = String(res.value).trim(); }
+  hit = excelFindLabel(grid, ['DATE']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res) out.date = excelSerialToISO(res.value); }
+  hit = excelFindLabel(grid, ['ATTN']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res) out.attn = String(res.value).trim(); }
+  hit = excelFindLabel(grid, ['PHONE #']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res) out.contactPhone = String(res.value).trim(); }
+  hit = excelFindLabel(grid, ['PROJECT']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col); if(res){
+    out.projectName = String(res.value).trim();
+    const addrLines = excelValuesBelow(grid, hit.row, res.col, 3);
+    const last = addrLines[addrLines.length-1]||'';
+    const m = last.match(/^(.*),\s*([A-Z]{2})\.?\s*(\d{5})/);
+    if(m){ out.city=m[1].trim(); out.zip=m[3]; out.address=addrLines.slice(0,-1).join(', '); }
+    else { out.address = addrLines.join(', '); }
+  }}
+  hit = excelFindLabel(grid, ['BASE BID']);
+  if(hit){ res = excelValueRightOf(grid, hit.row, hit.col, 5); if(res) out.baseBid = parseFloat(res.value)||0; }
+  // Company from the letterhead (row 0)
+  const letterhead = String((grid[0]||[])[0]||'').toUpperCase();
+  out.company = letterhead.includes('ARCHITECTURAL') ? 'ACI' : letterhead.includes('BONAS') ? 'Bonas' : '';
+  return out;
+}
+function parseChangeLogCORs(grid){
+  const hit = excelFindLabel(grid, ['C.O.R. #','COR #']);
+  if(!hit) return [];
+  const headerRow = hit.row, colCOR = hit.col;
+  const row = grid[headerRow]||[];
+  const findCol = function(labels){
+    const norm = labels.map(function(l){ return l.toLowerCase().replace(/[.#]/g,'').trim(); });
+    for(let c=0;c<row.length;c++){
+      const cell = row[c]; if(cell==null) continue;
+      const cn = String(cell).toLowerCase().replace(/[.#]/g,'').trim();
+      if(norm.includes(cn)) return c;
+    }
+    return -1;
+  };
+  const colDate=findCol(['Date']), colDesc=findCol(['Description']), colAmount=findCol(['Amount']),
+        colCustCO=findCol(['Customer C.O. #','Customer CO #']), colCustDate=findCol(['Customer date']),
+        colCustAmount=findCol(['Customer amount']), colDifference=findCol(['Difference']);
+  const results = [];
+  for(let r=headerRow+1;r<grid.length;r++){
+    const dataRow = grid[r]||[];
+    const corNumRaw = dataRow[colCOR];
+    const desc = colDesc>=0?dataRow[colDesc]:null;
+    const amount = colAmount>=0?dataRow[colAmount]:null;
+    const dateVal = colDate>=0?dataRow[colDate]:null;
+    // The COR # column is often pre-filled sequentially for the whole template
+    // regardless of use, so blank detection is based on date/desc/amount, not COR #.
+    const isBlank = (desc==null||String(desc).trim()==='') && (dateVal==null||String(dateVal).trim()==='') && (amount==null||Number(amount)===0);
+    if(isBlank){
+      let allBlankAhead = true;
+      for(let look=1;look<=15;look++){
+        const lr = grid[r+look]||[];
+        const ld = colDesc>=0?lr[colDesc]:null, la = colAmount>=0?lr[colAmount]:null, ldt = colDate>=0?lr[colDate]:null;
+        if((ld!=null&&String(ld).trim()!=='')||(la!=null&&Number(la)!==0)||(ldt!=null&&String(ldt).trim()!=='')){ allBlankAhead=false; break; }
+      }
+      if(allBlankAhead) break;
+      continue;
+    }
+    const custCO = colCustCO>=0?dataRow[colCustCO]:null;
+    const differenceVal = colDifference>=0?dataRow[colDifference]:null;
+    const isVoid = differenceVal!=null && String(differenceVal).trim().toUpperCase().startsWith('VOID');
+    results.push({
+      num: corNumRaw!=null?String(corNumRaw).trim():'',
+      date: excelSerialToISO(dateVal),
+      desc: desc!=null?String(desc).trim():'',
+      amount: typeof amount==='number'?amount:(parseFloat(amount)||0),
+      void: isVoid,
+      custCONum: (custCO!=null && !isVoid)?String(custCO).trim():'',
+      custDate: colCustDate>=0?excelSerialToISO(dataRow[colCustDate]):'',
+      custAmount: colCustAmount>=0?(parseFloat(dataRow[colCustAmount])||0):0,
+    });
+  }
+  return results;
+}
+function findSheetByName(workbook, exactNames, fallbackIncludes){
+  for(const n of exactNames){
+    const match = workbook.SheetNames.find(function(s){ return s.toLowerCase()===n.toLowerCase(); });
+    if(match) return match;
+  }
+  if(fallbackIncludes){
+    const match = workbook.SheetNames.find(function(s){ return s.toLowerCase().includes(fallbackIncludes.toLowerCase()); });
+    if(match) return match;
+  }
+  return null;
+}
+function guessMemberIdByName(nameOrInitials, type){
+  if(!nameOrInitials) return null;
+  const q = nameOrInitials.trim().toLowerCase();
+  const pool = DB.members.filter(function(m){ return !type || m.type===type; });
+  let m = pool.find(function(x){ return (x.first+' '+x.last).toLowerCase()===q; });
+  if(m) return m.id;
+  m = pool.find(function(x){ return (x.initials||'').toLowerCase()===q; });
+  if(m) return m.id;
+  m = pool.find(function(x){ return (x.first+' '+x.last).toLowerCase().includes(q) || q.includes(x.last.toLowerCase()); });
+  return m ? m.id : null;
+}
+
+function openExcelImportModal(){
+  resetExcelImport();
+  openModal('excel-import');
+}
+function resetExcelImport(){
+  EXCEL_IMPORT_PARSED = null;
+  document.getElementById('excel-import-step-1').style.display='block';
+  document.getElementById('excel-import-step-2').style.display='none';
+  document.getElementById('excel-import-error').style.display='none';
+  document.getElementById('excel-import-back-btn').style.display='none';
+  document.getElementById('excel-import-confirm-btn').style.display='none';
+  const fi=document.getElementById('excel-import-file-input'); if(fi) fi.value='';
+}
+function onExcelFileDrop(event){
+  event.preventDefault();
+  document.getElementById('excel-import-drop-zone').classList.remove('drag-over');
+  const file = event.dataTransfer&&event.dataTransfer.files&&event.dataTransfer.files[0];
+  if(file) handleExcelImportFile(file);
+}
+function onExcelFileSelect(event){
+  const file = event.target.files&&event.target.files[0];
+  if(file) handleExcelImportFile(file);
+}
+function handleExcelImportFile(file){
+  const errEl = document.getElementById('excel-import-error');
+  errEl.style.display='none';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:'array'});
+      const bidSheetName = findSheetByName(workbook, ['Bid Sheet'], 'bid sheet');
+      const changeLogName = findSheetByName(workbook, ['Change Log'], 'change log');
+      if(!bidSheetName){
+        errEl.textContent = 'Could not find a "Bid Sheet" tab in this file.';
+        errEl.style.display='block';
+        return;
+      }
+      const bidGrid = XLSX.utils.sheet_to_json(workbook.Sheets[bidSheetName], {header:1, raw:true});
+      const header = parseBidSheetHeader(bidGrid);
+      let cors = [];
+      if(changeLogName){
+        const clGrid = XLSX.utils.sheet_to_json(workbook.Sheets[changeLogName], {header:1, raw:true});
+        cors = parseChangeLogCORs(clGrid);
+      }
+      EXCEL_IMPORT_PARSED = {header, cors, fileName:file.name};
+      renderExcelImportPreview();
+    }catch(err){
+      errEl.textContent = 'Could not read this file: '+err.message;
+      errEl.style.display='block';
+    }
+  };
+  reader.onerror = function(){ errEl.textContent='Could not read this file.'; errEl.style.display='block'; };
+  reader.readAsArrayBuffer(file);
+}
+function renderExcelImportPreview(){
+  const p = EXCEL_IMPORT_PARSED;
+  if(!p) return;
+  document.getElementById('excel-import-step-1').style.display='none';
+  document.getElementById('excel-import-step-2').style.display='block';
+  document.getElementById('excel-import-back-btn').style.display='inline-block';
+  document.getElementById('excel-import-confirm-btn').style.display='inline-block';
+
+  const h = p.header;
+  const guessedPM = guessMemberIdByName(h.estimator, 'PM');
+  const voidCount = p.cors.filter(function(c){return c.void;}).length;
+  const corTotal = p.cors.filter(function(c){return !c.void;}).reduce(function(s,c){return s+c.amount;},0);
+
+  const container = document.getElementById('excel-import-preview');
+  container.innerHTML =
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Found in <strong>'+p.fileName+'</strong>. Review and correct anything below \u2014 nothing is saved until you click Create Job.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">'
+    +'<div class="fg"><label>Company</label><select id="xi-company"><option value="Bonas"'+(h.company==='Bonas'?' selected':'')+'>Bonas</option><option value="ACI"'+(h.company==='ACI'?' selected':'')+'>ACI</option></select></div>'
+    +'<div class="fg"><label>Job #</label><input id="xi-num" value="'+(h.bidNum||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg" style="grid-column:1/-1;"><label>Project Name</label><input id="xi-name" value="'+(h.projectName||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg" style="grid-column:1/-1;"><label>GC / Customer</label><input id="xi-gcname" value="'+(h.customerName||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg"><label>Address</label><input id="xi-address" value="'+(h.address||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg"><label>City</label><input id="xi-city" value="'+(h.city||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg"><label>Zip</label><input id="xi-zip" value="'+(h.zip||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg"><label>Contact / Attn</label><input id="xi-contact" value="'+(h.attn||'').replace(/"/g,'&quot;')+'"></div>'
+    +'<div class="fg"><label>Base Contract</label><input id="xi-value" type="number" step="0.01" value="'+(h.baseBid||0)+'"></div>'
+    +'<div class="fg"><label>Project Manager</label><select id="xi-pm"><option value="">\u2014 select PM \u2014</option>'
+      +DB.members.filter(function(m){return m.type==='PM';}).map(function(m){return '<option value="'+m.id+'"'+(guessedPM===m.id?' selected':'')+'>'+m.first+' '+m.last+'</option>';}).join('')
+    +'</select></div>'
+    +'</div>'
+    +'<div style="background:'+(p.cors.length?'#F0FFF4':'var(--bg3)')+';border:1px solid '+(p.cors.length?'#B2DFCA':'var(--border)')+';border-radius:var(--r);padding:12px 14px;margin-bottom:8px;">'
+    +'<div style="font-size:12px;font-weight:700;">'+(p.cors.length?('Found '+p.cors.length+' CORs \u2014 '+fmtVal(corTotal)+' total'+(voidCount?' ('+voidCount+' voided, excluded from total)':'')) : 'No Change Log / COR history found')+'</div>'
+    +(p.cors.length?'<div style="max-height:180px;overflow-y:auto;margin-top:8px;font-size:11px;">'
+      +p.cors.slice(0,50).map(function(c){
+        return '<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);'+(c.void?'opacity:.5;':'')+'">'
+          +'<span style="width:30px;color:var(--text3);">#'+c.num+'</span>'
+          +'<span style="width:75px;color:var(--text3);">'+(c.date||'\u2014')+'</span>'
+          +'<span style="flex:1;">'+(c.desc||'\u2014')+(c.void?' <strong>(VOID)</strong>':'')+'</span>'
+          +'<span style="width:70px;text-align:right;font-weight:600;">'+fmtVal(c.amount)+'</span>'
+          +'</div>';
+      }).join('')
+      +(p.cors.length>50?'<div style="padding:6px 0;color:var(--text3);">+ '+(p.cors.length-50)+' more\u2026</div>':'')
+      +'</div>':'')
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);">Note: only COR totals and descriptions import \u2014 line-item labor/material breakdowns for past CORs aren\u2019t available in the workbook, so they won\u2019t carry over.</div>';
+}
+async function confirmExcelImport(){
+  const p = EXCEL_IMPORT_PARSED;
+  if(!p) return;
+  const name = document.getElementById('xi-name').value.trim();
+  if(!name){ alert('Project name is required.'); return; }
+  const company = document.getElementById('xi-company').value;
+  const pmId = parseInt(document.getElementById('xi-pm').value)||null;
+  const gcNameVal = document.getElementById('xi-gcname').value.trim();
+  const gc = DB.gcs.find(function(g){ return g.name.toLowerCase()===gcNameVal.toLowerCase(); });
+
+  const job = {
+    id: 'job-'+Date.now(),
+    bidId: null,
+    name: name,
+    num: document.getElementById('xi-num').value.trim(),
+    company: company,
+    status: 'Active',
+    value: parseFloat(document.getElementById('xi-value').value)||0,
+    gcId: gc?gc.id:null,
+    gcName: gcNameVal,
+    contactId: null,
+    contactName: document.getElementById('xi-contact').value.trim(),
+    pmId: pmId,
+    address: document.getElementById('xi-address').value.trim(),
+    city: document.getElementById('xi-city').value.trim(),
+    zip: document.getElementById('xi-zip').value.trim(),
+    notes: 'Imported from Excel: '+p.fileName,
+    costs:[], changeOrders:[], sov:[], sovMonths:[], corRates:{},
+    cors: p.cors.filter(function(c){return !c.void || c.desc || c.amount;}).map(function(c){
+      return {
+        date: c.date || new Date().toISOString().split('T')[0],
+        desc: c.desc,
+        lines: [{category:'material', key:'imported', label: c.desc||'Imported COR', rate: c.amount, qty:1, type:'add'}],
+        total: c.amount,
+        custCONum: c.custCONum, custDate: c.custDate, custAmount: c.custAmount, void: c.void,
+      };
+    }),
+  };
+  loadJobs();
+  JOBS.push(job);
+  try{
+    await saveJobs('Import job from Excel');
+    closeModal('excel-import');
+    openJobDetail(job.id, 'overview');
+    showSaved('\u2713 Job imported \u2014 '+job.cors.length+' CORs added');
+  }catch(e){
+    alert('Could not save the imported job: '+e.message);
+  }
+}
+
 function openNewJobModal(){
   EDIT_JOB=null;EDIT_JOB_IDX=null;EDIT_JOB_ID=null;
   document.getElementById('job-modal-title').textContent='New Job';
