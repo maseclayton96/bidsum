@@ -85,7 +85,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       let rows;
-      if (table === 'members') rows = await sql`SELECT * FROM members ORDER BY id ASC`;
+      if (table === 'members') rows = await sql`SELECT id,first,last,type,title,series,email,phone,initials,card_bg,card_txt,card_gradient,role,active,last_login,employee_num,company,created_at,(pin_hash IS NOT NULL) AS has_pin FROM members ORDER BY id ASC`;
       else if (table === 'gcs') rows = await sql`SELECT * FROM gcs ORDER BY id ASC`;
       else if (table === 'teams') rows = await sql`SELECT * FROM teams ORDER BY id ASC`;
       else if (table === 'contacts') rows = await sql`SELECT * FROM contacts ORDER BY id ASC`;
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const b = req.body; const rid = table==='jobs' ? id : parseInt(id); let rows;
-      if (table === 'members') rows = await sql`UPDATE members SET first=${b.first},last=${b.last},type=${b.type},title=${b.title||''},series=${b.series||''},email=${b.email||''},phone=${b.phone||''},initials=${b.initials||null},card_bg=${b.card_bg||null},card_txt=${b.card_txt||null},card_gradient=${b.card_gradient||null},role=${b.role||'employee'},active=${b.active!==false},pin_hash=${b.pin_hash||null},pin_token=${b.pin_token||null},last_login=${b.last_login||null},employee_num=${b.employee_num||null},company=${b.company||null} WHERE id=${rid} RETURNING *`;
+      if (table === 'members') rows = await sql`UPDATE members SET first=${b.first},last=${b.last},type=${b.type},title=${b.title||''},series=${b.series||''},email=${b.email||''},phone=${b.phone||''},initials=${b.initials||null},card_bg=${b.card_bg||null},card_txt=${b.card_txt||null},card_gradient=${b.card_gradient||null},role=${b.role||'employee'},active=${b.active!==false},employee_num=${b.employee_num||null},company=${b.company||null} WHERE id=${rid} RETURNING id,first,last,type,title,series,email,phone,initials,card_bg,card_txt,card_gradient,role,active,last_login,employee_num,company,(pin_hash IS NOT NULL) AS has_pin`;
       else if (table === 'gcs') rows = await sql`UPDATE gcs SET name=${b.name},office=${b.office||''},web=${b.web||''},logo=${b.logo||''},street=${b.street||''},city=${b.city||''},phone=${b.phone||''} WHERE id=${rid} RETURNING *`;
       else if (table === 'teams') rows = await sql`UPDATE teams SET name=${b.name} WHERE id=${rid} RETURNING *`;
       else if (table === 'contacts') rows = await sql`UPDATE contacts SET first=${b.first},last=${b.last},role=${b.role||''},team=${b.team||''},email=${b.email||''},phone=${b.phone||''},cell=${b.cell||''},notes=${b.notes||''},linkedin=${b.linkedin||''},photo=${b.photo||''} WHERE id=${rid} RETURNING *`;
