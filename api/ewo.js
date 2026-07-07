@@ -39,6 +39,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    await sql`ALTER TABLE ewo_records ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'`;
+  } catch (e) { console.error('EWO init error:', e.message); }
+
+  try {
     // ── GET: fetch all EWOs for a job ────────────────────────────────────────
     if (req.method === 'GET') {
       const { job_id } = req.query;
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
       const {
         job_id, company = 'Bonas', ewo_num, date, foreman,
         description, workers = [], materials = [], equipment = [],
-        sundries = '', status = 'Pending', gc_super = '', gc_notes = ''
+        sundries = '', status = 'Pending', gc_super = '', gc_notes = '', photos = []
       } = req.body;
 
       if (!job_id || !ewo_num) {
@@ -71,12 +75,12 @@ export default async function handler(req, res) {
       const [row] = await sql`
         INSERT INTO ewo_records
           (job_id, company, ewo_num, date, foreman, description,
-           workers, materials, equipment, sundries, status, gc_super, gc_notes)
+           workers, materials, equipment, sundries, status, gc_super, gc_notes, photos)
         VALUES
           (${job_id}, ${company}, ${ewo_num}, ${date || null}, ${foreman || null},
            ${description || null}, ${JSON.stringify(workers)}, ${JSON.stringify(materials)},
            ${JSON.stringify(equipment)}, ${sundries || null}, ${status},
-           ${gc_super || null}, ${gc_notes || null})
+           ${gc_super || null}, ${gc_notes || null}, ${JSON.stringify(photos)})
         RETURNING *
       `;
       return res.status(201).json(row);
@@ -90,7 +94,7 @@ export default async function handler(req, res) {
       const {
         ewo_num, date, foreman, description,
         workers, materials, equipment, sundries,
-        status, gc_super, gc_notes, company
+        status, gc_super, gc_notes, company, photos
       } = req.body;
 
       const [row] = await sql`
@@ -102,6 +106,7 @@ export default async function handler(req, res) {
           workers     = COALESCE(${workers ? JSON.stringify(workers) : null}::jsonb,   workers),
           materials   = COALESCE(${materials ? JSON.stringify(materials) : null}::jsonb, materials),
           equipment   = COALESCE(${equipment ? JSON.stringify(equipment) : null}::jsonb, equipment),
+          photos      = COALESCE(${photos ? JSON.stringify(photos) : null}::jsonb, photos),
           sundries    = COALESCE(${sundries ?? null},    sundries),
           status      = COALESCE(${status ?? null},      status),
           gc_super    = COALESCE(${gc_super ?? null},    gc_super),
