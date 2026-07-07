@@ -4632,6 +4632,89 @@ function parseChangeLogCORs(grid){
   }
   return results;
 }
+function parseLineItemTable(grid, sectionLabel){
+  const hit = excelFindLabel(grid, [sectionLabel]);
+  if(!hit) return [];
+  const headerRow = hit.row;
+  const row = grid[headerRow]||[];
+  const findCol = function(labels){
+    const norm = labels.map(function(l){return l.toLowerCase().trim();});
+    for(let c=hit.col;c<row.length;c++){
+      const cell = row[c]; if(cell==null) continue;
+      if(norm.includes(String(cell).toLowerCase().trim())) return c;
+    }
+    return -1;
+  };
+  const colItem=findCol(['Item']), colQty=findCol(['Quantity']), colUnit=findCol(['Unit']), colTotal=findCol(['Total','Total Add']);
+  if(colItem<0) return [];
+  const results = [];
+  let blankRun = 0;
+  for(let r=headerRow+1;r<grid.length && blankRun<8;r++){
+    const dataRow = grid[r]||[];
+    const item = dataRow[colItem];
+    const qty = colQty>=0?dataRow[colQty]:null;
+    const unit = colUnit>=0?dataRow[colUnit]:null;
+    const total = colTotal>=0?dataRow[colTotal]:null;
+    const itemStr = item!=null?String(item).trim():'';
+    if(!itemStr){ blankRun++; continue; }
+    blankRun = 0;
+    if(/^subtotal:?$/i.test(itemStr)) continue;
+    const totalNum = (typeof total==='number')?total:parseFloat(total);
+    results.push({
+      item: itemStr,
+      qty: qty!=null?String(qty).trim():'',
+      unit: unit!=null?String(unit).trim():'',
+      total: isNaN(totalNum)?'':totalNum, // handles "NIC" (Not In Contract) gracefully -> blank
+    });
+  }
+  return results;
+}
+function parseSubmittalSection(grid, sectionLabel, stopLabels, columns, meaningfulKeys){
+  const hit = excelFindLabel(grid, [sectionLabel]);
+  if(!hit) return [];
+  const headerRow = hit.row+1;
+  const row = grid[headerRow]||[];
+  const findCol = function(labels){
+    const norm = labels.map(function(l){return l.toLowerCase().trim();});
+    for(let c=0;c<row.length;c++){
+      const cell = row[c]; if(cell==null) continue;
+      if(norm.includes(String(cell).toLowerCase().trim())) return c;
+    }
+    return -1;
+  };
+  const colMap = {};
+  for(const key in columns) colMap[key] = findCol(columns[key]);
+  const results = [];
+  let blankRun = 0;
+  for(let r=headerRow+1;r<grid.length;r++){
+    const dataRow = grid[r]||[];
+    const firstCell = String(dataRow[0]||'').trim();
+    if(stopLabels.some(function(l){return firstCell.toLowerCase()===l.toLowerCase();})) break;
+    const entry = {};
+    for(const key in colMap){
+      const c = colMap[key];
+      const v = c>=0?dataRow[c]:null;
+      entry[key] = v!=null?String(v).trim():'';
+    }
+    // Require a meaningful product column (manufacturer/color), not just the # column —
+    // footer text (signature blocks, stray notes) can land in the # column too.
+    const hasContent = meaningfulKeys.some(function(k){return entry[k];});
+    if(!hasContent){ blankRun++; if(blankRun>=10) break; continue; }
+    blankRun = 0;
+    results.push(entry);
+  }
+  return results;
+}
+function parseSubmittalPaint(grid){
+  return parseSubmittalSection(grid, 'PAINT', ['WALLCOVERING'], {
+    num:['#'], manufacturer:['Manufacturer'], color:['Color'], finish:['Finish'],
+  }, ['manufacturer','color']);
+}
+function parseSubmittalWC(grid){
+  return parseSubmittalSection(grid, 'WALLCOVERING', ['PAINT'], {
+    num:['#'], manufacturer:['Manufacturer'], color:['Pattern, #, Color','Pattern / Color','Color'], leadTime:['Lead Time'],
+  }, ['manufacturer','color']);
+}
 function findSheetByName(workbook, exactNames, fallbackIncludes){
   for(const n of exactNames){
     const match = workbook.SheetNames.find(function(s){ return s.toLowerCase()===n.toLowerCase(); });
@@ -4700,7 +4783,29 @@ function handleExcelImportFile(file){
         const clGrid = XLSX.utils.sheet_to_json(workbook.Sheets[changeLogName], {header:1, raw:true});
         cors = parseChangeLogCORs(clGrid);
       }
-      EXCEL_IMPORT_PARSED = {header, cors, fileName:file.name};
+      let breakdownItems = [];
+      const breakdownName = findSheetByName(workbook, ['Breakdown'], 'breakdown');
+      if(breakdownName){
+        const bkGrid = XLSX.utils.sheet_to_json(workbook.Sheets[breakdownName], {header:1, raw:true});
+        breakdownItems = parseLineItemTable(bkGrid, 'Inclusions:');
+      }
+      let alternateItems = [];
+      const alternatesName = findSheetByName(workbook, ['Alternates'], 'alternates');
+      if(alternatesName){
+        const altGrid = XLSX.utils.sheet_to_json(workbook.Sheets[alternatesName], {header:1, raw:true});
+        alternateItems = parseLineItemTable(altGrid, 'Alternates:');
+      }
+      let submittalPaint = [], submittalWC = [];
+      const submittalName = workbook.SheetNames.find(function(n){
+        const nl = n.toLowerCase();
+        return nl.startsWith('submittal') && !nl.includes('not using');
+      }) || findSheetByName(workbook, [], 'submittal');
+      if(submittalName){
+        const subGrid = XLSX.utils.sheet_to_json(workbook.Sheets[submittalName], {header:1, raw:true});
+        submittalPaint = parseSubmittalPaint(subGrid);
+        submittalWC = parseSubmittalWC(subGrid);
+      }
+      EXCEL_IMPORT_PARSED = {header, cors, breakdownItems, alternateItems, submittalPaint, submittalWC, fileName:file.name};
       renderExcelImportPreview();
     }catch(err){
       errEl.textContent = 'Could not read this file: '+err.message;
@@ -4722,6 +4827,13 @@ function renderExcelImportPreview(){
   const guessedPM = guessMemberIdByName(h.estimator, 'PM');
   const voidCount = p.cors.filter(function(c){return c.void;}).length;
   const corTotal = p.cors.filter(function(c){return !c.void;}).reduce(function(s,c){return s+c.amount;},0);
+  const bkCount = p.breakdownItems.length;
+  const bkTotal = p.breakdownItems.reduce(function(s,i){return s+(typeof i.total==='number'?i.total:0);},0);
+  const altCount = p.alternateItems.length;
+  const paintCount = p.submittalPaint.length;
+  const wcCount = p.submittalWC.length;
+  const sovLineCount = p.breakdownItems.filter(function(i){return typeof i.total==='number' && i.total>0;}).length
+                      + p.alternateItems.filter(function(i){return typeof i.total==='number' && i.total>0;}).length;
 
   const container = document.getElementById('excel-import-preview');
   container.innerHTML =
@@ -4742,7 +4854,7 @@ function renderExcelImportPreview(){
     +'</div>'
     +'<div style="background:'+(p.cors.length?'#F0FFF4':'var(--bg3)')+';border:1px solid '+(p.cors.length?'#B2DFCA':'var(--border)')+';border-radius:var(--r);padding:12px 14px;margin-bottom:8px;">'
     +'<div style="font-size:12px;font-weight:700;">'+(p.cors.length?('Found '+p.cors.length+' CORs \u2014 '+fmtVal(corTotal)+' total'+(voidCount?' ('+voidCount+' voided, excluded from total)':'')) : 'No Change Log / COR history found')+'</div>'
-    +(p.cors.length?'<div style="max-height:180px;overflow-y:auto;margin-top:8px;font-size:11px;">'
+    +(p.cors.length?'<div style="max-height:160px;overflow-y:auto;margin-top:8px;font-size:11px;">'
       +p.cors.slice(0,50).map(function(c){
         return '<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);'+(c.void?'opacity:.5;':'')+'">'
           +'<span style="width:30px;color:var(--text3);">#'+c.num+'</span>'
@@ -4754,7 +4866,19 @@ function renderExcelImportPreview(){
       +(p.cors.length>50?'<div style="padding:6px 0;color:var(--text3);">+ '+(p.cors.length-50)+' more\u2026</div>':'')
       +'</div>':'')
     +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);">Note: only COR totals and descriptions import \u2014 line-item labor/material breakdowns for past CORs aren\u2019t available in the workbook, so they won\u2019t carry over.</div>';
+    +'<div style="background:'+(bkCount?'#F0F7FF':'var(--bg3)')+';border:1px solid '+(bkCount?'#C0D8EE':'var(--border)')+';border-radius:var(--r);padding:12px 14px;margin-bottom:8px;">'
+    +'<div style="font-size:12px;font-weight:700;">'+(bkCount?('Found '+bkCount+' Breakdown line items \u2014 '+fmtVal(bkTotal)+' \u2192 Breakdown tab'):'No Breakdown line items found')+'</div>'
+    +'</div>'
+    +'<div style="background:'+(altCount?'#F0F7FF':'var(--bg3)')+';border:1px solid '+(altCount?'#C0D8EE':'var(--border)')+';border-radius:var(--r);padding:12px 14px;margin-bottom:8px;">'
+    +'<div style="font-size:12px;font-weight:700;">'+(altCount?('Found '+altCount+' Alternate line items \u2192 Alternate tab'):'No Alternate line items found')+'</div>'
+    +'</div>'
+    +'<div style="background:'+((paintCount||wcCount)?'#F0F7FF':'var(--bg3)')+';border:1px solid '+((paintCount||wcCount)?'#C0D8EE':'var(--border)')+';border-radius:var(--r);padding:12px 14px;margin-bottom:8px;">'
+    +'<div style="font-size:12px;font-weight:700;">'+((paintCount||wcCount)?('Found '+paintCount+' paint items, '+wcCount+' wallcovering items \u2192 Submittal tab'):'No Submittal product data found')+'</div>'
+    +'</div>'
+    +'<div style="background:'+(sovLineCount?'#F0FFF4':'var(--bg3)')+';border:1px solid '+(sovLineCount?'#B2DFCA':'var(--border)')+';border-radius:var(--r);padding:12px 14px;margin-bottom:12px;">'
+    +'<div style="font-size:12px;font-weight:700;">'+(sovLineCount?('SOV will be pre-filled with '+sovLineCount+' lines, built from the Breakdown & Alternate items above'):'No priced line items found to build an SOV from')+'</div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);">Note: only COR totals and descriptions import \u2014 line-item labor/material breakdowns for past CORs aren\u2019t available in the workbook, so they won\u2019t carry over. Line items with a "NIC" (Not In Contract) total import with no dollar value \u2014 worth a quick scan after import.</div>';
 }
 async function confirmExcelImport(){
   const p = EXCEL_IMPORT_PARSED;
@@ -4766,6 +4890,14 @@ async function confirmExcelImport(){
   const gcNameVal = document.getElementById('xi-gcname').value.trim();
   const gc = DB.gcs.find(function(g){ return g.name.toLowerCase()===gcNameVal.toLowerCase(); });
 
+  const toProposalRows = function(items){
+    return items.map(function(i){ return {item:i.item, qty:i.qty, unit:i.unit, total:(i.total===''?'':i.total)}; });
+  };
+  const sovLines = p.breakdownItems.concat(p.alternateItems)
+    .filter(function(i){ return typeof i.total==='number' && i.total>0; })
+    .map(function(i){ return {desc:i.item, value:i.total, pctComplete:0}; });
+  const baseBidVal = parseFloat(document.getElementById('xi-value').value)||0;
+
   const job = {
     id: 'job-'+Date.now(),
     bidId: null,
@@ -4773,7 +4905,7 @@ async function confirmExcelImport(){
     num: document.getElementById('xi-num').value.trim(),
     company: company,
     status: 'Active',
-    value: parseFloat(document.getElementById('xi-value').value)||0,
+    value: baseBidVal,
     gcId: gc?gc.id:null,
     gcName: gcNameVal,
     contactId: null,
@@ -4783,7 +4915,19 @@ async function confirmExcelImport(){
     city: document.getElementById('xi-city').value.trim(),
     zip: document.getElementById('xi-zip').value.trim(),
     notes: 'Imported from Excel: '+p.fileName,
-    costs:[], changeOrders:[], sov:[], sovMonths:[], corRates:{},
+    costs:[], changeOrders:[], corRates:{},
+    sov: sovLines,
+    sovMonths: [],
+    submittalPaint: p.submittalPaint.map(function(i){ return {num:i.num, manufacturer:i.manufacturer, color:i.color, finish:i.finish, leadTime:'', orderNote:'', included:false}; }),
+    submittalWC: p.submittalWC.map(function(i){ return {num:i.num, manufacturer:i.manufacturer, color:i.color, leadTime:i.leadTime||'', orderNote:'', included:false}; }),
+    proposal: {
+      breakdownRows: toProposalRows(p.breakdownItems),
+      alternates47: toProposalRows(p.alternateItems),
+      baseBid: baseBidVal,
+      customerName: gcNameVal, attn: document.getElementById('xi-contact').value.trim(),
+      bidNum: document.getElementById('xi-num').value.trim(), projectName: name,
+      projectAddr: (document.getElementById('xi-address').value.trim()+' '+document.getElementById('xi-city').value.trim()+' '+document.getElementById('xi-zip').value.trim()).trim(),
+    },
     cors: p.cors.filter(function(c){return !c.void || c.desc || c.amount;}).map(function(c){
       return {
         date: c.date || new Date().toISOString().split('T')[0],
@@ -4800,7 +4944,7 @@ async function confirmExcelImport(){
     await saveJobs('Import job from Excel');
     closeModal('excel-import');
     openJobDetail(job.id, 'overview');
-    showSaved('\u2713 Job imported \u2014 '+job.cors.length+' CORs added');
+    showSaved('\u2713 Job imported \u2014 '+job.cors.length+' CORs, '+job.proposal.breakdownRows.length+' breakdown items, '+job.sov.length+' SOV lines');
   }catch(e){
     alert('Could not save the imported job: '+e.message);
   }
