@@ -1524,7 +1524,7 @@ function showLoader(msg){
 function hideLoader(){const el=document.getElementById('sb-loader');if(el)el.style.display='none';}
 
 // map Supabase snake_case to our camelCase DB shape
-function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||'',pinHash:r.pin_hash||'',pinToken:r.pin_token||'',role:r.role||'employee',active:r.active!==false,lastLogin:r.last_login||'',employeeNum:r.employee_num||'',company:r.company||''};}
+function mapMember(r){return{id:parseInt(r.id),first:r.first,last:r.last,type:r.type,title:r.title,series:r.series,email:r.email,phone:r.phone,initials:r.initials||'',cardBg:r.card_bg||'',cardTxt:r.card_txt||'',cardGradient:r.card_gradient||'',hasPin:!!r.has_pin,role:r.role||'employee',active:r.active!==false,lastLogin:r.last_login||'',employeeNum:r.employee_num||'',company:r.company||''};}
 function mapGC(r){return{id:parseInt(r.id),name:r.name,office:r.office,web:r.web,logo:r.logo,street:r.street,city:r.city,phone:r.phone,memberIds:(r.member_ids||[]).map(Number)};}
 function mapTeam(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),name:r.name};}
 function mapContact(r){return{id:parseInt(r.id),gcId:parseInt(r.gc_id),first:r.first,last:r.last,role:r.role,team:r.team,email:r.email,phone:r.phone,cell:r.cell,notes:r.notes,linkedin:r.linkedin,photo:r.photo};}
@@ -3777,9 +3777,11 @@ let AUTH_SELECTED=null; // member selected on login screen
 let AUTH_ALL_MEMBERS=[]; // cached active members for name search
 
 // Simple hash (not cryptographic — for PIN obfuscation only)
-async function hashPin(pin){
- const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('bidsum-salt-'+pin));
- return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+async function authCall(action, body){
+ const r=await fetch('/api/auth?action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+ const data=await r.json().catch(()=>({}));
+ if(!r.ok) return Object.assign({ok:false},data);
+ return data;
 }
 
 function getRememberToken(){
@@ -3809,14 +3811,17 @@ async function initAuth(){
  // Check remember me token first
  const stored=getStoredTokenUser();
  if(stored){
- // Verify token against DB
+ // Verify token against DB (server-side — the token itself is never exposed to the client)
  await loadMembersForAuth();
  const m=DB.members.find(x=>parseInt(x.id)===stored.id);
- if(m&&m.active!==false&&m.pinToken===stored.token){
+ if(m&&m.active!==false){
+ const result=await authCall('verify-token',{memberId:m.id,token:stored.token});
+ if(result.ok){
  SESSION.user=m;
  document.getElementById('auth-overlay').style.display='none';
  finishLoad();
  return;
+ }
  }
  clearRememberToken();
  }
@@ -3901,7 +3906,7 @@ function selectAuthUser(id){
  if(!AUTH_SELECTED)return;
  document.getElementById('auth-step-select').style.display='none';
  // First time — no PIN set
- if(!AUTH_SELECTED.pinHash){
+ if(!AUTH_SELECTED.hasPin){
  document.getElementById('auth-step-setup').style.display='block';
  document.getElementById('auth-new-pin').value='';
  document.getElementById('auth-confirm-pin').value='';
@@ -3945,14 +3950,14 @@ function syncPinDots(inputId,dotsId){
 async function submitPin(){
  const pin=document.getElementById('auth-pin-input').value;
  if(pin.length<4){showAuthError('PIN must be at least 4 digits');return;}
- const hashed=await hashPin(pin);
- if(hashed!==AUTH_SELECTED.pinHash){
- showAuthError('Incorrect PIN. Try again.');
+ const result=await authCall('verify-pin',{memberId:AUTH_SELECTED.id,pin});
+ if(!result.ok){
+ showAuthError(result.error||'Incorrect PIN. Try again.');
  document.getElementById('auth-pin-input').value='';
  syncPinDots('auth-pin-input','pin-dots');
  return;
  }
- await completeLogin(document.getElementById('auth-remember').checked);
+ await completeLogin(result.token, document.getElementById('auth-remember').checked);
 }
 
 async function submitSetupPin(){
@@ -3961,35 +3966,15 @@ async function submitSetupPin(){
  const err=document.getElementById('auth-setup-error');
  if(pin.length<4){err.textContent='PIN must be at least 4 digits';err.style.display='block';return;}
  if(pin!==confirm){err.textContent='PINs do not match';err.style.display='block';return;}
- const hashed=await hashPin(pin);
- // Save PIN to DB
- try{
- const token=crypto.randomUUID();
- await sbPatch('members',AUTH_SELECTED.id,{
- ...memberToBody(AUTH_SELECTED),
- pin_hash:hashed,
- pin_token:token,
- last_login:new Date().toISOString()
- });
- AUTH_SELECTED.pinHash=hashed;
- AUTH_SELECTED.pinToken=token;
- if(document.getElementById('auth-remember-setup').checked)setRememberToken(AUTH_SELECTED.id,token);
+ const result=await authCall('set-pin',{memberId:AUTH_SELECTED.id,pin});
+ if(!result.ok){err.textContent=result.error||'Error saving PIN';err.style.display='block';return;}
+ if(document.getElementById('auth-remember-setup').checked)setRememberToken(AUTH_SELECTED.id,result.token);
  SESSION.user=AUTH_SELECTED;
  document.getElementById('auth-overlay').style.display='none';
  finishLoad();
- }catch(e){err.textContent='Error saving PIN: '+e.message;err.style.display='block';}
 }
 
-async function completeLogin(remember){
- const token=crypto.randomUUID();
- try{
- await sbPatch('members',AUTH_SELECTED.id,{
- ...memberToBody(AUTH_SELECTED),
- pin_token:token,
- last_login:new Date().toISOString()
- });
- AUTH_SELECTED.pinToken=token;
- }catch(e){console.error('Token save error:',e);}
+async function completeLogin(token, remember){
  if(remember)setRememberToken(AUTH_SELECTED.id,token);
  SESSION.user=AUTH_SELECTED;
  document.getElementById('auth-overlay').style.display='none';
@@ -4085,7 +4070,7 @@ function logout(){
 
 // ── PIN change ──
 function openChangePinModal(){
- document.getElementById('pin-current-row').style.display=SESSION.user.pinHash?'block':'none';
+ document.getElementById('pin-current-row').style.display=SESSION.user.hasPin?'block':'none';
  document.getElementById('pin-modal-title').textContent='Change my PIN';
  ['pin-current','pin-new','pin-confirm'].forEach(id=>document.getElementById(id).value='');
  document.getElementById('pin-error').style.display='none';
@@ -4096,21 +4081,21 @@ async function savePinChange(){
  const nw=document.getElementById('pin-new').value;
  const conf=document.getElementById('pin-confirm').value;
  const errEl=document.getElementById('pin-error');
- if(SESSION.user.pinHash){
- const curHash=await hashPin(cur);
- if(curHash!==SESSION.user.pinHash){errEl.textContent='Current PIN is incorrect';errEl.style.display='block';return;}
+ if(SESSION.user.hasPin){
+ if(!cur){errEl.textContent='Enter your current PIN';errEl.style.display='block';return;}
+ const check=await authCall('verify-pin',{memberId:SESSION.user.id,pin:cur});
+ if(!check.ok){errEl.textContent=check.error||'Current PIN is incorrect';errEl.style.display='block';return;}
  }
  if(nw.length<4){errEl.textContent='New PIN must be at least 4 digits';errEl.style.display='block';return;}
  if(nw!==conf){errEl.textContent='PINs do not match';errEl.style.display='block';return;}
- const hashed=await hashPin(nw);
- try{
- await sbPatch('members',SESSION.user.id,{...memberToBody(SESSION.user),pin_hash:hashed});
- SESSION.user.pinHash=hashed;
+ const result=await authCall('set-pin',{memberId:SESSION.user.id,pin:nw});
+ if(!result.ok){errEl.textContent=result.error||'Error saving PIN';errEl.style.display='block';return;}
+ SESSION.user.hasPin=true;
  const m=DB.members.find(x=>parseInt(x.id)===parseInt(SESSION.user.id));
- if(m)m.pinHash=hashed;
+ if(m)m.hasPin=true;
+ if(getRememberToken())setRememberToken(SESSION.user.id,result.token);
  closeModal('pin');
  showSaved('✓ PIN updated');
- }catch(e){errEl.textContent='Error: '+e.message;errEl.style.display='block';}
 }
 
 // ── Manager panel ──
@@ -4208,10 +4193,11 @@ async function mgrToggleRole(id){
 
 async function mgrResetPin(id){
  const m=DB.members.find(x=>parseInt(x.id)===id);if(!m)return;
- if(!confirm(`Reset PIN for ${m.first} ${m.last}? They will set a new PIN on next login.`))return;
+ if(!confirm(`Reset PIN for ${m.first} ${m.last}? They will set a new PIN on next login. This also clears any lockout.`))return;
  try{
- await sbPatch('members',id,{...memberToBody(m),pin_hash:null,pin_token:null});
- m.pinHash='';m.pinToken='';
+ const result=await authCall('admin-reset-pin',{memberId:id});
+ if(!result.ok) throw new Error(result.error||'Reset failed');
+ m.hasPin=false;
  alert(`PIN reset for ${m.first} ${m.last}. They will set a new PIN on next login.`);
  document.getElementById('mgr-user-list').innerHTML=renderMgrUserList();
  }catch(e){alert('Error: '+e.message);}
@@ -4247,20 +4233,19 @@ async function submitFirstUser(){
  if(!first||!last){err.textContent='First and last name required';err.style.display='block';return;}
  if(pin.length<4){err.textContent='PIN must be at least 4 digits';err.style.display='block';return;}
  if(pin!==pin2){err.textContent='PINs do not match';err.style.display='block';return;}
- const hashed=await hashPin(pin);
- const token=crypto.randomUUID();
  const initials_val=(first[0]+last[0]).toUpperCase();
  try{
  const row=await sbPost('members',{
  first,last,type,title:'',series:'',email,phone:'',
  initials:initials_val,card_bg:'',card_txt:'',card_gradient:'',
  role:'manager',active:true,
- pin_hash:hashed,pin_token:token,
- last_login:new Date().toISOString()
  });
  const newMember=mapMember(row);
+ const result=await authCall('set-pin',{memberId:newMember.id,pin});
+ if(!result.ok){err.textContent=result.error||'Error setting PIN';err.style.display='block';return;}
+ newMember.hasPin=true;
  DB.members.push(newMember);
- if(document.getElementById('first-remember').checked)setRememberToken(newMember.id,token);
+ if(document.getElementById('first-remember').checked)setRememberToken(newMember.id,result.token);
  SESSION.user=newMember;
  document.getElementById('auth-overlay').style.display='none';
  finishLoad();
