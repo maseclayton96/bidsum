@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BidSum</title>
+<title>Fieldstack</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -683,7 +683,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 <body>
 
 <nav class="nav">
- <div class="nav-logo" onclick="goLanding()">Bid<span>Sum</span></div>
+ <div class="nav-logo" onclick="goLanding()">Field<span>stack</span></div>
  <div id="nav-module-btns" style="display:flex;align-items:center;gap:4px;margin-left:16px;flex:1;overflow:hidden;"></div>
  <div class="nav-actions" id="nav-actions" style="flex-shrink:0;margin-left:8px;"></div>
 </nav>
@@ -697,7 +697,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  <div class="auth-box">
  <!-- Step 1: Type name to find profile -->
  <div id="auth-step-select">
- <div class="auth-logo">Bid<span>Sum</span></div>
+ <div class="auth-logo">Field<span>stack</span></div>
  <div id="auth-search-ui">
  <div class="auth-sub">Type your name or employee # to continue</div>
  <input id="auth-name-input" class="auth-input" style="letter-spacing:0;" placeholder="Name or employee #…" autocomplete="off" oninput="onAuthNameInput()" onkeydown="onAuthNameKeydown(event)">
@@ -708,7 +708,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  </div>
  <!-- Step 2: Enter PIN -->
  <div id="auth-step-pin" style="display:none;">
- <div class="auth-logo">Bid<span>Sum</span></div>
+ <div class="auth-logo">Field<span>stack</span></div>
  <div class="auth-sub" id="auth-pin-sub">Enter your PIN</div>
  <div class="auth-error" id="auth-error"></div>
  <div class="pin-dots" id="pin-dots">
@@ -723,7 +723,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  </div>
  <!-- Step 4: First user bootstrap -->
  <div id="auth-step-first" style="display:none;">
- <div class="auth-logo">Bid<span>Sum</span></div>
+ <div class="auth-logo">Field<span>stack</span></div>
  <div class="auth-sub">Create your account</div>
  <div class="auth-error" id="auth-first-error"></div>
  <div style="display:flex;gap:8px;margin-bottom:14px;">
@@ -749,7 +749,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
  </div>
  <!-- Step 3: First time setup (no PIN set) -->
  <div id="auth-step-setup" style="display:none;">
- <div class="auth-logo">Bid<span>Sum</span></div>
+ <div class="auth-logo">Field<span>stack</span></div>
  <div class="auth-sub">Set up your PIN (first time)</div>
  <div class="auth-error" id="auth-setup-error"></div>
  <input id="auth-new-pin" class="auth-input" type="password" maxlength="6" placeholder="Choose a 4-6 digit PIN" autocomplete="new-password" oninput="syncPinDots('auth-new-pin','setup-dots')">
@@ -1387,7 +1387,7 @@ tr.row-awarded:hover td{background:#C8E6C9!important;}
 
 // ═══ ROLE MATRIX GLOBALS (must be at top — used in renderNav) ════
 const MODULES = [
-  {id:'bidsum', label:'BidSum', desc:'Bid tracking, GC directory, follow-ups'},
+  {id:'bidsum', label:'Bids', desc:'Bid tracking, GC directory, follow-ups'},
   {id:'jobs',   label:'Jobs',   desc:'Job Tracker, job detail pages'},
   {id:'accounting', label:'Accounting', desc:'Payroll import, labor rates'},
   {id:'team',   label:'Team',   desc:'Team directory, member management'},
@@ -1632,7 +1632,7 @@ function renderNav(){
    const navMods=getNavModules();
    const isManager=isManagerMode();
    modBtns.innerHTML=`
-     ${navMods.includes('bidsum')?`<button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">BidSum</button>`:''}
+     ${navMods.includes('bidsum')?`<button class="btn-nav ${NAV.screen==='home'?'btn-nav-active':''}" onclick="goHome()">Bids</button>`:''}
      <button class="btn-nav ${NAV.screen==='pmhome'?'btn-nav-active':''}" onclick="goPMHome()">Home</button>
      ${navMods.includes('jobs')?`<button class="btn-nav ${NAV.screen==='jobs'||NAV.screen==='jobdetail'?'btn-nav-active':''}" onclick="goJobs()">Jobs</button>`:''}
      ${navMods.includes('reports')?`<button class="btn-nav ${NAV.screen==='reports'?'btn-nav-active':''}" onclick="goReports()">Reports</button>`:''}
@@ -1655,7 +1655,7 @@ function renderNav(){
  const m=DB.members.find(x=>parseInt(x.id)===parseInt(NAV.memberId));
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item cur">${m?m.first+' '+m.last:'Member'}</span>`;
  na.innerHTML=`
- <button class="btn-nav" onclick="goHome()">BidSum</button>
+ <button class="btn-nav" onclick="goHome()">Bids</button>
  <button class="btn-nav" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
  <button class="btn-nav" onclick="openMemberEdit()">Edit profile</button>
@@ -1664,7 +1664,7 @@ function renderNav(){
  } else if(NAV.screen==='jobs'){
  bc.innerHTML=`<span class="bc-item" onclick="goLanding()">Home</span><span class="bc-sep">›</span><span class="bc-item" onclick="goJobs()">Jobs</span>${NAV.jobCompany?`<span class="bc-sep">›</span><span class="bc-item cur">${NAV.jobCompany==='ACI'?'Architectural Coatings Inc.':'Bonas Company'}</span>`:''}`;
  na.innerHTML=`
- <button class="btn-nav" onclick="goHome()">BidSum</button>
+ <button class="btn-nav" onclick="goHome()">Bids</button>
  <button class="btn-nav btn-nav-active" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
  <button class="btn-nav" onclick="openExcelImportModal()">Import from Excel</button>
@@ -1695,7 +1695,7 @@ function renderNav(){
  ${m?`<span class="bc-item" onclick="goMember(${NAV.memberId},'clients')">${m.first} ${m.last}</span><span class="bc-sep">›</span>`:''}
  <span class="bc-item cur">${gc?gc.name+(gc.office?' – '+gc.office:''):'GC'}</span>`;
  na.innerHTML=`
- <button class="btn-nav" onclick="goHome()">BidSum</button>
+ <button class="btn-nav" onclick="goHome()">Bids</button>
  <button class="btn-nav" onclick="goJobs()">Jobs</button>
  <button class="btn-nav" onclick="goReports()">Reports</button>
  <button class="btn-nav" onclick="openGCEdit()">Edit GC</button>
@@ -2002,7 +2002,7 @@ function renderLanding(){
  <div class="landing-modules">
  <div class="module-card" onclick="goHome()">
  <div class="module-icon"></div>
- <div class="module-name">BidSum</div>
+ <div class="module-name">Bids</div>
  <div class="module-desc">Bid tracking, GC directory, follow-up calendar</div>
  <div class="module-stat" style="color:var(--blue);">${totalBidsYTD} bids this year</div>
  </div>
@@ -2052,7 +2052,7 @@ function renderHome(){
  document.getElementById('app').innerHTML=`
  <div class="home-hero">
  <div>
- <div class="hero-title">BidSum</div>
+ <div class="hero-title">Bids</div>
  <div class="hero-sub">Sales overview — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}</div>
  </div>
  <div class="hero-stats">
@@ -3882,7 +3882,7 @@ function renderAuthUserList(){
  emptyState.style.display='block';
  emptyState.innerHTML=`<div style="text-align:center;padding:24px 16px;">
  <div style="font-size:32px;margin-bottom:10px;">👋</div>
- <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Welcome to BidSum</div>
+ <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Welcome to Fieldstack</div>
  <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">No accounts exist yet. Create the first account to get started.</div>
  <button class="auth-btn" onclick="showFirstUserSetup()" style="width:auto;padding:10px 24px;">Create First Account</button>
  </div>`;
@@ -10150,7 +10150,7 @@ function addProposalRow(jobId, section){
 
 let EWO_RECORDS = []; // cached for current job
 let EWO_EDIT_ID = null;
-let EWO_MODAL_PHOTOS = []; // photos in the BidSum EWO modal
+let EWO_MODAL_PHOTOS = []; // photos in the Fieldstack EWO modal
 
 // Map DB row → local object
 function mapEWO(r){
