@@ -8,7 +8,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
- --bg:#FFFFFF;--bg2:#FFFFFF;--bg3:#EFEDE9;--bg4:#E5E2DC;--bg5:#D8D4CC;
+ --bg:#F5F4F1;--bg2:#FFFFFF;--bg3:#EFEDE9;--bg4:#E5E2DC;--bg5:#D8D4CC;
  --border:#E2DDD6;--border2:#C8C3BA;
  --text:#181714;--text2:#6A6760;--text3:#A09D97;
  --blue:#1B3F6E;--blue-bg:#DDEAF7;
@@ -7941,18 +7941,31 @@ function printCOR(jobId, corIdx){
   const today=new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
   const corNum=corIdx+1;
   const lines=cor.lines||[];
-  const total=lines.reduce((s,l)=>s+(l.type==='add'?l.amount:-l.amount),0);
+  const total=lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
 
-  const lineRows=lines.map(l=>{
-    const sign=l.type==='add'?'ADD:':'DEDUCT:';
-    const signColor=l.type==='add'?'#000':'#CC0000';
-    return`<tr>
-      <td style="padding:3px 6px;font-size:10px;">${l.qty||''}</td>
-      <td style="padding:3px 6px;font-size:10px;">${l.desc||''}</td>
-      <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.unit?'@ $'+l.unit.toFixed(2):''}</td>
-      <td style="padding:3px 6px;font-size:10px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
-      <td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:600;">$${Math.abs(l.amount||0).toLocaleString('en-US',{minimumFractionDigits:0})}</td>
-    </tr>`;
+  const categoryOrder=[];
+  lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
+  const categoryLabels={labor:'Labor', material:'Materials', ohp:'Overhead & Profit'};
+  const catLabel=(cat)=>categoryLabels[cat]||(cat.charAt(0).toUpperCase()+cat.slice(1));
+
+  const lineRows=categoryOrder.map(cat=>{
+    const catLines=lines.filter(l=>(l.category||'other')===cat);
+    const catTotal=catLines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+    const rows=catLines.map(l=>{
+      const lineAmt=(l.qty||0)*(l.rate||0);
+      const sign=l.type==='deduct'?'DEDUCT:':'ADD:';
+      const signColor=l.type==='deduct'?'#CC0000':'#000';
+      return`<tr>
+        <td style="padding:3px 6px;font-size:10px;">${l.label||l.key||''}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.qty||''}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.rate?'@ $'+l.rate.toFixed(2):''}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:600;">$${Math.abs(lineAmt).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      </tr>`;
+    }).join('');
+    return `<tr><td colspan="5" style="padding:6px 6px 2px;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #ccc;">${catLabel(cat)}</td></tr>
+      ${rows}
+      <tr><td colspan="4" style="padding:3px 6px;font-size:10px;text-align:right;font-weight:bold;">${catLabel(cat)} Subtotal:</td><td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:bold;">$${Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
   }).join('');
 
   const printHTML=`<!DOCTYPE html><html><head>
@@ -8034,7 +8047,7 @@ function printCOR(jobId, corIdx){
       <div class="sig-line">${pm?pm.first+' '+pm.last:'Project Manager'}<br>Project Manager</div>
     </div>
   </body></html>`;
-  const win=window.open('','_blank','width=800,height:900');
+  const win=window.open('','_blank','width=800,height=900');
   win.document.write(printHTML);
   win.document.close();
   setTimeout(()=>win.print(),500);
@@ -8184,24 +8197,29 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     dtm:      getEffectiveCORRate(job,'dtm'),
   };
 
-  // Labor lines by key
-  const laborLines  = lines.filter(l=>l.category==='labor');
-  const matLines    = lines.filter(l=>l.category==='material');
-
   // Totals
   const amt = (l) => (l.qty||0)*(l.rate||0) * (l.type==='deduct'?-1:1);
-  const laborTotal    = laborLines.reduce((s,l)=>s+amt(l),0);
-  const matTotal      = matLines.reduce((s,l)=>s+amt(l),0);
-  const grandTotal    = laborTotal + matTotal;
 
-  // Sundries = 8% of straight + overtime labor
-  const regularLine  = laborLines.find(l=>l.key==='regular');
-  const overtimeLine = laborLines.find(l=>l.key==='overtime');
+  // Group lines by category dynamically — categories are just whatever's present,
+  // not a fixed Labor/Material pair. "Load Template" below seeds the common
+  // Labor / Material / Overhead & Profit starting point, but any of it can be
+  // renamed, added to, or removed entirely.
+  const categoryOrder = [];
+  lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
+  const categoryLabels = {labor:'Labor', material:'Materials', ohp:'Overhead & Profit'};
+  const catLabel = (cat) => categoryLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1));
+  const catTotal = (cat) => lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>s+amt(l),0);
+  const grandTotal = lines.reduce((s,l)=>s+amt(l),0);
+
+  // Sundries = 8% of straight + overtime labor (only meaningful if using the standard template)
+  const laborLinesAll = lines.filter(l=>l.category==='labor');
+  const matLinesAll = lines.filter(l=>l.category==='material');
+  const regularLine  = laborLinesAll.find(l=>l.key==='regular');
+  const overtimeLine = laborLinesAll.find(l=>l.key==='overtime');
   const straightOT   = (regularLine?(regularLine.qty||0)*(regularLine.rate||0):0)
                      + (overtimeLine?(overtimeLine.qty||0)*(overtimeLine.rate||0):0);
   const sundriesAuto = Math.round(straightOT * 0.08 * 100)/100;
-  // Update sundries line if it's auto
-  const sundriesLine = matLines.find(l=>l.key==='sundries');
+  const sundriesLine = matLinesAll.find(l=>l.key==='sundries');
   if(sundriesLine && sundriesLine.autoCalc !== false){
     sundriesLine.rate = sundriesAuto;
     sundriesLine.qty = 1;
@@ -8216,7 +8234,10 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
         oninput="corLineUpdate('${job.id}',${corIdx},${li},'${field}',parseFloat(this.value)||0)"
         style="width:${w||'50px'};border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:Arial;${extra||''}">`;
     return`<tr id="cor-line-${corIdx}-${li}" style="background:${li%2===0?'#fff':'#f8f8f8'};">
-      <td style="padding:3px 8px;border:1px solid #ddd;font-size:10px;">${line.label||line.key||''}</td>
+      <td style="padding:3px 8px;border:1px solid #ddd;font-size:10px;">
+        <input value="${(line.label||line.key||'').replace(/"/g,'&quot;')}" oninput="corLineUpdate('${job.id}',${corIdx},${li},'label',this.value)"
+          style="width:100%;border:none;background:transparent;font-size:10px;font-family:Arial;outline:none;">
+      </td>
       <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:62px;">
         ${isSundries
           ? `<span style="font-size:10px;color:#888;font-style:italic;">auto</span>`
@@ -8238,6 +8259,9 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
       <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-weight:600;font-size:10px;color:${signAmt<0?'#CC0000':'#000'};">
         $${lineAmt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
       </td>
+      <td style="padding:3px 4px;border:1px solid #ddd;width:22px;text-align:center;">
+        <button onclick="corLineRemove('${job.id}',${corIdx},${li})" title="Delete line" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:12px;padding:0;line-height:1;">\u00d7</button>
+      </td>
     </tr>`;
   };
 
@@ -8247,6 +8271,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold;width:80px;">Rate</th>
     <th style="padding:4px 6px;border:1px solid #ccc;font-size:10px;font-weight:bold;width:58px;">Add/Ded</th>
     <th style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold;width:80px;">Amount</th>
+    <th style="padding:4px 4px;border:1px solid #ccc;width:22px;"></th>
   </tr>`;
 
   // Nav
@@ -8414,40 +8439,34 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
         </div>
       </div>
 
-      <!-- LABOR -->
-      <div style="padding:6px 10px;border-bottom:1px solid #ddd;">
-        <div style="font-weight:bold;font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Labor:</div>
-        <table style="width:100%;border-collapse:collapse;">
-          ${lineTableHeader}
-          <tbody>
-            ${laborLines.map((line,li)=>renderRow(line, lines.indexOf(line), true)).join('')}
-          </tbody>
-        </table>
-        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
-          <button onclick="corAddCustomLine('${job.id}',${corIdx},'labor')"
-            style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">+ Custom Labor</button>
-        </div>
-        <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;">
-          Labor Subtotal: <span style="color:${laborTotal<0?'#CC0000':'#000'};">$${Math.abs(laborTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-        </div>
-      </div>
+      <!-- LINE ITEM CATEGORIES (dynamic) -->
+      ${categoryOrder.length ? categoryOrder.map(cat => {
+        const catLines = lines.filter(l=>(l.category||'other')===cat);
+        const total = catTotal(cat);
+        return `<div style="padding:6px 10px;border-bottom:1px solid #ddd;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${catLabel(cat)}:</div>
+            <button onclick="corRemoveCategory('${job.id}',${corIdx},'${cat}')" title="Remove this whole category" style="background:none;border:none;color:#999;cursor:pointer;font-size:10px;">Remove section \u00d7</button>
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            ${lineTableHeader}
+            <tbody>${catLines.map(line=>renderRow(line, lines.indexOf(line), cat==='labor')).join('')}</tbody>
+          </table>
+          <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
+            <button onclick="corAddCustomLine('${job.id}',${corIdx},'${cat}')"
+              style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">+ Add line</button>
+          </div>
+          <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;">
+            ${catLabel(cat)} Subtotal: <span style="color:${total<0?'#CC0000':'#000'};">$${Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+          </div>
+        </div>`;
+      }).join('') : `<div style="padding:20px 10px;text-align:center;color:#999;font-size:11px;">No line items yet. Load the standard template below, or add a category to start from scratch.</div>`}
 
-      <!-- MATERIALS -->
-      <div style="padding:6px 10px;border-bottom:1px solid #ddd;">
-        <div style="font-weight:bold;font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Materials:</div>
-        <table style="width:100%;border-collapse:collapse;">
-          ${lineTableHeader}
-          <tbody>
-            ${matLines.map((line,li)=>renderRow(line, lines.indexOf(line), false)).join('')}
-          </tbody>
-        </table>
-        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
-          <button onclick="corAddCustomLine('${job.id}',${corIdx},'material')"
-            style="font-size:9px;padding:2px 8px;background:#F0FFF4;border:1px solid #B2DFCA;border-radius:3px;cursor:pointer;color:#1E5C3A;">+ Custom Material</button>
-        </div>
-        <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;">
-          Materials Subtotal: <span style="color:${matTotal<0?'#CC0000':'#000'};">$${Math.abs(matTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-        </div>
+      <!-- CATEGORY / TEMPLATE CONTROLS -->
+      <div style="padding:8px 10px;border-bottom:1px solid #ddd;background:#FAFAFA;display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="corAddCategory('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;">+ Add Category</button>
+        <button onclick="corLoadTemplate('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;">\u21bb Load Labor / Material / OH+P Template</button>
+        <button onclick="corClearAllLines('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#FFF0F0;border:1px solid #FFAAAA;border-radius:3px;cursor:pointer;color:#CC0000;">Clear All Lines</button>
       </div>
 
       <!-- Grand Total -->
@@ -8543,6 +8562,66 @@ function corAddCustomLine(jobId, corIdx, category){
   if(!job.cors[corIdx]) return;
   if(!job.cors[corIdx].lines) job.cors[corIdx].lines=[];
   job.cors[corIdx].lines.push({category, key:'custom', label:label.trim(), rate:0, qty:0, type:'add'});
+  saveJobs();
+  openCORForm(jobId, corIdx);
+}
+
+function corAddCategory(jobId, corIdx){
+  const name = prompt('Category name (e.g. "Equipment", "Subcontractor"):');
+  if(!name||!name.trim()) return;
+  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors[corIdx]) return;
+  if(!job.cors[corIdx].lines) job.cors[corIdx].lines=[];
+  const catKey = name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_');
+  job.cors[corIdx].lines.push({category:catKey, key:'custom', label:name.trim(), rate:0, qty:0, type:'add'});
+  saveJobs();
+  openCORForm(jobId, corIdx);
+}
+
+function corRemoveCategory(jobId, corIdx, category){
+  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors[corIdx]) return;
+  if(!confirm('Remove this entire category and all its line items? This cannot be undone.')) return;
+  job.cors[corIdx].lines = (job.cors[corIdx].lines||[]).filter(l=>(l.category||'other')!==category);
+  const lines = job.cors[corIdx].lines;
+  job.cors[corIdx].total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  saveJobs();
+  openCORForm(jobId, corIdx);
+}
+
+function corClearAllLines(jobId, corIdx){
+  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors[corIdx]) return;
+  if(!confirm('Clear every line item on this COR? This cannot be undone.')) return;
+  job.cors[corIdx].lines = [];
+  job.cors[corIdx].total = 0;
+  saveJobs();
+  openCORForm(jobId, corIdx);
+}
+
+function corLoadTemplate(jobId, corIdx){
+  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors[corIdx]) return;
+  if((job.cors[corIdx].lines||[]).length && !confirm('This replaces the current line items with the standard Labor / Material / Overhead & Profit template. Continue?')) return;
+  const R = {
+    regular:  getEffectiveCORRate(job,'regular'),
+    overtime: getEffectiveCORRate(job,'overtime'),
+    premium:  getEffectiveCORRate(job,'premium'),
+    flat:     getEffectiveCORRate(job,'flat'),
+    enamel:   getEffectiveCORRate(job,'enamel'),
+    dtm:      getEffectiveCORRate(job,'dtm'),
+  };
+  job.cors[corIdx].lines = [
+    {category:'labor', key:'regular',  label:'Hours (regular time) @',               rate:R.regular,  qty:0, type:'add'},
+    {category:'labor', key:'overtime', label:'Hours (over time) @',                  rate:R.overtime, qty:0, type:'add'},
+    {category:'labor', key:'premium',  label:'Hours (premium time contract work) @', rate:R.premium,  qty:0, type:'add'},
+    {category:'material', key:'flat',     label:'Gallons of flat paint @',    rate:R.flat,   qty:0, type:'add'},
+    {category:'material', key:'enamel',   label:'Gallons of enamel paint @',  rate:R.enamel, qty:0, type:'add'},
+    {category:'material', key:'dtm',      label:'Gallons of DTM paint @',     rate:R.dtm,    qty:0, type:'add'},
+    {category:'material', key:'sundries', label:'Sundries',                   rate:0,        qty:1, type:'add', autoCalc:true},
+    {category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'},
+  ];
+  job.cors[corIdx].total = 0;
   saveJobs();
   openCORForm(jobId, corIdx);
 }
@@ -8666,6 +8745,8 @@ function openNewCOR(jobId, pageId){
       {category:'material', key:'enamel',   label:'Gallons of enamel paint @',  rate:R.enamel, qty:0, type:'add'},
       {category:'material', key:'dtm',      label:'Gallons of DTM paint @',     rate:R.dtm,    qty:0, type:'add'},
       {category:'material', key:'sundries', label:'Sundries',                   rate:0,        qty:1, type:'add', autoCalc:true},
+      // Overhead & Profit
+      {category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'},
     ],
     total: 0,
     custCONum: '', custDate: '', custAmount: 0, void: false
@@ -10567,7 +10648,59 @@ function renderRFIForm(job, rfi, coHdr, coAddr, coPhone){
         <textarea oninput="updateRFIField('${job.id}','${rfi.id}','rfiAnswer',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${rfi.rfiAnswer||''}</textarea>
       </div>
     </div>
+
+    <!-- ATTACHED DOCUMENTS (screen only, not part of the printed form) -->
+    <div style="margin-top:14px;">
+      <div class="sub-section-title">ATTACHED DOCUMENTS</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Response PDFs, marked-up drawings, or anything else tied to this RFI.</div>
+      <div ondragover="event.preventDefault();this.classList.add('drag-over');" ondragleave="this.classList.remove('drag-over');" ondrop="onRFIDocDrop(event,'${job.id}','${rfi.id}')" onclick="document.getElementById('rfi-doc-input-${rfi.id}').click();" class="import-zone" style="border:2px dashed var(--border2);border-radius:var(--r);padding:18px;text-align:center;cursor:pointer;background:var(--bg3);margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--text2);">Drop PDF here, or click to browse</div>
+        <input type="file" id="rfi-doc-input-${rfi.id}" accept=".pdf" multiple style="display:none;" onchange="onRFIDocSelect(event,'${job.id}','${rfi.id}')">
+      </div>
+      ${(rfi.attachedDocs||[]).length?`<div style="display:flex;flex-direction:column;gap:6px;">
+        ${(rfi.attachedDocs||[]).map((d,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="font-size:16px;">\ud83d\udcc4</div>
+          <a href="${d.dataUrl}" download="${(d.name||'document.pdf').replace(/"/g,'&quot;')}" style="flex:1;font-size:12px;color:var(--text);text-decoration:underline;">${d.name||'document.pdf'}</a>
+          <span style="font-size:11px;color:var(--text3);">${d.uploadedAt?new Date(d.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}</span>
+          <button onclick="removeRFIDoc('${job.id}','${rfi.id}',${i})" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:14px;">\u00d7</button>
+        </div>`).join('')}
+      </div>`:`<div style="font-size:12px;color:var(--text3);">No documents attached yet.</div>`}
+    </div>
   </div>`;
+}
+function onRFIDocDrop(e, jobId, rfiId){
+  e.preventDefault();
+  const zone = e.currentTarget; if(zone) zone.classList.remove('drag-over');
+  processRFIDocs(jobId, rfiId, [...e.dataTransfer.files]);
+}
+function onRFIDocSelect(e, jobId, rfiId){
+  processRFIDocs(jobId, rfiId, [...e.target.files]);
+  e.target.value='';
+}
+function processRFIDocs(jobId, rfiId, files){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  const rfi = (job.rfis||[]).find(r=>r.id===rfiId); if(!rfi) return;
+  if(!rfi.attachedDocs) rfi.attachedDocs=[];
+  const pdfFiles = files.filter(f=>f.type==='application/pdf'||/\.pdf$/i.test(f.name));
+  if(!pdfFiles.length){ alert('Please upload PDF files only.'); return; }
+  let loaded=0;
+  pdfFiles.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      rfi.attachedDocs.push({name:file.name, size:file.size, uploadedAt:new Date().toISOString(), dataUrl:ev.target.result});
+      loaded++;
+      if(loaded===pdfFiles.length){ saveJobs(); openJobDetail(jobId,'rfi'); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function removeRFIDoc(jobId, rfiId, idx){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  const rfi = (job.rfis||[]).find(r=>r.id===rfiId); if(!rfi) return;
+  if(!confirm('Remove this document?')) return;
+  rfi.attachedDocs.splice(idx,1);
+  saveJobs();
+  openJobDetail(jobId,'rfi');
 }
 function renderRFITab(job, coHdr, coAddr, coPhone){
   if(!job.rfis) job.rfis=[];
@@ -10964,6 +11097,7 @@ function mapEWO(r){
     gc_super: r.gc_super||'',
     gc_notes: r.gc_notes||'',
     company: r.company||'Bonas',
+    submittedById: r.submitted_by_id?parseInt(r.submitted_by_id):null,
     created_at: r.created_at||''
   };
 }
@@ -11265,7 +11399,7 @@ async function saveEWO(){
       const idx = EWO_RECORDS.findIndex(r=>String(r.id)===String(EWO_EDIT_ID));
       if(idx>=0) EWO_RECORDS[idx]=mapEWO(row);
     } else {
-      const row = await ewoPost({...data, job_id: jobId, company});
+      const row = await ewoPost({...data, job_id: jobId, company, submitted_by_id: SESSION.user?SESSION.user.id:null});
       EWO_RECORDS.push(mapEWO(row));
     }
     closeEWOModal();
@@ -11302,10 +11436,15 @@ function goEWOHome(){
 
 function ewoHomeMyJobs(){
   loadJobs();
-  const user = SESSION.user;
-  const myId = user?parseInt(user.id):null;
-  if(isManagerMode()) return JOBS.filter(j=>j.status!=='Closed');
-  return JOBS.filter(j=>j.status!=='Closed'&&(parseInt(j.foremanId)===myId||parseInt(j.superId)===myId));
+  return JOBS.filter(j=>j.status!=='Closed');
+}
+function isEWORelevantToUser(ewo, job){
+  if(isManagerMode()) return true;
+  const myId = SESSION.user?parseInt(SESSION.user.id):null;
+  if(myId==null) return false;
+  if(ewo.submittedById && parseInt(ewo.submittedById)===myId) return true;
+  if(job && (parseInt(job.foremanId)===myId || parseInt(job.superId)===myId)) return true;
+  return false;
 }
 
 function renderEWOHome(){
@@ -11320,7 +11459,7 @@ function renderEWOHomeMenu(jobs){
   document.getElementById('app').innerHTML =
     '<div style="margin-bottom:20px;">'
     +'<div style="font-size:24px;font-weight:800;letter-spacing:-.4px;">Extra Work Orders</div>'
-    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">'+jobs.length+' job'+(jobs.length!==1?'s':'')+' assigned to you</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:2px;">Track EWOs you\'ve submitted, on any job</div>'
     +'</div>'
     +'<div style="max-width:640px;">'
     +'<div style="'+cardStyle+'" onclick="openEWOJobPicker()">'
@@ -11345,8 +11484,8 @@ function renderEWOHomeMenu(jobs){
 
 async function loadEWOHomeCounts(jobs){
   try{
-    const results = await Promise.all(jobs.map(j=>ewoGet(j.id).catch(()=>[])));
-    const all = results.flat().map(mapEWO);
+    const results = await Promise.all(jobs.map(j=>ewoGet(j.id).then(rows=>rows.map(r=>Object.assign(mapEWO(r),{_job:j}))).catch(()=>[])));
+    const all = results.flat().filter(e=>isEWORelevantToUser(e, e._job));
     const pending = all.filter(e=>e.status==='Pending');
     const approved = all.filter(e=>e.status==='Approved');
     const pendEl = document.getElementById('ewo-home-pending-sub');
@@ -11374,7 +11513,7 @@ async function loadEWOHomeList(jobs, filter){
       const rows = await ewoGet(j.id).catch(()=>[]);
       return rows.map(r=>Object.assign(mapEWO(r), {_job:j}));
     }));
-    let all = results.flat();
+    let all = results.flat().filter(e=>isEWORelevantToUser(e, e._job));
     if(filter==='pending') all = all.filter(e=>e.status==='Pending');
     else if(filter==='approved') all = all.filter(e=>e.status==='Approved');
     EWO_HOME_RECORDS = all;
