@@ -80,6 +80,15 @@ export default async function handler(req, res) {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`;
+    // Multi-page tab columns — added via ALTER since the jobs table already exists
+    // in production; CREATE TABLE IF NOT EXISTS alone won't add columns to it.
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS breakdown_pages JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS alternate_pages JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS field_budget_pages JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cor_log_pages JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS submittal_pages JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status_pages JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tab_custom JSONB DEFAULT '{}'`;
   } catch(e) { console.error('Init error:', e.message); }
 
   try {
@@ -111,13 +120,15 @@ export default async function handler(req, res) {
           id,bid_id,num,name,company,status,value,gc_id,gc_name,contact_id,contact_name,pm_id,super_id,foreman_id,coord_id,
           address,city,zip,start_date,end_date,closed_date,notes,class_code,prelim_closed,plans_highlighted,
           costs,change_orders,cors,sov,sov_months,cor_rates,budget,gc_team,documents,doc_folders,proposal,specifiers,
-          status_paint,status_wc,submittal_paint,submittal_wc,payroll_imports,schedule_pdf,schedule_pdf_name,schedule_pdf_date
+          status_paint,status_wc,submittal_paint,submittal_wc,payroll_imports,schedule_pdf,schedule_pdf_name,schedule_pdf_date,
+          breakdown_pages,alternate_pages,field_budget_pages,cor_log_pages,submittal_pages,status_pages,tab_custom
         ) VALUES (
           ${b.id},${b.bid_id||null},${b.num||''},${b.name||''},${b.company||'Bonas'},${b.status||'Active'},${b.value||0},
           ${b.gc_id||null},${b.gc_name||''},${b.contact_id||null},${b.contact_name||''},${b.pm_id||null},${b.super_id||null},${b.foreman_id||null},${b.coord_id||null},
           ${b.address||''},${b.city||''},${b.zip||''},${b.start_date||''},${b.end_date||''},${b.closed_date||''},${b.notes||''},${b.class_code||''},${b.prelim_closed||false},${b.plans_highlighted||false},
           ${JSON.stringify(b.costs||[])},${JSON.stringify(b.change_orders||[])},${JSON.stringify(b.cors||[])},${JSON.stringify(b.sov||[])},${JSON.stringify(b.sov_months||[])},${JSON.stringify(b.cor_rates||{})},${JSON.stringify(b.budget||{})},${JSON.stringify(b.gc_team||[])},${JSON.stringify(b.documents||[])},${JSON.stringify(b.doc_folders||[])},${JSON.stringify(b.proposal||{})},${JSON.stringify(b.specifiers||[])},
-          ${JSON.stringify(b.status_paint||[])},${JSON.stringify(b.status_wc||[])},${JSON.stringify(b.submittal_paint||[])},${JSON.stringify(b.submittal_wc||[])},${JSON.stringify(b.payroll_imports||[])},${b.schedule_pdf||null},${b.schedule_pdf_name||null},${b.schedule_pdf_date||null}
+          ${JSON.stringify(b.status_paint||[])},${JSON.stringify(b.status_wc||[])},${JSON.stringify(b.submittal_paint||[])},${JSON.stringify(b.submittal_wc||[])},${JSON.stringify(b.payroll_imports||[])},${b.schedule_pdf||null},${b.schedule_pdf_name||null},${b.schedule_pdf_date||null},
+          ${JSON.stringify(b.breakdown_pages||[])},${JSON.stringify(b.alternate_pages||[])},${JSON.stringify(b.field_budget_pages||[])},${JSON.stringify(b.cor_log_pages||[])},${JSON.stringify(b.submittal_pages||[])},${JSON.stringify(b.status_pages||[])},${JSON.stringify(b.tab_custom||{})}
         )
         ON CONFLICT (id) DO UPDATE SET
           bid_id=EXCLUDED.bid_id,num=EXCLUDED.num,name=EXCLUDED.name,company=EXCLUDED.company,status=EXCLUDED.status,value=EXCLUDED.value,
@@ -125,6 +136,7 @@ export default async function handler(req, res) {
           address=EXCLUDED.address,city=EXCLUDED.city,zip=EXCLUDED.zip,start_date=EXCLUDED.start_date,end_date=EXCLUDED.end_date,closed_date=EXCLUDED.closed_date,notes=EXCLUDED.notes,class_code=EXCLUDED.class_code,prelim_closed=EXCLUDED.prelim_closed,plans_highlighted=EXCLUDED.plans_highlighted,
           costs=EXCLUDED.costs,change_orders=EXCLUDED.change_orders,cors=EXCLUDED.cors,sov=EXCLUDED.sov,sov_months=EXCLUDED.sov_months,cor_rates=EXCLUDED.cor_rates,budget=EXCLUDED.budget,gc_team=EXCLUDED.gc_team,documents=EXCLUDED.documents,doc_folders=EXCLUDED.doc_folders,proposal=EXCLUDED.proposal,specifiers=EXCLUDED.specifiers,
           status_paint=EXCLUDED.status_paint,status_wc=EXCLUDED.status_wc,submittal_paint=EXCLUDED.submittal_paint,submittal_wc=EXCLUDED.submittal_wc,payroll_imports=EXCLUDED.payroll_imports,schedule_pdf=EXCLUDED.schedule_pdf,schedule_pdf_name=EXCLUDED.schedule_pdf_name,schedule_pdf_date=EXCLUDED.schedule_pdf_date,
+          breakdown_pages=EXCLUDED.breakdown_pages,alternate_pages=EXCLUDED.alternate_pages,field_budget_pages=EXCLUDED.field_budget_pages,cor_log_pages=EXCLUDED.cor_log_pages,submittal_pages=EXCLUDED.submittal_pages,status_pages=EXCLUDED.status_pages,tab_custom=EXCLUDED.tab_custom,
           updated_at=NOW()
         RETURNING *`;
       return res.json(rows[0]);
@@ -143,6 +155,7 @@ export default async function handler(req, res) {
           address=${b.address||''},city=${b.city||''},zip=${b.zip||''},start_date=${b.start_date||''},end_date=${b.end_date||''},closed_date=${b.closed_date||''},notes=${b.notes||''},class_code=${b.class_code||''},prelim_closed=${b.prelim_closed||false},plans_highlighted=${b.plans_highlighted||false},
           costs=${JSON.stringify(b.costs||[])},change_orders=${JSON.stringify(b.change_orders||[])},cors=${JSON.stringify(b.cors||[])},sov=${JSON.stringify(b.sov||[])},sov_months=${JSON.stringify(b.sov_months||[])},cor_rates=${JSON.stringify(b.cor_rates||{})},budget=${JSON.stringify(b.budget||{})},gc_team=${JSON.stringify(b.gc_team||[])},documents=${JSON.stringify(b.documents||[])},doc_folders=${JSON.stringify(b.doc_folders||[])},proposal=${JSON.stringify(b.proposal||{})},specifiers=${JSON.stringify(b.specifiers||[])},
           status_paint=${JSON.stringify(b.status_paint||[])},status_wc=${JSON.stringify(b.status_wc||[])},submittal_paint=${JSON.stringify(b.submittal_paint||[])},submittal_wc=${JSON.stringify(b.submittal_wc||[])},payroll_imports=${JSON.stringify(b.payroll_imports||[])},schedule_pdf=${b.schedule_pdf||null},schedule_pdf_name=${b.schedule_pdf_name||null},schedule_pdf_date=${b.schedule_pdf_date||null},
+          breakdown_pages=${JSON.stringify(b.breakdown_pages||[])},alternate_pages=${JSON.stringify(b.alternate_pages||[])},field_budget_pages=${JSON.stringify(b.field_budget_pages||[])},cor_log_pages=${JSON.stringify(b.cor_log_pages||[])},submittal_pages=${JSON.stringify(b.submittal_pages||[])},status_pages=${JSON.stringify(b.status_pages||[])},tab_custom=${JSON.stringify(b.tab_custom||{})},
           updated_at=NOW()
         WHERE id=${rid} RETURNING *`;
       return res.json(rows[0]);
