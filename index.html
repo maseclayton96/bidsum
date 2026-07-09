@@ -5504,7 +5504,59 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
         })()}
       </div>
       <button class="sub-add-btn" onclick="addSubItem('${job.id}','${page.id}','wc')">+ Add wallcovering item</button>
+
+      <!-- APPROVAL DOCUMENTS -->
+      <div class="sub-section-title" style="margin-top:20px;">APPROVAL DOCUMENTS</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">PDF approvals received back from the client for this submittal.</div>
+      <div ondragover="event.preventDefault();this.classList.add('drag-over');" ondragleave="this.classList.remove('drag-over');" ondrop="onApprovalDocDrop(event,'${job.id}','${page.id}')" onclick="document.getElementById('approval-doc-input-${page.id}').click();" class="import-zone" style="border:2px dashed var(--border2);border-radius:var(--r);padding:18px;text-align:center;cursor:pointer;background:var(--bg3);margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--text2);">Drop approval PDF here, or click to browse</div>
+        <input type="file" id="approval-doc-input-${page.id}" accept=".pdf" multiple style="display:none;" onchange="onApprovalDocSelect(event,'${job.id}','${page.id}')">
+      </div>
+      ${(page.approvalDocs||[]).length?`<div style="display:flex;flex-direction:column;gap:6px;">
+        ${(page.approvalDocs||[]).map((d,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);">
+          <div style="font-size:16px;">\ud83d\udcc4</div>
+          <a href="${d.dataUrl}" download="${(d.name||'approval.pdf').replace(/"/g,'&quot;')}" style="flex:1;font-size:12px;color:var(--text);text-decoration:underline;">${d.name||'approval.pdf'}</a>
+          <span style="font-size:11px;color:var(--text3);">${d.uploadedAt?new Date(d.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}</span>
+          <button onclick="removeApprovalDoc('${job.id}','${page.id}',${i})" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:14px;">\u00d7</button>
+        </div>`).join('')}
+      </div>`:`<div style="font-size:12px;color:var(--text3);">No approval documents uploaded yet.</div>`}
     </div>`;
+}
+
+function onApprovalDocDrop(e, jobId, pageId){
+  e.preventDefault();
+  const zone = e.currentTarget; if(zone) zone.classList.remove('drag-over');
+  processApprovalDocs(jobId, pageId, [...e.dataTransfer.files]);
+}
+function onApprovalDocSelect(e, jobId, pageId){
+  processApprovalDocs(jobId, pageId, [...e.target.files]);
+  e.target.value='';
+}
+function processApprovalDocs(jobId, pageId, files){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  initSubmittalPages(job);
+  const page = job.submittalPages.find(p=>p.id===pageId); if(!page) return;
+  if(!page.approvalDocs) page.approvalDocs=[];
+  const pdfFiles = files.filter(f=>f.type==='application/pdf'||/\.pdf$/i.test(f.name));
+  if(!pdfFiles.length){ alert('Please upload PDF files only.'); return; }
+  let loaded=0;
+  pdfFiles.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      page.approvalDocs.push({name:file.name, size:file.size, uploadedAt:new Date().toISOString(), dataUrl:ev.target.result});
+      loaded++;
+      if(loaded===pdfFiles.length){ saveJobs(); openJobDetail(jobId,'submittal'); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function removeApprovalDoc(jobId, pageId, idx){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  const page = (job.submittalPages||[]).find(p=>p.id===pageId); if(!page) return;
+  if(!confirm('Remove this approval document?')) return;
+  page.approvalDocs.splice(idx,1);
+  saveJobs();
+  openJobDetail(jobId,'submittal');
 }
 
 function renderSubRow(jobId, pageId, type, row, idx){
@@ -9981,6 +10033,7 @@ function tableHead(lastCol){
 
 function proposalActionBar(jobId, printFn, label){
   return `<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+    <button class="btn-sm" onclick="openExportPDFModal('${jobId}')">\ud83d\udcc4 Export PDF (multi-page)</button>
     <button class="btn-sm" onclick="${printFn}('${jobId}')">&#9113; Print / PDF</button>
     <button class="btn-sm-primary" onclick="saveProposal('${jobId}')">Save</button>
   </div>`;
@@ -10745,6 +10798,99 @@ function _printPaper(el, job, title){
   </style></head><body>${el.outerHTML}</body></html>`;
   const w=window.open('','_blank','width=900,height=1100');
   w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
+}
+
+// ══════════════════════════════════════════════════════════════
+// COMBINED PDF EXPORT — pick any mix of Lump Sum / Breakdown / Alternate /
+// Submittal pages and print them as a single multi-page document.
+// ══════════════════════════════════════════════════════════════
+function openExportPDFModal(jobId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  initBreakdownPages(job); initAlternatePages(job); initSubmittalPages(job);
+  const existing = document.getElementById('export-pdf-overlay'); if(existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'export-pdf-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+  const section = (title, tabType, key, pages) => {
+    if(tabType==='lumpsum'){
+      return `<label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;font-size:13px;">
+        <input type="checkbox" class="export-pdf-check" data-tab="lumpsum" data-page="">
+        <span style="font-weight:600;">${title}</span>
+      </label>`;
+    }
+    return `<div style="margin-bottom:6px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px;">${title}</div>
+      ${pages.map(p=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 0 5px 16px;cursor:pointer;font-size:12.5px;color:var(--text2);">
+        <input type="checkbox" class="export-pdf-check" data-tab="${tabType}" data-key="${key}" data-page="${p.id}">
+        <span>${p.name}</span>
+      </label>`).join('')}
+    </div>`;
+  };
+
+  overlay.innerHTML = `<div style="background:var(--bg2);border-radius:var(--rlg);box-shadow:var(--shadow);padding:24px;width:380px;max-width:90vw;max-height:80vh;overflow-y:auto;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Export PDF</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Pick any combination of pages \u2014 they'll print as one document, in this order.</div>
+    ${section('Lump Sum', 'lumpsum')}
+    ${section('Breakdown', 'breakdown', 'breakdownPages', job.breakdownPages)}
+    ${section('Alternate', 'alternate', 'alternatePages', job.alternatePages)}
+    ${section('Submittal', 'submittal', 'submittalPages', job.submittalPages)}
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button class="btn" style="flex:1;" onclick="document.getElementById('export-pdf-overlay').remove();">Cancel</button>
+      <button class="btn-primary" style="flex:1;" onclick="generateCombinedPDF('${jobId}')">Generate PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _extractPaperHTML(fullHTML){
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+  holder.innerHTML = fullHTML;
+  document.body.appendChild(holder);
+  const paper = holder.querySelector('#proposal-paper');
+  const out = paper ? paper.outerHTML : '';
+  document.body.removeChild(holder);
+  return out;
+}
+
+function generateCombinedPDF(jobId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  const checks = Array.from(document.querySelectorAll('.export-pdf-check:checked'));
+  if(!checks.length){ alert('Pick at least one page to export.'); return; }
+
+  const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
+  const coAddr = job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive \u2022 Costa Mesa \u2022 CA \u2022 92626';
+  const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
+
+  // Save current page selection so we can restore it after rendering off-screen
+  const savedPageIds = Object.assign({}, CUR_JOB_PAGE_ID);
+
+  const papers = checks.map(cb => {
+    const tab = cb.dataset.tab, pageId = cb.dataset.page;
+    if(pageId) CUR_JOB_PAGE_ID[tab] = pageId;
+    let html = '';
+    if(tab==='lumpsum') html = renderLumpSumTab(job, coHdr, coAddr, coPhone);
+    else if(tab==='breakdown') html = renderBreakdownTab(job, coHdr, coAddr, coPhone);
+    else if(tab==='alternate') html = renderAlternateTab(job, coHdr, coAddr, coPhone);
+    else if(tab==='submittal') html = renderSubmittal(job, coHdr, coAddr, coPhone);
+    return _extractPaperHTML(html);
+  });
+
+  CUR_JOB_PAGE_ID = savedPageIds; // restore, so the on-screen tab you were viewing doesn't change
+
+  const body = papers.map((p,i) => `<div style="${i<papers.length-1?'page-break-after:always;':''}">${p}</div>`).join('');
+  const html = `<!DOCTYPE html><html><head><title>${job.name} \u2014 Export</title>
+  <style>
+    body{margin:0;padding:0;font-family:Arial,sans-serif;}
+    input,textarea{border:none!important;outline:none!important;background:transparent!important;box-shadow:none!important;font-family:Arial,sans-serif;-webkit-appearance:none;appearance:none;}
+    input[type=checkbox]{accent-color:#000;-webkit-appearance:checkbox;appearance:auto;}
+    @media print{@page{margin:0.5in;size:letter;}}
+  </style></head><body>${body}</body></html>`;
+  const overlay = document.getElementById('export-pdf-overlay'); if(overlay) overlay.remove();
+  const w = window.open('','_blank','width=900,height=1100');
+  w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
 }
 
 function addProposalLine(jobId, field){
