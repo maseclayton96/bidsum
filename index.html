@@ -1950,83 +1950,36 @@ function renderFieldHub(){
 function renderLanding(){
  if(!isManagerMode()&&effectiveRoleType()==='FOR'){ renderFieldHub(); return; }
  const now=new Date();
- const curYear=now.getFullYear().toString();
- const allBids=DB.bids;
- const thisYearBids=allBids.filter(b=>b.date&&b.date.startsWith(curYear));
- // Revenue stats — Awarded only
- const awardedBids=thisYearBids.filter(b=>b.status==='Awarded');
- const totalRevenue=awardedBids.reduce((s,b)=>s+(b.value||0),0);
- const activeBids=thisYearBids.filter(b=>['Submitted','Awarded to GC'].includes(b.status));
- const pipelineVal=activeBids.reduce((s,b)=>s+(b.value||0),0);
- const totalBidsYTD=thisYearBids.length;
- const winRate=thisYearBids.filter(b=>['Awarded','Lost'].includes(b.status)).length?
- Math.round(awardedBids.length/thisYearBids.filter(b=>['Awarded','Lost'].includes(b.status)).length*100):0;
- // Team
- const pms=DB.members.filter(m=>m.type==='PM'&&m.active!==false);
- const ests=DB.members.filter(m=>m.type==='EST'&&m.active!==false);
- // Recent awarded bids as "active jobs"
- const activeJobs=[...allBids.filter(b=>b.status==='Awarded'||b.status==='Awarded to GC')]
- .sort((a,b2)=>b2.id-a.id).slice(0,10);
+ const hour=now.getHours();
+ const greeting=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
+ const first=SESSION.user?SESSION.user.first:'';
+ const dateStr=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
 
  document.getElementById('app').innerHTML=`
- <!-- HERO -->
- <div class="landing-hero">
- <div class="landing-company">
- <div class="landing-company-name">Bonas Company</div>
- <div class="landing-company-sub">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+ <div style="max-width:900px;margin:70px auto 0;text-align:center;padding:0 20px;">
+   <div style="font-size:13px;color:var(--text3);margin-bottom:10px;">${greeting}${first?', '+first:''} \u2014 ${dateStr}</div>
+   <div style="font-size:44px;font-weight:800;letter-spacing:-1px;margin-bottom:16px;">Field<span style="color:#CC0000;">stack</span></div>
+   <div style="font-size:17px;color:var(--text2);max-width:540px;margin:0 auto 54px;line-height:1.55;">
+     One connected platform for job site coordination, real-time updates, and field-driven work \u2014 from bid to billing.
+   </div>
+   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:left;">
+     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:28px 26px;box-shadow:var(--shadow);">
+       <div style="font-size:26px;margin-bottom:14px;">\ud83d\udccd</div>
+       <div style="font-size:15px;font-weight:700;margin-bottom:8px;">Job Site Coordination</div>
+       <div style="font-size:13px;color:var(--text3);line-height:1.6;">Foremen, PMs, and the office working off the same job info \u2014 schedules, instructions, and contacts, always current.</div>
+     </div>
+     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:28px 26px;box-shadow:var(--shadow);">
+       <div style="font-size:26px;margin-bottom:14px;">\u26a1</div>
+       <div style="font-size:15px;font-weight:700;margin-bottom:8px;">Real-Time Updates</div>
+       <div style="font-size:13px;color:var(--text3);line-height:1.6;">Costs, CORs, and EWOs update the moment they're entered \u2014 everyone's working off the same numbers, instantly.</div>
+     </div>
+     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:28px 26px;box-shadow:var(--shadow);">
+       <div style="font-size:26px;margin-bottom:14px;">\ud83d\udee0\ufe0f</div>
+       <div style="font-size:15px;font-weight:700;margin-bottom:8px;">Field-Driven</div>
+       <div style="font-size:13px;color:var(--text3);line-height:1.6;">Built around how work actually happens on site \u2014 not a spreadsheet with a new coat of paint.</div>
+     </div>
+   </div>
  </div>
- <div class="landing-kpis">
- <div class="lkpi">
- <div class="lkpi-val">${fmtVal(totalRevenue)}</div>
- <div class="lkpi-lbl">Revenue ${curYear}</div>
- </div>
- <div class="lkpi">
- <div class="lkpi-val">${fmtVal(pipelineVal)}</div>
- <div class="lkpi-lbl">Pipeline</div>
- <div class="lkpi-sub" style="color:rgba(255,255,255,.4);">${activeBids.length} active bids</div>
- </div>
- <div class="lkpi">
- <div class="lkpi-val">${totalBidsYTD}</div>
- <div class="lkpi-lbl">Bids ${curYear}</div>
- <div class="lkpi-sub" style="color:rgba(255,255,255,.4);">${winRate}% win rate</div>
- </div>
- <div class="lkpi">
- <div class="lkpi-val">${pms.length+ests.length}</div>
- <div class="lkpi-lbl">Team members</div>
- <div class="lkpi-sub" style="color:rgba(255,255,255,.4);">${pms.length} PM · ${ests.length} Est</div>
- </div>
- </div>
- </div>
-
- <!-- MODULE NAV -->
- <div class="landing-modules">
- <div class="module-card" onclick="goHome()">
- <div class="module-icon"></div>
- <div class="module-name">Bids</div>
- <div class="module-desc">Bid tracking, GC directory, follow-up calendar</div>
- <div class="module-stat" style="color:var(--blue);">${totalBidsYTD} bids this year</div>
- </div>
- <div class="module-card" onclick="goJobs()">
- <div class="module-icon"></div>
- <div class="module-name">Jobs</div>
- <div class="module-desc">Active jobs, costs, P&L tracking</div>
- <div class="module-stat" style="color:var(--blue);">Click to open</div>
- </div>
- <div class="module-card" onclick="goReports()">
- <div class="module-icon"></div>
- <div class="module-name">Reports</div>
- <div class="module-desc">Annual summaries, PM performance, revenue trends</div>
- <div class="module-stat" style="color:var(--blue);">Click to open</div>
- </div>
- <div class="module-card" onclick="${isManagerMode()?'openManagerPanel()':''}">
- <div class="module-icon"></div>
- <div class="module-name">Team</div>
- <div class="module-desc">${pms.map(m=>`${m.first} ${m.last}`).join(', ')||'No PMs yet'}</div>
- <div class="module-stat" style="color:var(--green);">${pms.length+ests.length} active members</div>
- </div>
- </div>
-
-
  `;
 }
 
@@ -5104,6 +5057,8 @@ function mapJob(r){
     submittalPages: r.submittal_pages||[],
     statusPages: r.status_pages||[],
     tabCustom: r.tab_custom||{},
+    rfis: r.rfis||[],
+    transmittals: r.transmittals||[],
     payrollImports: r.payroll_imports||[],
     schedulePDF: r.schedule_pdf||null,
     schedulePDFName: r.schedule_pdf_name||null,
@@ -5160,6 +5115,8 @@ function jobToBody(job){
     submittal_pages: job.submittalPages||[],
     status_pages: job.statusPages||[],
     tab_custom: job.tabCustom||{},
+    rfis: job.rfis||[],
+    transmittals: job.transmittals||[],
     payroll_imports: job.payrollImports||[],
     schedule_pdf: job.schedulePDF||null,
     schedule_pdf_name: job.schedulePDFName||null,
@@ -10233,7 +10190,9 @@ function pageTableHead(lastCol){
 }
 function updatePageRow(jobId, tabType, key, pageId, idx, field, val){
   const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
-  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page || !page.rows || !page.rows[idx]) return;
+  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page) return;
+  if(!page.rows) page.rows=[];
+  while(page.rows.length<=idx) page.rows.push({item:'',qty:'',unit:'',total:''});
   page.rows[idx][field] = (field==='total') ? (val===''?'':(parseFloat(val)||0)) : val;
   saveJobs();
 }
@@ -10275,6 +10234,9 @@ function renderBreakdownTab(job, coHdr, coAddr, coPhone){
   initBreakdownPages(job);
   const maker = function(){return {name:'Breakdown', rows:[]};};
   const page = currentPage(job, 'breakdownPages', 'breakdown', maker);
+  const BREAKDOWN_MIN = 20;
+  const displayRows = (page.rows||[]).slice();
+  while(displayRows.length<BREAKDOWN_MIN) displayRows.push({item:'',qty:'',unit:'',total:''});
   return `<div style="max-width:860px;margin:0 auto;">
     ${renderPageTabStrip(job, 'breakdown', 'breakdownPages', maker)}
     ${proposalActionBar(job.id,'printBreakdown','')}
@@ -10284,7 +10246,7 @@ function renderBreakdownTab(job, coHdr, coAddr, coPhone){
       <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Inclusions \u2014 ${page.name}:</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
         <thead>${pageTableHead('Total')}</thead>
-        <tbody>${editablePageRows(page.rows||[], job.id, 'breakdown', 'breakdownPages', page.id, 'Total')}</tbody>
+        <tbody>${editablePageRows(displayRows, job.id, 'breakdown', 'breakdownPages', page.id, 'Total')}</tbody>
       </table>
       <div style="margin-bottom:10px;">
         <button onclick="addPageRow('${job.id}','breakdown','breakdownPages','${page.id}')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>
@@ -10304,6 +10266,9 @@ function renderAlternateTab(job, coHdr, coAddr, coPhone){
   initAlternatePages(job);
   const maker = function(){return {name:'Alternates', rows:[]};};
   const page = currentPage(job, 'alternatePages', 'alternate', maker);
+  const ALT_MIN = 20;
+  const displayRows = (page.rows||[]).slice();
+  while(displayRows.length<ALT_MIN) displayRows.push({item:'',qty:'',unit:'',total:''});
   return `<div style="max-width:860px;margin:0 auto;">
     ${renderPageTabStrip(job, 'alternate', 'alternatePages', maker)}
     ${proposalActionBar(job.id,'printAlternate','')}
@@ -10313,7 +10278,7 @@ function renderAlternateTab(job, coHdr, coAddr, coPhone){
       <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">${page.name}:</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
         <thead>${pageTableHead('Total Add')}</thead>
-        <tbody>${editablePageRows(page.rows||[], job.id, 'alternate', 'alternatePages', page.id, 'Total Add')}</tbody>
+        <tbody>${editablePageRows(displayRows, job.id, 'alternate', 'alternatePages', page.id, 'Total Add')}</tbody>
       </table>
       <button onclick="addPageRow('${job.id}','alternate','alternatePages','${page.id}')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add alternate</button>
     `)}
@@ -10321,59 +10286,141 @@ function renderAlternateTab(job, coHdr, coAddr, coPhone){
 }
 
 // ── RFI TAB ──────────────────────────────────────────────────────────
-function renderRFITab(job, coHdr, coAddr, coPhone){
-  initProposal(job);
-  const p = job.proposal;
+let RFI_ACTIVE_ID = null;
+function newRFIDefaults(job){
+  const p = job.proposal||{};
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  return {
+    id: newPageId(),
+    num: String((job.rfis||[]).length+1),
+    date: new Date().toISOString().split('T')[0],
+    customerName: p.customerName||(gc?gc.name:job.gcName)||'',
+    customerAddr: p.customerAddr||'',
+    attn: p.attn||(contact?contact.first+' '+contact.last:'')||'',
+    contactPhone: p.contactPhone||'',
+    contactFax: p.contactFax||'',
+    projectName: p.projectName||job.name||'',
+    projectAddr: p.projectAddr||'',
+    bidNum: p.bidNum||job.num||'',
+    proposalDate: new Date().toISOString().split('T')[0],
+    rfiQuestion: '', rfiAnswer: '', rfiResponseBy: '',
+  };
+}
+function openNewRFI(jobId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.rfis) job.rfis=[];
+  const rfi = newRFIDefaults(job);
+  job.rfis.push(rfi);
+  saveJobs();
+  RFI_ACTIVE_ID = rfi.id;
+  openJobDetail(jobId,'rfi');
+}
+function openRFIForm(jobId, rfiId){
+  RFI_ACTIVE_ID = rfiId;
+  openJobDetail(jobId,'rfi');
+}
+function backToRFILog(jobId){
+  RFI_ACTIVE_ID = null;
+  openJobDetail(jobId,'rfi');
+}
+function updateRFIField(jobId, rfiId, field, val){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  const rfi = (job.rfis||[]).find(r=>r.id===rfiId); if(!rfi) return;
+  rfi[field] = val;
+  saveJobs();
+}
+function deleteRFI(jobId, rfiId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!confirm('Delete this RFI? This cannot be undone.')) return;
+  job.rfis = (job.rfis||[]).filter(r=>r.id!==rfiId);
+  if(RFI_ACTIVE_ID===rfiId) RFI_ACTIVE_ID = null;
+  saveJobs();
+  openJobDetail(jobId,'rfi');
+}
+function renderRFILog(job){
+  const rfis = job.rfis||[];
+  return `<div style="max-width:860px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;">RFI Log</div>
+      <button class="btn-sm-primary" onclick="openNewRFI('${job.id}')">+ New RFI</button>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:var(--bg3);">
+          <th style="padding:8px;text-align:center;width:60px;">RFI #</th>
+          <th style="padding:8px;text-align:left;width:90px;">Date</th>
+          <th style="padding:8px;text-align:left;">Question</th>
+          <th style="padding:8px;text-align:left;width:100px;">Response By</th>
+          <th style="padding:8px;width:40px;"></th>
+        </tr></thead>
+        <tbody>
+          ${rfis.length?rfis.map(r=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="openRFIForm('${job.id}','${r.id}')">
+            <td style="padding:8px;text-align:center;"><span style="color:#CC0000;font-weight:700;text-decoration:underline;">${r.num||'\u2014'}</span></td>
+            <td style="padding:8px;">${fmtDate(r.date)||'\u2014'}</td>
+            <td style="padding:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.rfiQuestion||'\u2014'}</td>
+            <td style="padding:8px;">${r.rfiResponseBy||'\u2014'}</td>
+            <td style="padding:8px;text-align:center;"><button onclick="event.stopPropagation();deleteRFI('${job.id}','${r.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;">\ud83d\uddd1</button></td>
+          </tr>`).join(''):'<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text3);">No RFIs yet \u2014 click + New RFI to get started</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+function renderRFIForm(job, rfi, coHdr, coAddr, coPhone){
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;';
-  const respDate = p.rfiResponseBy || new Date(Date.now()+7*86400000).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'2-digit'});
+  const respDate = rfi.rfiResponseBy || new Date(Date.now()+7*86400000).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'2-digit'});
 
   return `<div style="max-width:860px;margin:0 auto;">
-    ${proposalActionBar(job.id,'printRFI','')}
-    ${proposalPaper(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="btn-sm" onclick="backToRFILog('${job.id}')">\u2190 RFI Log</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="printRFI('${job.id}')">&#9113; Print / PDF</button>
+        <button class="btn-sm-primary" onclick="saveProposal('${job.id}')">Save</button>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.1);font-family:Arial,sans-serif;padding:36px 42px;" id="proposal-paper">
       ${coHeaderHTML(job)}
       <div style="font-size:15px;font-weight:bold;text-align:center;margin-bottom:4px;letter-spacing:.5px;">REQUEST FOR INFORMATION</div>
-      <div style="font-size:14px;font-weight:bold;text-align:center;margin-bottom:14px;"># <input value="${p.rfiNum||'1'}" oninput="updateProposalField('${job.id}','rfiNum',this.value)" style="${iS}width:40px;text-align:center;font-size:14px;font-weight:bold;"></div>
-      <!-- Info grid matching template -->
+      <div style="font-size:14px;font-weight:bold;text-align:center;margin-bottom:14px;"># <input value="${rfi.num||'1'}" oninput="updateRFIField('${job.id}','${rfi.id}','num',this.value)" style="${iS}width:40px;text-align:center;font-size:14px;font-weight:bold;"></div>
       <div style="display:flex;gap:28px;font-size:11px;margin-bottom:14px;">
         <div style="flex:1.4;display:flex;flex-direction:column;gap:12px;">
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">CUSTOMER:</div>
-            <input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;">
-            <input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+            <input value="${(rfi.customerName||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','customerName',this.value)" style="${iS}width:100%;">
+            <input value="${(rfi.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">ATTN:</div>
-            <input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;">
+            <input value="${(rfi.attn||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','attn',this.value)" style="${iS}width:100%;">
             <div style="display:flex;gap:10px;margin-top:3px;">
-              <input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}flex:1;">
-              <input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" placeholder="Fax" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}flex:1;">
+              <input value="${(rfi.contactPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone" oninput="updateRFIField('${job.id}','${rfi.id}','contactPhone',this.value)" style="${iS}flex:1;">
+              <input value="${(rfi.contactFax||'').replace(/"/g,'&quot;')}" placeholder="Fax" oninput="updateRFIField('${job.id}','${rfi.id}','contactFax',this.value)" style="${iS}flex:1;">
             </div>
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">PROJECT:</div>
-            <input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;">
-            <input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+            <input value="${(rfi.projectName||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;">
+            <input value="${(rfi.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
           </div>
         </div>
         <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">BID #:</div>
-            <input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;">
+            <input value="${(rfi.bidNum||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','bidNum',this.value)" style="${iS}width:100%;">
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">DATE:</div>
-            <input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;">
+            <input type="date" value="${rfi.proposalDate||''}" oninput="updateRFIField('${job.id}','${rfi.id}','proposalDate',this.value)" style="${iS}width:100%;">
           </div>
         </div>
       </div>
       <div style="border-top:1px solid #000;margin-bottom:14px;"></div>
       <div style="font-size:11px;margin-bottom:14px;">Please provide the following information regarding the above stated project:</div>
-      <div style="margin-bottom:8px;font-size:11px;padding-left:30px;">1) <input value="${(p.rfiQuestion||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','rfiQuestion',this.value)" style="${iS}width:85%;"></div>
+      <div style="margin-bottom:8px;font-size:11px;padding-left:30px;">1) <input value="${(rfi.rfiQuestion||'').replace(/"/g,'&quot;')}" oninput="updateRFIField('${job.id}','${rfi.id}','rfiQuestion',this.value)" style="${iS}width:85%;"></div>
       <div style="display:flex;justify-content:flex-end;margin:20px 0;font-size:11px;">
-        Response requested by: <input value="${p.rfiResponseBy||respDate}" oninput="updateProposalField('${job.id}','rfiResponseBy',this.value)" style="${iS}width:100px;margin-left:8px;text-align:right;">
+        Response requested by: <input value="${rfi.rfiResponseBy||respDate}" oninput="updateRFIField('${job.id}','${rfi.id}','rfiResponseBy',this.value)" style="${iS}width:100px;margin-left:8px;text-align:right;">
       </div>
       <div style="font-size:10px;margin-bottom:30px;">
         <div style="font-weight:bold;">${pm?pm.first+' '+pm.last:''}</div>
@@ -10381,65 +10428,154 @@ function renderRFITab(job, coHdr, coAddr, coPhone){
       </div>
       <div style="border-top:1px solid #ccc;padding-top:10px;font-size:11px;">
         <div style="font-weight:bold;margin-bottom:6px;">ANSWER:</div>
-        <textarea oninput="updateProposalField('${job.id}','rfiAnswer',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${p.rfiAnswer||''}</textarea>
+        <textarea oninput="updateRFIField('${job.id}','${rfi.id}','rfiAnswer',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${rfi.rfiAnswer||''}</textarea>
       </div>
-    `)}
+    </div>
   </div>`;
+}
+function renderRFITab(job, coHdr, coAddr, coPhone){
+  if(!job.rfis) job.rfis=[];
+  const activeRFI = RFI_ACTIVE_ID ? job.rfis.find(r=>r.id===RFI_ACTIVE_ID) : null;
+  if(activeRFI) return renderRFIForm(job, activeRFI, coHdr, coAddr, coPhone);
+  return renderRFILog(job);
 }
 
 // ── TRANSMITTAL TAB ──────────────────────────────────────────────────
-function renderTransmittalTab(job, coHdr, coAddr, coPhone){
-  initProposal(job);
-  const p = job.proposal;
+let TRANSMITTAL_ACTIVE_ID = null;
+function newTransmittalDefaults(job){
+  const p = job.proposal||{};
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
+  return {
+    id: newPageId(),
+    num: String((job.transmittals||[]).length+1),
+    date: new Date().toISOString().split('T')[0],
+    customerName: p.customerName||(gc?gc.name:job.gcName)||'',
+    customerAddr: p.customerAddr||'',
+    attn: p.attn||(contact?contact.first+' '+contact.last:'')||'',
+    contactPhone: p.contactPhone||'',
+    contactFax: p.contactFax||'',
+    projectName: p.projectName||job.name||'',
+    projectAddr: p.projectAddr||'',
+    bidNum: p.bidNum||job.num||'',
+    proposalDate: new Date().toISOString().split('T')[0],
+    transmittalPages: '1',
+    transmittalChecks: {}, transmittalDelivery: {}, transmittalRemarks: '',
+  };
+}
+function openNewTransmittal(jobId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.transmittals) job.transmittals=[];
+  const t = newTransmittalDefaults(job);
+  job.transmittals.push(t);
+  saveJobs();
+  TRANSMITTAL_ACTIVE_ID = t.id;
+  openJobDetail(jobId,'transmittal');
+}
+function openTransmittalForm(jobId, tId){
+  TRANSMITTAL_ACTIVE_ID = tId;
+  openJobDetail(jobId,'transmittal');
+}
+function backToTransmittalLog(jobId){
+  TRANSMITTAL_ACTIVE_ID = null;
+  openJobDetail(jobId,'transmittal');
+}
+function updateTransmittalField(jobId, tId, field, val){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  const t = (job.transmittals||[]).find(x=>x.id===tId); if(!t) return;
+  t[field] = val;
+  saveJobs();
+}
+function deleteTransmittal(jobId, tId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!confirm('Delete this Transmittal? This cannot be undone.')) return;
+  job.transmittals = (job.transmittals||[]).filter(x=>x.id!==tId);
+  if(TRANSMITTAL_ACTIVE_ID===tId) TRANSMITTAL_ACTIVE_ID = null;
+  saveJobs();
+  openJobDetail(jobId,'transmittal');
+}
+function renderTransmittalLog(job){
+  const list = job.transmittals||[];
+  return `<div style="max-width:860px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;">Transmittal Log</div>
+      <button class="btn-sm-primary" onclick="openNewTransmittal('${job.id}')">+ New Transmittal</button>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:var(--bg3);">
+          <th style="padding:8px;text-align:center;width:60px;">#</th>
+          <th style="padding:8px;text-align:left;width:90px;">Date</th>
+          <th style="padding:8px;text-align:left;">To</th>
+          <th style="padding:8px;text-align:left;width:80px;">Pages</th>
+          <th style="padding:8px;width:40px;"></th>
+        </tr></thead>
+        <tbody>
+          ${list.length?list.map(t=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="openTransmittalForm('${job.id}','${t.id}')">
+            <td style="padding:8px;text-align:center;"><span style="color:#CC0000;font-weight:700;text-decoration:underline;">${t.num||'\u2014'}</span></td>
+            <td style="padding:8px;">${fmtDate(t.date)||'\u2014'}</td>
+            <td style="padding:8px;">${t.customerName||'\u2014'}</td>
+            <td style="padding:8px;">${t.transmittalPages||'1'}</td>
+            <td style="padding:8px;text-align:center;"><button onclick="event.stopPropagation();deleteTransmittal('${job.id}','${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;">\ud83d\uddd1</button></td>
+          </tr>`).join(''):'<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text3);">No Transmittals yet \u2014 click + New Transmittal to get started</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+function renderTransmittalForm(job, t, coHdr, coAddr, coPhone){
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const iS = 'border:none;border-bottom:1px solid #ccc;background:transparent;font-size:11px;font-family:Arial,sans-serif;outline:none;';
-  const tc = p.transmittalChecks || {};
-  const td = p.transmittalDelivery || {};
+  const tc = t.transmittalChecks || {};
   const chk = (field, label, grp) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;">
-    <input type="checkbox" ${tc[field]?'checked':''} onchange="updateTransmittalCheck('${job.id}','${grp||'transmittalChecks'}','${field}',this.checked)" style="width:14px;height:14px;cursor:pointer;">
+    <input type="checkbox" ${tc[field]?'checked':''} onchange="updateTransmittalCheck('${job.id}','${t.id}','${grp||'transmittalChecks'}','${field}',this.checked)" style="width:14px;height:14px;cursor:pointer;">
     <span style="font-size:11px;">${label}</span>
   </div>`;
 
   return `<div style="max-width:860px;margin:0 auto;">
-    ${proposalActionBar(job.id,'printTransmittal','')}
-    ${proposalPaper(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="btn-sm" onclick="backToTransmittalLog('${job.id}')">\u2190 Transmittal Log</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="printTransmittal('${job.id}')">&#9113; Print / PDF</button>
+        <button class="btn-sm-primary" onclick="saveProposal('${job.id}')">Save</button>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.1);font-family:Arial,sans-serif;padding:36px 42px;" id="proposal-paper">
       ${coHeaderHTML(job)}
       <div style="font-size:16px;font-weight:bold;text-align:center;letter-spacing:1px;margin-bottom:16px;">TRANSMITTAL</div>
       <div style="display:flex;gap:28px;font-size:11px;margin-bottom:14px;">
         <div style="flex:1.4;display:flex;flex-direction:column;gap:12px;">
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">TO:</div>
-            <input value="${(p.customerName||gc&&gc.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerName',this.value)" style="${iS}width:100%;">
-            <input value="${(p.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+            <input value="${(t.customerName||'').replace(/"/g,'&quot;')}" oninput="updateTransmittalField('${job.id}','${t.id}','customerName',this.value)" style="${iS}width:100%;">
+            <input value="${(t.customerAddr||'').replace(/"/g,'&quot;')}" oninput="updateTransmittalField('${job.id}','${t.id}','customerAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">ATTN:</div>
-            <input value="${(p.attn||contact&&contact.first+' '+contact.last||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','attn',this.value)" style="${iS}width:100%;">
+            <input value="${(t.attn||'').replace(/"/g,'&quot;')}" oninput="updateTransmittalField('${job.id}','${t.id}','attn',this.value)" style="${iS}width:100%;">
             <div style="display:flex;gap:10px;margin-top:3px;">
-              <input value="${(p.contactPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone" oninput="updateProposalField('${job.id}','contactPhone',this.value)" style="${iS}flex:1;">
-              <input value="${(p.contactFax||'').replace(/"/g,'&quot;')}" placeholder="Fax" oninput="updateProposalField('${job.id}','contactFax',this.value)" style="${iS}flex:1;">
+              <input value="${(t.contactPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone" oninput="updateTransmittalField('${job.id}','${t.id}','contactPhone',this.value)" style="${iS}flex:1;">
+              <input value="${(t.contactFax||'').replace(/"/g,'&quot;')}" placeholder="Fax" oninput="updateTransmittalField('${job.id}','${t.id}','contactFax',this.value)" style="${iS}flex:1;">
             </div>
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">PROJECT:</div>
-            <input value="${(p.projectName||job.name||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;">
-            <input value="${(p.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
+            <input value="${(t.projectName||'').replace(/"/g,'&quot;')}" oninput="updateTransmittalField('${job.id}','${t.id}','projectName',this.value)" style="${iS}width:100%;font-weight:bold;">
+            <input value="${(t.projectAddr||'').replace(/"/g,'&quot;')}" oninput="updateTransmittalField('${job.id}','${t.id}','projectAddr',this.value)" style="${iS}width:100%;margin-top:3px;font-size:10px;">
           </div>
         </div>
         <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">BID #:</div>
-            <input value="${(p.bidNum||job.num||'').replace(/"/g,'&quot;')}" oninput="updateProposalField('${job.id}','bidNum',this.value)" style="${iS}width:100%;">
+            <input value="${(t.bidNum||'').replace(/"/g,'&quot;')}" oninput="updateTransmittalField('${job.id}','${t.id}','bidNum',this.value)" style="${iS}width:100%;">
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;">DATE:</div>
-            <input type="date" value="${p.proposalDate||''}" oninput="updateProposalField('${job.id}','proposalDate',this.value)" style="${iS}width:100%;">
+            <input type="date" value="${t.proposalDate||''}" oninput="updateTransmittalField('${job.id}','${t.id}','proposalDate',this.value)" style="${iS}width:100%;">
           </div>
           <div>
             <div style="font-weight:bold;margin-bottom:2px;font-size:10px;">PAGES INCLUDED:</div>
-            <input value="${p.transmittalPages||'1'}" oninput="updateProposalField('${job.id}','transmittalPages',this.value)" style="${iS}width:60px;">
+            <input value="${t.transmittalPages||'1'}" oninput="updateTransmittalField('${job.id}','${t.id}','transmittalPages',this.value)" style="${iS}width:60px;">
           </div>
         </div>
       </div>
@@ -10448,7 +10584,7 @@ function renderTransmittalTab(job, coHdr, coAddr, coPhone){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
           ${chk('proposal','Proposal')} ${chk('submittals','Submittals')}
           ${chk('rfi','Request for information')} ${chk('productData','Product Data and MSDS sheets')}
-          ${chk('changeOrder','Change order request')} <div style="display:flex;align-items:center;gap:8px;padding:8px 0;"><input type="checkbox" style="width:14px;height:14px;"><input value="${tc.other||''}" oninput="updateTransmittalCheck('${job.id}','transmittalChecks','other',this.value)" placeholder="_________________" style="${iS}width:80%;"></div>
+          ${chk('changeOrder','Change order request')} <div style="display:flex;align-items:center;gap:8px;padding:8px 0;"><input type="checkbox" style="width:14px;height:14px;"><input value="${tc.other||''}" oninput="updateTransmittalCheck('${job.id}','${t.id}','transmittalChecks','other',this.value)" placeholder="_________________" style="${iS}width:80%;"></div>
         </div>
       </div>
       <div style="border-top:1px solid #000;padding-top:12px;margin-bottom:12px;">
@@ -10460,22 +10596,28 @@ function renderTransmittalTab(job, coHdr, coAddr, coPhone){
       </div>
       <div style="border-top:1px solid #000;padding-top:12px;margin-bottom:16px;">
         <div style="font-weight:bold;font-size:12px;margin-bottom:6px;">Remarks:</div>
-        <textarea oninput="updateProposalField('${job.id}','transmittalRemarks',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${p.transmittalRemarks||''}</textarea>
+        <textarea oninput="updateTransmittalField('${job.id}','${t.id}','transmittalRemarks',this.value)" style="width:100%;min-height:60px;border:none;border-bottom:1px solid #ccc;font-size:11px;font-family:Arial;resize:none;outline:none;background:transparent;">${t.transmittalRemarks||''}</textarea>
       </div>
       <div style="font-size:10px;">
         <div style="font-weight:bold;">${pm?pm.first+' '+pm.last:''}</div>
         <div>${pm&&pm.title?pm.title:'Project Manager'}</div>
       </div>
-    `)}
+    </div>
   </div>`;
 }
+function renderTransmittalTab(job, coHdr, coAddr, coPhone){
+  if(!job.transmittals) job.transmittals=[];
+  const activeT = TRANSMITTAL_ACTIVE_ID ? job.transmittals.find(x=>x.id===TRANSMITTAL_ACTIVE_ID) : null;
+  if(activeT) return renderTransmittalForm(job, activeT, coHdr, coAddr, coPhone);
+  return renderTransmittalLog(job);
+}
 
-// ── HELPER: update transmittal checkboxes ────────────────────────────
-function updateTransmittalCheck(jobId, group, field, val){
+// ── HELPER: update transmittal checkboxes (now per-entry) ────────────
+function updateTransmittalCheck(jobId, tId, group, field, val){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
-  if(!job.proposal)job.proposal={};
-  if(!job.proposal[group])job.proposal[group]={};
-  job.proposal[group][field]=val;
+  const t = (job.transmittals||[]).find(x=>x.id===tId); if(!t) return;
+  if(!t[group]) t[group]={};
+  t[group][field]=val;
   saveJobs();
 }
 
