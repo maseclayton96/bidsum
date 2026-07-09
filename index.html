@@ -4890,13 +4890,16 @@ async function confirmExcelImport(){
   const gcNameVal = document.getElementById('xi-gcname').value.trim();
   const gc = DB.gcs.find(function(g){ return g.name.toLowerCase()===gcNameVal.toLowerCase(); });
 
-  const toProposalRows = function(items){
+  const toPageRows = function(items){
     return items.map(function(i){ return {item:i.item, qty:i.qty, unit:i.unit, total:(i.total===''?'':i.total)}; });
   };
   const sovLines = p.breakdownItems.concat(p.alternateItems)
     .filter(function(i){ return typeof i.total==='number' && i.total>0; })
     .map(function(i){ return {desc:i.item, value:i.total, pctComplete:0}; });
   const baseBidVal = parseFloat(document.getElementById('xi-value').value)||0;
+  const breakdownPageId = newPageId();
+  const alternatePageId = newPageId();
+  const corLogPageId = newPageId();
 
   const job = {
     id: 'job-'+Date.now(),
@@ -4920,9 +4923,10 @@ async function confirmExcelImport(){
     sovMonths: [],
     submittalPaint: p.submittalPaint.map(function(i){ return {num:i.num, manufacturer:i.manufacturer, color:i.color, finish:i.finish, leadTime:'', orderNote:'', included:false}; }),
     submittalWC: p.submittalWC.map(function(i){ return {num:i.num, manufacturer:i.manufacturer, color:i.color, leadTime:i.leadTime||'', orderNote:'', included:false}; }),
+    breakdownPages: [{id:breakdownPageId, name:'Breakdown', rows: toPageRows(p.breakdownItems), baseBid: baseBidVal}],
+    alternatePages: [{id:alternatePageId, name:'Alternates', rows: toPageRows(p.alternateItems)}],
+    corLogPages: [{id:corLogPageId, name:'COR Log'}],
     proposal: {
-      breakdownRows: toProposalRows(p.breakdownItems),
-      alternates47: toProposalRows(p.alternateItems),
       baseBid: baseBidVal,
       customerName: gcNameVal, attn: document.getElementById('xi-contact').value.trim(),
       bidNum: document.getElementById('xi-num').value.trim(), projectName: name,
@@ -4932,6 +4936,7 @@ async function confirmExcelImport(){
       return {
         date: c.date || new Date().toISOString().split('T')[0],
         desc: c.desc,
+        logPageId: corLogPageId,
         lines: [{category:'material', key:'imported', label: c.desc||'Imported COR', rate: c.amount, qty:1, type:'add'}],
         total: c.amount,
         custCONum: c.custCONum, custDate: c.custDate, custAmount: c.custAmount, void: c.void,
@@ -4944,7 +4949,7 @@ async function confirmExcelImport(){
     await saveJobs('Import job from Excel');
     closeModal('excel-import');
     openJobDetail(job.id, 'overview');
-    showSaved('\u2713 Job imported \u2014 '+job.cors.length+' CORs, '+job.proposal.breakdownRows.length+' breakdown items, '+job.sov.length+' SOV lines');
+    showSaved('\u2713 Job imported \u2014 '+job.cors.length+' CORs, '+job.breakdownPages[0].rows.length+' breakdown items, '+job.sov.length+' SOV lines');
   }catch(e){
     alert('Could not save the imported job: '+e.message);
   }
@@ -6081,82 +6086,112 @@ function editJobsiteNotes(jobId){
 }
 
 // ══ BUDGET TAB ══
-function initFieldBudget(job){
-  if(!job.fieldBudget) job.fieldBudget = [];
-  if(!job.fieldBudgetSettings) job.fieldBudgetSettings = {spreadRate:400, coats:1.5, hourlyRate:59, otRate:75};
+function fieldBudgetPageDefault(){ return {name:'Field Budget', rows:[], settings:{spreadRate:400,coats:1.5,hourlyRate:59,otRate:75}, sourceBreakdownPageId:null}; }
+function initFieldBudgetPages(job){
+  if(job.fieldBudgetPages && job.fieldBudgetPages.length) return job.fieldBudgetPages;
+  // Migrate old single-instance data if present
+  if(job.fieldBudget && job.fieldBudget.length){
+    job.fieldBudgetPages = [{id:newPageId(), name:'Field Budget', rows: job.fieldBudget, settings: job.fieldBudgetSettings||{spreadRate:400,coats:1.5,hourlyRate:59,otRate:75}, sourceBreakdownPageId:null}];
+  } else {
+    const p = fieldBudgetPageDefault(); p.id = newPageId();
+    job.fieldBudgetPages = [p];
+  }
+  return job.fieldBudgetPages;
 }
-function syncFieldBudgetFromBreakdown(jobId){
+function syncFieldBudgetFromBreakdown(jobId, pageId){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  initFieldBudget(job); initProposal(job);
-  const breakdownItems = (job.proposal.breakdownRows||[]).filter(function(r){return r.item && String(r.item).trim();});
+  initFieldBudgetPages(job); initBreakdownPages(job);
+  const fbPage = job.fieldBudgetPages.find(function(p){return p.id===pageId;}); if(!fbPage) return;
+  const sourceId = fbPage.sourceBreakdownPageId;
+  const bkPage = sourceId ? job.breakdownPages.find(function(p){return p.id===sourceId;}) : job.breakdownPages[0];
+  if(!bkPage){ alert('Pick a Breakdown page to pull from first.'); return; }
+  const breakdownItems = (bkPage.rows||[]).filter(function(r){return r.item && String(r.item).trim();});
+  if(!fbPage.rows) fbPage.rows=[];
   let added=0, updated=0;
   breakdownItems.forEach(function(bi){
     const key = String(bi.item).trim().toLowerCase();
-    let row = job.fieldBudget.find(function(r){return String(r.item||'').trim().toLowerCase()===key;});
-    if(row){
-      row.qty = bi.qty; row.unit = bi.unit; row.price = bi.total;
-      updated++;
-    } else {
-      job.fieldBudget.push({item:bi.item, color:'', qty:bi.qty, unit:bi.unit, gallons:'', manHours:'', price:bi.total});
-      added++;
-    }
+    let row = fbPage.rows.find(function(r){return String(r.item||'').trim().toLowerCase()===key;});
+    if(row){ row.qty=bi.qty; row.unit=bi.unit; row.price=bi.total; updated++; }
+    else { fbPage.rows.push({item:bi.item, color:'', qty:bi.qty, unit:bi.unit, gallons:'', manHours:'', price:bi.total}); added++; }
   });
   saveJobs();
-  showSaved('\u2713 Synced from Breakdown \u2014 '+added+' added, '+updated+' updated');
+  showSaved('\u2713 Synced from '+bkPage.name+' \u2014 '+added+' added, '+updated+' updated');
   openJobDetail(jobId,'budget');
 }
-function updateFieldBudgetSetting(jobId, field, val){
+function updateFieldBudgetSource(jobId, pageId, sourceId){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  initFieldBudget(job);
-  job.fieldBudgetSettings[field] = parseFloat(val)||0;
+  initFieldBudgetPages(job);
+  const page = job.fieldBudgetPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  page.sourceBreakdownPageId = sourceId||null;
   saveJobs();
 }
-function updateFieldBudgetRow(jobId, idx, field, val){
+function updateFieldBudgetSetting(jobId, pageId, field, val){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  initFieldBudget(job);
-  if(!job.fieldBudget[idx]) return;
-  job.fieldBudget[idx][field] = val;
+  initFieldBudgetPages(job);
+  const page = job.fieldBudgetPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  if(!page.settings) page.settings={spreadRate:400,coats:1.5,hourlyRate:59,otRate:75};
+  page.settings[field] = parseFloat(val)||0;
   saveJobs();
 }
-function addFieldBudgetRow(jobId){
+function updateFieldBudgetRow(jobId, pageId, idx, field, val){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  initFieldBudget(job);
-  job.fieldBudget.push({item:'',color:'',qty:'',unit:'',gallons:'',manHours:'',price:''});
+  initFieldBudgetPages(job);
+  const page = job.fieldBudgetPages.find(function(p){return p.id===pageId;}); if(!page || !page.rows[idx]) return;
+  page.rows[idx][field] = val;
+  saveJobs();
+}
+function addFieldBudgetRow(jobId, pageId){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  initFieldBudgetPages(job);
+  const page = job.fieldBudgetPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  if(!page.rows) page.rows=[];
+  page.rows.push({item:'',color:'',qty:'',unit:'',gallons:'',manHours:'',price:''});
   saveJobs();
   openJobDetail(jobId,'budget');
 }
-function removeFieldBudgetRow(jobId, idx){
+function removeFieldBudgetRow(jobId, pageId, idx){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  initFieldBudget(job);
+  initFieldBudgetPages(job);
+  const page = job.fieldBudgetPages.find(function(p){return p.id===pageId;}); if(!page) return;
   if(!confirm('Remove this line?')) return;
-  job.fieldBudget.splice(idx,1);
+  page.rows.splice(idx,1);
   saveJobs();
   openJobDetail(jobId,'budget');
 }
 function renderBudgetTab(job){
-  initFieldBudget(job); initProposal(job);
-  const S = job.fieldBudgetSettings;
-  const rows = job.fieldBudget;
+  initFieldBudgetPages(job); initBreakdownPages(job);
+  const maker = fieldBudgetPageDefault;
+  const page = currentPage(job, 'fieldBudgetPages', 'budget', maker);
+  const S = page.settings||{spreadRate:400,coats:1.5,hourlyRate:59,otRate:75};
+  const rows = page.rows||[];
   const totalManHours = rows.reduce(function(s,r){return s+(parseFloat(r.manHours)||0);},0);
   const totalLaborCost = totalManHours * (parseFloat(S.hourlyRate)||0);
   const totalGallons = rows.reduce(function(s,r){return s+(parseFloat(r.gallons)||0);},0);
   const totalPrice = rows.reduce(function(s,r){return s+(parseFloat(r.price)||0);},0);
   const iS = 'width:100%;border:none;background:transparent;font-size:12px;font-family:var(--font);outline:none;color:var(--text);';
+  const breakdownOptions = (job.breakdownPages||[]).map(function(bp){
+    return '<option value="'+bp.id+'"'+(page.sourceBreakdownPageId===bp.id?' selected':'')+'>'+bp.name+'</option>';
+  }).join('');
 
   return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;box-shadow:var(--shadow);">
+    ${renderPageTabStrip(job, 'budget', 'fieldBudgetPages', maker)}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
       <div style="font-size:14px;font-weight:700;">Field Budget</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn-sm" onclick="syncFieldBudgetFromBreakdown('${job.id}')" title="Pull item/qty/unit/price from the Breakdown tab">\u21bb Pull from Breakdown</button>
-        <button class="btn-sm" onclick="printFieldBudget(JOBS.find(j=>j.id==='${job.id}'))">\u2398 Print</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select onchange="updateFieldBudgetSource('${job.id}','${page.id}',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);">
+          <option value="">Pull from\u2026</option>
+          ${breakdownOptions}
+        </select>
+        <button class="btn-sm" onclick="syncFieldBudgetFromBreakdown('${job.id}','${page.id}')" title="Pull item/qty/unit/price from the selected Breakdown page">\u21bb Pull from Breakdown</button>
+        <button class="btn-sm" onclick="printFieldBudget(JOBS.find(j=>j.id==='${job.id}'),'${page.id}')">\u2398 Print</button>
       </div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;padding:12px 14px;background:var(--bg3);border-radius:var(--r);">
-      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">Spread Rate (sf/gal)</label><input type="number" value="${S.spreadRate}" oninput="updateFieldBudgetSetting('${job.id}','spreadRate',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
-      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">Coats</label><input type="number" step="0.1" value="${S.coats}" oninput="updateFieldBudgetSetting('${job.id}','coats',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
-      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">Hourly Rate ($/hr)</label><input type="number" step="0.01" value="${S.hourlyRate}" oninput="updateFieldBudgetSetting('${job.id}','hourlyRate',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
-      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">OT Rate ($/hr)</label><input type="number" step="0.01" value="${S.otRate}" oninput="updateFieldBudgetSetting('${job.id}','otRate',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
+      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">Spread Rate (sf/gal)</label><input type="number" value="${S.spreadRate}" oninput="updateFieldBudgetSetting('${job.id}','${page.id}','spreadRate',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
+      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">Coats</label><input type="number" step="0.1" value="${S.coats}" oninput="updateFieldBudgetSetting('${job.id}','${page.id}','coats',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
+      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">Hourly Rate ($/hr)</label><input type="number" step="0.01" value="${S.hourlyRate}" oninput="updateFieldBudgetSetting('${job.id}','${page.id}','hourlyRate',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
+      <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);">OT Rate ($/hr)</label><input type="number" step="0.01" value="${S.otRate}" oninput="updateFieldBudgetSetting('${job.id}','${page.id}','otRate',this.value)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);"></div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
@@ -6181,21 +6216,21 @@ function renderBudgetTab(job){
       <tbody>
         ${rows.map(function(r,i){
           return `<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:5px 8px;"><input value="${(r.item||'').replace(/"/g,'&quot;')}" oninput="updateFieldBudgetRow('${job.id}',${i},'item',this.value)" style="${iS}"></td>
-          <td style="padding:5px 8px;"><input value="${(r.color||'').replace(/"/g,'&quot;')}" oninput="updateFieldBudgetRow('${job.id}',${i},'color',this.value)" style="${iS}"></td>
-          <td style="padding:5px 8px;"><input type="number" value="${r.qty||''}" oninput="updateFieldBudgetRow('${job.id}',${i},'qty',this.value)" style="${iS}text-align:right;"></td>
-          <td style="padding:5px 8px;"><input value="${(r.unit||'').replace(/"/g,'&quot;')}" oninput="updateFieldBudgetRow('${job.id}',${i},'unit',this.value)" style="${iS}"></td>
-          <td style="padding:5px 8px;"><input type="number" step="0.01" value="${r.gallons||''}" oninput="updateFieldBudgetRow('${job.id}',${i},'gallons',this.value)" style="${iS}text-align:right;"></td>
-          <td style="padding:5px 8px;"><input type="number" step="0.01" value="${r.manHours||''}" oninput="updateFieldBudgetRow('${job.id}',${i},'manHours',this.value)" style="${iS}text-align:right;"></td>
-          <td style="padding:5px 8px;"><input type="number" step="0.01" value="${r.price||''}" oninput="updateFieldBudgetRow('${job.id}',${i},'price',this.value)" style="${iS}text-align:right;"></td>
-          <td style="padding:5px 8px;text-align:center;"><button onclick="removeFieldBudgetRow('${job.id}',${i})" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:16px;padding:0;line-height:1;">\u00d7</button></td>
+          <td style="padding:5px 8px;"><input value="${(r.item||'').replace(/"/g,'&quot;')}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'item',this.value)" style="${iS}"></td>
+          <td style="padding:5px 8px;"><input value="${(r.color||'').replace(/"/g,'&quot;')}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'color',this.value)" style="${iS}"></td>
+          <td style="padding:5px 8px;"><input type="number" value="${r.qty||''}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'qty',this.value)" style="${iS}text-align:right;"></td>
+          <td style="padding:5px 8px;"><input value="${(r.unit||'').replace(/"/g,'&quot;')}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'unit',this.value)" style="${iS}"></td>
+          <td style="padding:5px 8px;"><input type="number" step="0.01" value="${r.gallons||''}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'gallons',this.value)" style="${iS}text-align:right;"></td>
+          <td style="padding:5px 8px;"><input type="number" step="0.01" value="${r.manHours||''}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'manHours',this.value)" style="${iS}text-align:right;"></td>
+          <td style="padding:5px 8px;"><input type="number" step="0.01" value="${r.price||''}" oninput="updateFieldBudgetRow('${job.id}','${page.id}',${i},'price',this.value)" style="${iS}text-align:right;"></td>
+          <td style="padding:5px 8px;text-align:center;"><button onclick="removeFieldBudgetRow('${job.id}','${page.id}',${i})" style="background:none;border:none;color:#CC0000;cursor:pointer;font-size:16px;padding:0;line-height:1;">\u00d7</button></td>
         </tr>`;
         }).join('')}
-        ${!rows.length?'<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text3);">No items yet \u2014 click "Pull from Breakdown" or "+ Add line" below.</td></tr>':''}
+        ${!rows.length?'<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text3);">No items yet \u2014 pick a Breakdown page above and click "Pull from Breakdown", or "+ Add line" below.</td></tr>':''}
       </tbody>
     </table>
     </div>
-    <button class="sub-add-btn" onclick="addFieldBudgetRow('${job.id}')" style="margin-top:10px;">+ Add line</button>
+    <button class="sub-add-btn" onclick="addFieldBudgetRow('${job.id}','${page.id}')" style="margin-top:10px;">+ Add line</button>
   </div>`;
 }
 
@@ -6401,15 +6436,17 @@ function deleteSchedulePDF(jobId){
 }
 
 // ═══════════════════════════════════════ COR LOG PRINT ══════════════════════════════════
-function printCORLog(job){
+function printCORLog(job, pageId){
   const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
   const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive • Costa Mesa • CA • 92626';
   const coPhone=job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
-  const ct=jobCORTotals(job);
+  initCorLogPages(job);
+  const page = pageId ? job.corLogPages.find(function(p){return p.id===pageId;}) : job.corLogPages[0];
+  const ct=jobCORTotalsForPage(job, page?page.id:job.corLogPages[0].id);
   const origContract=job.value||0;
   const revisedContract=jobContract(job);
-  const cors=job.cors||[];
+  const cors=page?corsForPage(job, page.id).map(function(e){return e.cor;}):(job.cors||[]);
   const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
 
   const rows=cors.map((cor,i)=>{
@@ -6453,7 +6490,7 @@ function printCORLog(job){
           <div class="company-name">${coHdr}</div>
           <div class="company-sub">PAINTING AND WALLCOVERING CONTRACTORS</div>
           <div class="company-sub">${coAddr} · ${coPhone}</div>
-          <div class="doc-title">CHANGE ORDER REQUEST LOG</div>
+          <div class="doc-title">CHANGE ORDER REQUEST LOG${page?' \u2014 '+page.name:''}</div>
         </div>
       </div>
     </div>
@@ -6682,29 +6719,56 @@ function syncStatusFromSubmittalAuto(jobId){
 // ═══════════════════════════════════════ COR LOG REBUILD ════════════════════════════════
 // Pre-built 50 rows, add 1/5/10, numerical order, VOID toggle per row
 
+function corLogPageDefault(){ return {name:'COR Log'}; }
+function initCorLogPages(job){
+  if(!job.cors) job.cors=[];
+  if(!job.corLogPages || !job.corLogPages.length){
+    const p = corLogPageDefault(); p.id = newPageId();
+    job.corLogPages = [p];
+  }
+  // Tag any CORs that predate the page system with the first (default) page
+  const defaultId = job.corLogPages[0].id;
+  job.cors.forEach(function(c){ if(!c.logPageId) c.logPageId = defaultId; });
+  return job.corLogPages;
+}
+function corsForPage(job, pageId){
+  const out = [];
+  (job.cors||[]).forEach(function(c,i){ if(c.logPageId===pageId) out.push({cor:c, idx:i}); });
+  return out;
+}
+function jobCORTotalsForPage(job, pageId){
+  const entries = corsForPage(job, pageId).map(function(e){return e.cor;});
+  const req = entries.filter(function(c){return !c.void;}).reduce(function(s,c){return s+(c.total||0);},0);
+  const awd = entries.filter(function(c){return !c.void&&c.custAmount;}).reduce(function(s,c){return s+(c.custAmount||0);},0);
+  return {req, awd, outstanding: req-awd};
+}
 function renderCORLog(job, coHdr, coAddr, coPhone, ct){
-  if(!job.cors) job.cors = [];
+  initCorLogPages(job);
+  const maker = corLogPageDefault;
+  const page = currentPage(job, 'corLogPages', 'corlog', maker);
+  CUR_JOB_PAGE_ID['corlog'] = page.id; // so + New COR knows which page to file under
   const origContract = job.value||0;
   const revisedContract = jobContract(job);
-  // Only show actual CORs — no null padding
-  const displayCors = [...job.cors];
+  const pageCt = jobCORTotalsForPage(job, page.id);
+  const displayCors = corsForPage(job, page.id);
 
   return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
+    ${renderPageTabStrip(job, 'corlog', 'corLogPages', maker)}
     <!-- Summary -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Base Contract</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(origContract)}</div></div>
-      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div></div>
-      <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3F6E;">Revised Contract</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#1B3F6E;">${fmtVal(revisedContract)}</div></div>
-      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Total CORs Requested</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(ct.req)}</div></div>
-      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Changes Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(ct.awd)}</div></div>
-      <div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC0000;">Changes Outstanding</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#CC0000;">${fmtVal(ct.outstanding)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(pageCt.awd)}</div></div>
+      <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3F6E;">Revised Contract (all pages)</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#1B3F6E;">${fmtVal(revisedContract)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 Requested</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(pageCt.req)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(pageCt.awd)}</div></div>
+      <div style="background:#FFF0F0;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC0000;">This Page \u2014 Outstanding</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#CC0000;">${fmtVal(pageCt.outstanding)}</div></div>
     </div>
     <!-- Actions -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div></div>
       <div style="display:flex;gap:8px;">
-        <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'))">Print Log</button>
-        <button class="btn-sm-primary" onclick="openNewCOR('${job.id}')">+ New COR</button>
+        <button class="btn-sm" onclick="printCORLog(JOBS.find(j=>j.id==='${job.id}'),'${page.id}')">Print Log</button>
+        <button class="btn-sm-primary" onclick="openNewCOR('${job.id}','${page.id}')">+ New COR</button>
       </div>
     </div>
     <!-- Table -->
@@ -6726,17 +6790,17 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
         </thead>
         <tbody id="cor-log-tbody-${job.id}">
           ${displayCors.length === 0
-            ? `<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No CORs yet — click + New COR to get started</td></tr>`
-            : displayCors.map((cor,i)=>{
-              const rowNum=i+1;
+            ? `<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No CORs on this page yet — click + New COR to get started</td></tr>`
+            : displayCors.map((entry,rowNum)=>{
+              const cor=entry.cor, i=entry.idx;
               const isVoid=cor&&cor.void;
               const isActive=cor&&!cor.void&&cor.total>0;
               const diff=cor?((cor.custAmount||0)-cor.total):0;
               const rowBg=isVoid?'opacity:.45;':'';
               const jid=job.id;
-              return`<tr style="${rowBg}${isVoid?'text-decoration:line-through;':''}background:${i%2===0?'var(--bg2)':'var(--bg3)'};border-bottom:1px solid var(--border);" id="cor-row-${job.id}-${i}">
+              return`<tr style="${rowBg}${isVoid?'text-decoration:line-through;':''}background:${rowNum%2===0?'var(--bg2)':'var(--bg3)'};border-bottom:1px solid var(--border);" id="cor-row-${job.id}-${i}">
                 <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
-                  <span class="cor-num-link" onclick="openCORForm('${jid}',${i})" title="Edit COR ${rowNum}" style="color:#CC0000;font-weight:700;cursor:pointer;text-decoration:underline;">${rowNum}</span>
+                  <span class="cor-num-link" onclick="openCORForm('${jid}',${i})" title="Edit COR ${rowNum+1}" style="color:#CC0000;font-weight:700;cursor:pointer;text-decoration:underline;">${rowNum+1}</span>
                 </td>
                 <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;">${cor?fmtDate(cor.date)||'':''}</td>
                 <td style="padding:5px 8px;border:1px solid var(--border);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -6764,10 +6828,10 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
                   ${cor?`<input type="checkbox" ${isVoid?'checked':''} onchange="toggleCORVoid('${jid}',${i},this.checked)" style="accent-color:#CC0000;cursor:pointer;" title="Mark VOID">`:''}
                 </td>
                 <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
-                  ${cor&&cor.total>0?`<button onclick="event.stopPropagation();printCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);" title="Print COR ${rowNum}">⎙</button>`:''}
+                  ${cor&&cor.total>0?`<button onclick="event.stopPropagation();printCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);" title="Print COR ${rowNum+1}">⎙</button>`:''}
                 </td>
                 <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">
-                  ${cor?`<button onclick="event.stopPropagation();deleteCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);" title="Delete COR ${rowNum}">🗑</button>`:''}
+                  ${cor?`<button onclick="event.stopPropagation();deleteCOR('${jid}',${i})" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);" title="Delete COR ${rowNum+1}">🗑</button>`:''}
                 </td>
               </tr>`;
             }).join('')}
@@ -8367,10 +8431,12 @@ function saveCORRates(jobId, corIdx){
 }
 
 // Override openNewCOR to auto-populate ALL standard lines with current job rates
-function openNewCOR(jobId){
+function openNewCOR(jobId, pageId){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors) job.cors = [];
   if(!job.corRates) job.corRates = {};
+  initCorLogPages(job);
+  const targetPageId = pageId || CUR_JOB_PAGE_ID['corlog'] || job.corLogPages[0].id;
   const R = {
     regular:  getEffectiveCORRate(job,'regular'),
     overtime: getEffectiveCORRate(job,'overtime'),
@@ -8382,6 +8448,7 @@ function openNewCOR(jobId){
   const newCOR = {
     date: new Date().toISOString().split('T')[0],
     desc: '',
+    logPageId: targetPageId,
     lines: [
       // Labor — all 3, qty=0 so they show but total $0
       {category:'labor', key:'regular',  label:'Hours (regular time) @',               rate:R.regular,  qty:0, type:'add'},
@@ -9441,17 +9508,19 @@ function printStatusPage(job){
 }
 
 // ════════════════════════════════════ PRINT FIELD BUDGET ═════════════════════
-function printFieldBudget(job){
+function printFieldBudget(job, pageId){
   if(!job)return;
-  initFieldBudget(job);
+  initFieldBudgetPages(job);
+  const page = pageId ? job.fieldBudgetPages.find(function(p){return p.id===pageId;}) : job.fieldBudgetPages[0];
+  if(!page) return;
   const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
   const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive \u2022 Costa Mesa \u2022 CA \u2022 92626';
   const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const foreman=DB.members.find(m=>parseInt(m.id)===parseInt(job.foremanId));
   const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const S=job.fieldBudgetSettings;
-  const rows=job.fieldBudget||[];
+  const S=page.settings||{spreadRate:400,coats:1.5,hourlyRate:59,otRate:75};
+  const rows=page.rows||[];
   const fmt=v=>'$'+(parseFloat(v||0)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const totalManHours=rows.reduce((s,r)=>s+(parseFloat(r.manHours)||0),0);
   const totalGallons=rows.reduce((s,r)=>s+(parseFloat(r.gallons)||0),0);
@@ -9485,7 +9554,7 @@ function printFieldBudget(job){
   <div class="hdr">
     <div><div class="co">${coHdr}</div><div style="font-size:9px;color:#555;">${coAddr}</div></div>
     <div style="text-align:right;font-size:10px;">
-      <div style="font-size:13px;font-weight:bold;">FIELD BUDGET</div>
+      <div style="font-size:13px;font-weight:bold;">FIELD BUDGET \u2014 ${page.name}</div>
       <div><strong>${job.name}</strong> &nbsp; Job #${job.num||'\u2014'}</div>
       <div>${today}</div>
     </div>
@@ -9916,53 +9985,219 @@ function renderLumpSumTab(job, coHdr, coAddr, coPhone){
 
 
 // ── BREAKDOWN TAB ────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// MULTI-PAGE TABS — generic duplicate/add/rename/delete for Breakdown,
+// Alternate, Field Budget, and COR Log. Each job can have several named
+// pages of each type (e.g. "Breakdown — 2nd Floor", "Breakdown — 3rd Floor").
+// ══════════════════════════════════════════════════════════════
+let CUR_JOB_PAGE_ID = {}; // { breakdown: 'pg-...', alternate:'pg-...', budget:'pg-...', corlog:'pg-...' }
+function newPageId(){ return 'pg-'+Date.now()+'-'+Math.floor(Math.random()*10000); }
+function getPages(job, key, defaultMaker){
+  if(!job[key] || !job[key].length){
+    const p = defaultMaker();
+    p.id = newPageId();
+    job[key] = [p];
+  }
+  return job[key];
+}
+function currentPage(job, key, tabType, defaultMaker){
+  const pages = getPages(job, key, defaultMaker);
+  const wantId = CUR_JOB_PAGE_ID[tabType];
+  return pages.find(function(p){return p.id===wantId;}) || pages[0];
+}
+function openPageTab(jobId, tabType, pageId){
+  CUR_JOB_PAGE_ID[tabType] = pageId;
+  openJobDetail(jobId, tabType);
+}
+function openAddPageMenu(event, jobId, tabType, key, defaultMaker){
+  event.stopPropagation();
+  const existing = document.getElementById('page-add-menu'); if(existing) existing.remove();
+  const btn = event.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.id = 'page-add-menu';
+  menu.style.cssText = 'position:fixed;top:'+(rect.bottom+4)+'px;left:'+rect.left+'px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-md);z-index:9999;min-width:200px;overflow:hidden;';
+  menu.innerHTML =
+    '<button onclick="duplicateCurrentPage(\''+jobId+'\',\''+tabType+'\',\''+key+'\');document.getElementById(\'page-add-menu\').remove();" style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:12px;font-family:var(--font);color:var(--text);border-bottom:1px solid var(--border);">📋 Duplicate current page</button>'
+    +'<button onclick="addBlankPage(\''+jobId+'\',\''+tabType+'\',\''+key+'\');document.getElementById(\'page-add-menu\').remove();" style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:12px;font-family:var(--font);color:var(--text);">＋ New blank page</button>';
+  document.body.appendChild(menu);
+  setTimeout(function(){
+    document.addEventListener('click', function closeMenu(e){
+      if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click', closeMenu); }
+    });
+  },10);
+}
+function duplicateCurrentPage(jobId, tabType, key){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const pages = job[key]||[];
+  const current = pages.find(function(p){return p.id===CUR_JOB_PAGE_ID[tabType];}) || pages[0];
+  if(!current) return;
+  const copy = JSON.parse(JSON.stringify(current));
+  copy.id = newPageId();
+  copy.name = current.name+' (copy)';
+  pages.push(copy);
+  CUR_JOB_PAGE_ID[tabType] = copy.id;
+  saveJobs();
+  openJobDetail(jobId, tabType);
+}
+function addBlankPage(jobId, tabType, key){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const pages = job[key]||[];
+  const makers = {
+    breakdownPages: function(){return {name:'Breakdown', rows:[]};},
+    alternatePages: function(){return {name:'Alternates', rows:[]};},
+    fieldBudgetPages: function(){return {name:'Field Budget', rows:[], settings:{spreadRate:400,coats:1.5,hourlyRate:59,otRate:75}, sourceBreakdownPageId:null};},
+    corLogPages: function(){return {name:'COR Log'};},
+  };
+  const page = makers[key]();
+  page.id = newPageId();
+  page.name = page.name+' ('+(pages.length+1)+')';
+  pages.push(page);
+  CUR_JOB_PAGE_ID[tabType] = page.id;
+  saveJobs();
+  openJobDetail(jobId, tabType);
+}
+function renamePage(jobId, tabType, key, pageId){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page) return;
+  const name = prompt('Page name:', page.name);
+  if(name===null) return;
+  page.name = name.trim()||page.name;
+  saveJobs();
+  openJobDetail(jobId, tabType);
+}
+function deletePage(jobId, tabType, key, pageId){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const pages = job[key]||[];
+  if(pages.length<=1){ alert('You need at least one page \u2014 add a new one before deleting this one.'); return; }
+  if(!confirm('Delete this page? This cannot be undone.')) return;
+  const idx = pages.findIndex(function(p){return p.id===pageId;});
+  if(idx<0) return;
+  pages.splice(idx,1);
+  if(CUR_JOB_PAGE_ID[tabType]===pageId) CUR_JOB_PAGE_ID[tabType] = pages[0].id;
+  saveJobs();
+  openJobDetail(jobId, tabType);
+}
+function renderPageTabStrip(job, tabType, key, defaultMaker){
+  const pages = getPages(job, key, defaultMaker);
+  const current = currentPage(job, key, tabType, defaultMaker);
+  return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:14px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:10px;">'
+    +pages.map(function(p){
+      const active = p.id===current.id;
+      return '<div style="display:flex;align-items:center;gap:2px;background:'+(active?'#CC0000':'var(--bg3)')+';color:'+(active?'#fff':'var(--text2)')+';border-radius:var(--r);padding:5px 6px 5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="openPageTab(\''+job.id+'\',\''+tabType+'\',\''+p.id+'\')">'
+        +'<span>'+p.name+'</span>'
+        +'<span onclick="event.stopPropagation();renamePage(\''+job.id+'\',\''+tabType+'\',\''+key+'\',\''+p.id+'\')" title="Rename" style="padding:2px 5px;opacity:.75;font-size:11px;">\u270e</span>'
+        +(pages.length>1?'<span onclick="event.stopPropagation();deletePage(\''+job.id+'\',\''+tabType+'\',\''+key+'\',\''+p.id+'\')" title="Delete page" style="padding:2px 5px 2px 0;opacity:.75;font-size:13px;">\u00d7</span>':'')
+        +'</div>';
+    }).join('')
+    +'<button onclick="openAddPageMenu(event,\''+job.id+'\',\''+tabType+'\',\''+key+'\')" class="btn-sm" style="padding:5px 10px;">+ Add page</button>'
+    +'</div>';
+}
+
+function editablePageRows(rows, jobId, tabType, key, pageId, lastCol){
+  const iS = 'width:100%;border:none;background:transparent;font-size:11px;font-family:Arial,sans-serif;padding:1px 3px;outline:none;';
+  return rows.map(function(r,i){
+    return '<tr style="background:'+(i%2===0?'#fff':'#fafafa')+';">'
+      +'<td style="padding:2px 5px;border:1px solid #ccc;"><input value="'+(r.item||'').replace(/"/g,'&quot;')+'" oninput="updatePageRow(\''+jobId+'\',\''+tabType+'\',\''+key+'\',\''+pageId+'\','+i+',\'item\',this.value)" style="'+iS+'"></td>'
+      +'<td style="padding:2px 3px;border:1px solid #ccc;width:60px;"><input value="'+(r.qty||'')+'" oninput="updatePageRow(\''+jobId+'\',\''+tabType+'\',\''+key+'\',\''+pageId+'\','+i+',\'qty\',this.value)" style="'+iS+'text-align:center;"></td>'
+      +'<td style="padding:2px 3px;border:1px solid #ccc;width:50px;"><input value="'+(r.unit||'').replace(/"/g,'&quot;')+'" oninput="updatePageRow(\''+jobId+'\',\''+tabType+'\',\''+key+'\',\''+pageId+'\','+i+',\'unit\',this.value)" style="'+iS+'text-align:center;font-size:10px;"></td>'
+      +'<td style="padding:2px 3px;border:1px solid #ccc;width:80px;"><input type="number" step="0.01" value="'+(r.total!=null&&r.total!==''?r.total:'')+'" oninput="updatePageRow(\''+jobId+'\',\''+tabType+'\',\''+key+'\',\''+pageId+'\','+i+',\'total\',this.value)" style="'+iS+'text-align:right;"></td>'
+      +'<td style="padding:2px 3px;border:none;width:18px;"><button onclick="deletePageRow(\''+jobId+'\',\''+tabType+'\',\''+key+'\',\''+pageId+'\','+i+')" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:13px;padding:0;line-height:1;" title="Delete row">\u00d7</button></td>'
+      +'</tr>';
+  }).join('');
+}
+function pageTableHead(lastCol){
+  return '<tr style="background:#e8e8e8;"><th style="padding:4px 5px;border:1px solid #ccc;text-align:left;font-size:10px;">Item</th>'
+    +'<th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:60px;font-size:10px;">QTY</th>'
+    +'<th style="padding:4px 5px;border:1px solid #ccc;text-align:center;width:50px;font-size:10px;">UNIT</th>'
+    +'<th style="padding:4px 5px;border:1px solid #ccc;text-align:right;width:80px;font-size:10px;">'+lastCol+'</th>'
+    +'<th style="width:18px;border:none;background:transparent;"></th></tr>';
+}
+function updatePageRow(jobId, tabType, key, pageId, idx, field, val){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page || !page.rows || !page.rows[idx]) return;
+  page.rows[idx][field] = (field==='total') ? (val===''?'':(parseFloat(val)||0)) : val;
+  saveJobs();
+}
+function addPageRow(jobId, tabType, key, pageId){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page) return;
+  if(!page.rows) page.rows=[];
+  page.rows.push({item:'',qty:'',unit:'',total:''});
+  saveJobs();
+  openJobDetail(jobId, tabType);
+}
+function deletePageRow(jobId, tabType, key, pageId, idx){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page || !page.rows) return;
+  page.rows.splice(idx,1);
+  saveJobs();
+  openJobDetail(jobId, tabType);
+}
+function updatePageBaseBid(jobId, key, pageId, val){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const page = (job[key]||[]).find(function(p){return p.id===pageId;}); if(!page) return;
+  page.baseBid = val===''?'':(parseFloat(val)||0);
+  saveJobs();
+}
+function initBreakdownPages(job){
+  if(job.breakdownPages && job.breakdownPages.length) return job.breakdownPages;
+  const oldRows = (job.proposal && job.proposal.breakdownRows) ? job.proposal.breakdownRows.filter(function(r){return r.item;}) : [];
+  job.breakdownPages = [{id:newPageId(), name:'Breakdown', rows: oldRows, baseBid: job.proposal?job.proposal.baseBid:''}];
+  return job.breakdownPages;
+}
+function initAlternatePages(job){
+  if(job.alternatePages && job.alternatePages.length) return job.alternatePages;
+  const oldRows = (job.proposal && job.proposal.alternates47) ? job.proposal.alternates47.filter(function(r){return r.item;}) : [];
+  job.alternatePages = [{id:newPageId(), name:'Alternates', rows: oldRows}];
+  return job.alternatePages;
+}
+
 function renderBreakdownTab(job, coHdr, coAddr, coPhone){
-  initProposal(job);
-  const p = job.proposal;
+  initBreakdownPages(job);
+  const maker = function(){return {name:'Breakdown', rows:[]};};
+  const page = currentPage(job, 'breakdownPages', 'breakdown', maker);
   return `<div style="max-width:860px;margin:0 auto;">
+    ${renderPageTabStrip(job, 'breakdown', 'breakdownPages', maker)}
     ${proposalActionBar(job.id,'printBreakdown','')}
     ${proposalPaper(`
       ${coHeaderHTML(job)}
       ${projInfoCompact(job,'BREAKDOWN SHEET')}
-      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Inclusions:</div>
+      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Inclusions \u2014 ${page.name}:</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
-        <thead>${tableHead('Total')}</thead>
-        <tbody>${editableRows(p.breakdownRows, job.id, 'breakdownRows', 'Total')}</tbody>
+        <thead>${pageTableHead('Total')}</thead>
+        <tbody>${editablePageRows(page.rows||[], job.id, 'breakdown', 'breakdownPages', page.id, 'Total')}</tbody>
       </table>
       <div style="margin-bottom:10px;">
-        <button onclick="addProposalRow('${job.id}','breakdownRows')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>
+        <button onclick="addPageRow('${job.id}','breakdown','breakdownPages','${page.id}')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add line</button>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
         <div style="border:2px solid #000;padding:5px 14px;font-size:12px;font-weight:bold;display:flex;gap:16px;align-items:center;">
           <span>BASE BID:</span>
-          <input value="${p.baseBid||''}" placeholder="$0" oninput="updateProposalField('${job.id}','baseBid',this.value)" style="border:none;border-bottom:1px solid #000;font-size:12px;font-weight:bold;width:90px;text-align:right;outline:none;background:transparent;font-family:Arial;">
+          <input value="${page.baseBid||''}" placeholder="$0" oninput="updatePageBaseBid('${job.id}','breakdownPages','${page.id}',this.value)" style="border:none;border-bottom:1px solid #000;font-size:12px;font-weight:bold;width:90px;text-align:right;outline:none;background:transparent;font-family:Arial;">
         </div>
       </div>
-      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Alternates:</div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
-        <thead>${tableHead('Total Add')}</thead>
-        <tbody>${editableRows(p.alternates5, job.id, 'alternates5', 'Total Add')}</tbody>
-      </table>
-      <button onclick="addProposalRow('${job.id}','alternates5')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add alternate</button>
     `)}
   </div>`;
 }
 
 // ── ALTERNATE TAB ────────────────────────────────────────────────────
 function renderAlternateTab(job, coHdr, coAddr, coPhone){
-  initProposal(job);
-  const p = job.proposal;
+  initAlternatePages(job);
+  const maker = function(){return {name:'Alternates', rows:[]};};
+  const page = currentPage(job, 'alternatePages', 'alternate', maker);
   return `<div style="max-width:860px;margin:0 auto;">
+    ${renderPageTabStrip(job, 'alternate', 'alternatePages', maker)}
     ${proposalActionBar(job.id,'printAlternate','')}
     ${proposalPaper(`
       ${coHeaderHTML(job)}
       ${projInfoCompact(job,'ALTERNATE SHEET')}
-      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">Alternates:</div>
+      <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">${page.name}:</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
-        <thead>${tableHead('Total Add')}</thead>
-        <tbody>${editableRows(p.alternates47, job.id, 'alternates47', 'Total Add')}</tbody>
+        <thead>${pageTableHead('Total Add')}</thead>
+        <tbody>${editablePageRows(page.rows||[], job.id, 'alternate', 'alternatePages', page.id, 'Total Add')}</tbody>
       </table>
-      <button onclick="addProposalRow('${job.id}','alternates47')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add alternate</button>
+      <button onclick="addPageRow('${job.id}','alternate','alternatePages','${page.id}')" style="background:none;border:none;color:var(--blue);font-size:10px;cursor:pointer;padding:0;">+ Add alternate</button>
     `)}
   </div>`;
 }
