@@ -5097,6 +5097,13 @@ function mapJob(r){
     statusWC: r.status_wc||[],
     submittalPaint: r.submittal_paint||[],
     submittalWC: r.submittal_wc||[],
+    breakdownPages: r.breakdown_pages||[],
+    alternatePages: r.alternate_pages||[],
+    fieldBudgetPages: r.field_budget_pages||[],
+    corLogPages: r.cor_log_pages||[],
+    submittalPages: r.submittal_pages||[],
+    statusPages: r.status_pages||[],
+    tabCustom: r.tab_custom||{},
     payrollImports: r.payroll_imports||[],
     schedulePDF: r.schedule_pdf||null,
     schedulePDFName: r.schedule_pdf_name||null,
@@ -5146,6 +5153,13 @@ function jobToBody(job){
     status_wc: job.statusWC||[],
     submittal_paint: job.submittalPaint||[],
     submittal_wc: job.submittalWC||[],
+    breakdown_pages: job.breakdownPages||[],
+    alternate_pages: job.alternatePages||[],
+    field_budget_pages: job.fieldBudgetPages||[],
+    cor_log_pages: job.corLogPages||[],
+    submittal_pages: job.submittalPages||[],
+    status_pages: job.statusPages||[],
+    tab_custom: job.tabCustom||{},
     payroll_imports: job.payrollImports||[],
     schedule_pdf: job.schedulePDF||null,
     schedule_pdf_name: job.schedulePDFName||null,
@@ -5186,9 +5200,14 @@ function autoCreateFromBids(){
 }
 
 // ── Calculations ──
+function corCountsTowardContract(job, cor){
+  if(!cor.logPageId) return true; // pre-existing/unmigrated CORs always count
+  const page = (job.corLogPages||[]).find(function(p){return p.id===cor.logPageId;});
+  return !page || page.includeInTotal!==false; // default true unless explicitly toggled off
+}
 function jobContract(job){
-  const cos = (job.cors||[]).filter(c=>!c.void);
-  const coAdj = cos.reduce((s,c)=>s+(c.type==='add'?c.total:-c.total),0);
+  const cos = (job.cors||[]).filter(c=>!c.void && corCountsTowardContract(job,c));
+  const coAdj = cos.reduce((s,c)=>s+(c.total||0),0);
   return (job.value||0) + coAdj;
 }
 
@@ -5271,6 +5290,54 @@ function renderJobs(){
 // JOB DETAIL — 4 tabs
 // ══════════════════════════════════════════════════════════════
 function openJobById(jobId){ openJobDetail(jobId); }
+function openTabCustomizeMenu(event, jobId, tabKey, defaultLabel){
+  event.stopPropagation();
+  const existing = document.getElementById('tab-customize-overlay'); if(existing) existing.remove();
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  const cur = (job.tabCustom||{})[tabKey] || {};
+  const colors = ['','#CC0000','#CC7000','#1E8449','#1B3F6E','#7A3E9D','#555555'];
+  const overlay = document.createElement('div');
+  overlay.id = 'tab-customize-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML =
+    '<div style="background:var(--bg2);border-radius:var(--rlg);box-shadow:var(--shadow);padding:22px;width:320px;max-width:90vw;">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:14px;">Customize Tab</div>'
+    +'<label class="auth-label" style="display:block;margin-bottom:5px;">Tab Name</label>'
+    +'<input id="tab-custom-name" value="'+(cur.label||defaultLabel).replace(/"/g,'&quot;')+'" placeholder="'+defaultLabel+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--font);margin-bottom:14px;background:var(--bg);color:var(--text);box-sizing:border-box;">'
+    +'<label class="auth-label" style="display:block;margin-bottom:6px;">Highlight Color</label>'
+    +'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">'
+    + colors.map(function(c){
+        const selected = (cur.color||'')===c;
+        return '<div onclick="document.getElementById(\'tab-custom-color\').value=\''+c+'\';document.querySelectorAll(\'.tcc-swatch\').forEach(function(el){el.style.outline=\'none\';});this.style.outline=\'2px solid var(--text)\';" class="tcc-swatch" style="width:26px;height:26px;border-radius:50%;cursor:pointer;border:1px solid var(--border);background:'+(c||'var(--bg3)')+';'+(selected?'outline:2px solid var(--text);':'')+'" title="'+(c?c:'No color')+'"></div>';
+      }).join('')
+    +'</div>'
+    +'<input type="hidden" id="tab-custom-color" value="'+(cur.color||'')+'">'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn" style="flex:1;" onclick="document.getElementById(\'tab-customize-overlay\').remove();">Cancel</button>'
+    +'<button class="btn" style="flex:1;color:#CC0000;" onclick="resetTabCustom(\''+jobId+'\',\''+tabKey+'\')">Reset</button>'
+    +'<button class="btn-primary" style="flex:1;" onclick="saveTabCustom(\''+jobId+'\',\''+tabKey+'\')">Save</button>'
+    +'</div>'
+    +'</div>';
+  document.body.appendChild(overlay);
+}
+function saveTabCustom(jobId, tabKey){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  if(!job.tabCustom) job.tabCustom = {};
+  const name = document.getElementById('tab-custom-name').value.trim();
+  const color = document.getElementById('tab-custom-color').value;
+  job.tabCustom[tabKey] = {label:name, color:color};
+  saveJobs();
+  const overlay = document.getElementById('tab-customize-overlay'); if(overlay) overlay.remove();
+  openJobDetail(jobId, CUR_JOB_TAB);
+}
+function resetTabCustom(jobId, tabKey){
+  const job = JOBS.find(function(j){return j.id===jobId;}); if(!job) return;
+  if(job.tabCustom) delete job.tabCustom[tabKey];
+  saveJobs();
+  const overlay = document.getElementById('tab-customize-overlay'); if(overlay) overlay.remove();
+  openJobDetail(jobId, CUR_JOB_TAB);
+}
 function openJobDetail(jobId, tab){
   loadJobs();
   console.log('[openJobDetail] jobId=',jobId,'JOBS=',JOBS.length,'match=',JOBS.find(j=>String(j.id)===String(jobId))?'FOUND':'NOT FOUND');
@@ -5293,24 +5360,51 @@ function openJobDetail(jobId, tab){
 // ══════════════════════════════════════════════════════════════
 // SUBMITTAL TAB
 // ══════════════════════════════════════════════════════════════
+function submittalPageDefault(){ return {name:'Submittal', paint:[], wc:[]}; }
+function initSubmittalPages(job){
+  if(job.submittalPages && job.submittalPages.length) return job.submittalPages;
+  if((job.submittalPaint&&job.submittalPaint.length)||(job.submittalWC&&job.submittalWC.length)){
+    job.submittalPages = [{id:newPageId(), name:'Submittal', paint: job.submittalPaint||[], wc: job.submittalWC||[]}];
+  } else {
+    const p = submittalPageDefault(); p.id = newPageId();
+    job.submittalPages = [p];
+  }
+  return job.submittalPages;
+}
+function statusPageDefault(){ return {name:'Status', sourceSubmittalPageId:null, paint:[], wc:[]}; }
+function initStatusPages(job){
+  if(job.statusPages && job.statusPages.length) return job.statusPages;
+  if((job.statusPaint&&job.statusPaint.length)||(job.statusWC&&job.statusWC.length)){
+    job.statusPages = [{id:newPageId(), name:'Status', sourceSubmittalPageId:null, paint: job.statusPaint||[], wc: job.statusWC||[]}];
+  } else {
+    const p = statusPageDefault(); p.id = newPageId();
+    job.statusPages = [p];
+  }
+  return job.statusPages;
+}
+
 function renderSubmittal(job, coHdr, coAddr, coPhone){
-  const paint = job.submittalPaint||[];
-  const wc = job.submittalWC||[];
+  initSubmittalPages(job);
+  const maker = submittalPageDefault;
+  const page = currentPage(job, 'submittalPages', 'submittal', maker);
+  const paint = page.paint||[];
+  const wc = page.wc||[];
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const today = new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'2-digit'});
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
 
   return `
+    ${renderPageTabStrip(job, 'submittal', 'submittalPages', maker)}
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px;">
       <button class="btn-sm" onclick="openManageSpecifiers('${job.id}')">Specifiers</button>
-      <button class="btn-sm-primary" onclick="printSubmittal(JOBS.find(j=>j.id==='${job.id}'))">Print / Submittal</button>
-      <button class="btn-sm" onclick="printOrder(JOBS.find(j=>j.id==='${job.id}'))">Order / PDF</button>
+      <button class="btn-sm-primary" onclick="printSubmittal(JOBS.find(j=>j.id==='${job.id}'),'${page.id}')">Print / Submittal</button>
+      <button class="btn-sm" onclick="printOrder(JOBS.find(j=>j.id==='${job.id}'),'${page.id}')">Order / PDF</button>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
         <div style="font-size:11px;color:var(--text3);">
-          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;">SUBMITTAL LETTER</div>
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;">SUBMITTAL LETTER \u2014 ${page.name}</div>
           <div style="display:grid;grid-template-columns:80px 1fr;gap:4px;font-size:12px;max-width:320px;">
             <span style="color:var(--text3);">CUSTOMER:</span><span style="font-weight:500;">${gc?gc.name:job.gcName||'—'}</span>
             <span style="color:var(--text3);">ATTN:</span><span>${contact?contact.first+' '+contact.last:job.contactName||'—'}</span>
@@ -5349,14 +5443,12 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
       <div id="submittal-paint-rows">
         ${(()=>{
           const PAINT_SCREEN_MIN=11;
-          const rows=[];
           const existing=paint.slice();
-          // Pad with empty rows to reach minimum
           while(existing.length<PAINT_SCREEN_MIN)existing.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',orderNote:'',included:false,_blank:true});
-          return existing.map((row,i)=>renderSubRow(job.id,'paint',row,i)).join('');
+          return existing.map((row,i)=>renderSubRow(job.id,page.id,'paint',row,i)).join('');
         })()}
       </div>
-      <button class="sub-add-btn" onclick="addSubItem('${job.id}','paint')">+ Add paint item</button>
+      <button class="sub-add-btn" onclick="addSubItem('${job.id}','${page.id}','paint')">+ Add paint item</button>
 
       <!-- WALLCOVERING SECTION -->
       <div class="sub-section-title" style="margin-top:14px;">WALLCOVERING</div>
@@ -5366,33 +5458,35 @@ function renderSubmittal(job, coHdr, coAddr, coPhone){
       <div id="submittal-wc-rows">
         ${(()=>{
           const WC_SCREEN_MIN=7;
-          const rows=[];
           const existing=wc.slice();
           while(existing.length<WC_SCREEN_MIN)existing.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',orderNote:'',included:false,_blank:true});
-          return existing.map((row,i)=>renderSubRow(job.id,'wc',row,i)).join('');
+          return existing.map((row,i)=>renderSubRow(job.id,page.id,'wc',row,i)).join('');
         })()}
       </div>
-      <button class="sub-add-btn" onclick="addSubItem('${job.id}','wc')">+ Add wallcovering item</button>
+      <button class="sub-add-btn" onclick="addSubItem('${job.id}','${page.id}','wc')">+ Add wallcovering item</button>
     </div>`;
 }
 
-function renderSubRow(jobId, type, row, idx){
+function renderSubRow(jobId, pageId, type, row, idx){
   const inc = row.included ? 'included' : '';
   const col4 = type==='paint' ? row.finish||'' : row.leadTime||'';
   return `<div class="sub-row sub-row-paint ${inc}" id="subrow-${type}-${idx}" style="display:grid;grid-template-columns:28px 60px 1fr 1fr 120px 90px 36px;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${idx%2===0?'var(--bg2)':'var(--bg3)'};">
-    <input type="checkbox" class="sub-check" ${row.included?'checked':''} onchange="toggleSubIncluded('${jobId}','${type}',${idx},this.checked)">
-    <input class="sub-input" value="${row.num||''}" placeholder="#" oninput="updateSubField('${jobId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.manufacturer||''}" placeholder="Manufacturer" oninput="updateSubField('${jobId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.color||''}" placeholder="${type==='paint'?'Color':'Pattern / Color'}" oninput="updateSubField('${jobId}','${type}',${idx},'color',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${col4}" placeholder="${type==='paint'?'Finish':'Lead Time'}" oninput="updateSubField('${jobId}','${type}',${idx},'${type==='paint'?'finish':'leadTime'}',this.value)" style="${row.included?'font-weight:700;':''}">
-    <input class="sub-input" value="${row.orderNote||''}" placeholder="Order note" oninput="updateSubField('${jobId}','${type}',${idx},'orderNote',this.value)" style="font-size:11px;color:var(--text2);border-left:2px solid var(--border2);" title="Order notes — screen only, not printed">
-    <button class="btn-sm" style="padding:2px 6px;" onclick="removeSubItem('${jobId}','${type}',${idx})">×</button>
+    <input type="checkbox" class="sub-check" ${row.included?'checked':''} onchange="toggleSubIncluded('${jobId}','${pageId}','${type}',${idx},this.checked)">
+    <input class="sub-input" value="${row.num||''}" placeholder="#" oninput="updateSubField('${jobId}','${pageId}','${type}',${idx},'num',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.manufacturer||''}" placeholder="Manufacturer" oninput="updateSubField('${jobId}','${pageId}','${type}',${idx},'manufacturer',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.color||''}" placeholder="${type==='paint'?'Color':'Pattern / Color'}" oninput="updateSubField('${jobId}','${pageId}','${type}',${idx},'color',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${col4}" placeholder="${type==='paint'?'Finish':'Lead Time'}" oninput="updateSubField('${jobId}','${pageId}','${type}',${idx},'${type==='paint'?'finish':'leadTime'}',this.value)" style="${row.included?'font-weight:700;':''}">
+    <input class="sub-input" value="${row.orderNote||''}" placeholder="Order note" oninput="updateSubField('${jobId}','${pageId}','${type}',${idx},'orderNote',this.value)" style="font-size:11px;color:var(--text2);border-left:2px solid var(--border2);" title="Order notes — screen only, not printed">
+    <button class="btn-sm" style="padding:2px 6px;" onclick="removeSubItem('${jobId}','${pageId}','${type}',${idx})">×</button>
   </div>`;
 }
 
-function toggleSubIncluded(jobId, type, idx, checked){
+function toggleSubIncluded(jobId, pageId, type, idx, checked){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const arr = type==='paint' ? job.submittalPaint : job.submittalWC;
+  initSubmittalPages(job);
+  const page = job.submittalPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  const arr = type==='paint' ? page.paint : page.wc;
+  if(!arr[idx]) return;
   arr[idx].included = checked;
   saveJobs();
   // Re-render just this row's styling
@@ -5400,11 +5494,13 @@ function toggleSubIncluded(jobId, type, idx, checked){
   if(row){ row.classList.toggle('included', checked); row.querySelectorAll('.sub-input').forEach(i=>i.style.fontWeight=checked?'700':''); }
 }
 
-function updateSubField(jobId, type, idx, field, val){
+function updateSubField(jobId, pageId, type, idx, field, val){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  if(!job.submittalPaint)job.submittalPaint=[];
-  if(!job.submittalWC)job.submittalWC=[];
-  const arr = type==='paint' ? job.submittalPaint : job.submittalWC;
+  initSubmittalPages(job);
+  const page = job.submittalPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  if(!page.paint) page.paint=[];
+  if(!page.wc) page.wc=[];
+  const arr = type==='paint' ? page.paint : page.wc;
   // If the row doesn't exist yet (was a blank padding row), create it
   while(arr.length<=idx) arr.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',orderNote:'',included:false});
   arr[idx][field] = val;
@@ -5412,19 +5508,23 @@ function updateSubField(jobId, type, idx, field, val){
   showSaved();
 }
 
-function addSubItem(jobId, type){
+function addSubItem(jobId, pageId, type){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const arr = type==='paint' ? job.submittalPaint : job.submittalWC;
+  initSubmittalPages(job);
+  const page = job.submittalPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  const arr = type==='paint' ? page.paint : page.wc;
   arr.push({num:'',manufacturer:'',color:'',finish:'',leadTime:'',included:false});
   saveJobs();
   // Re-render just the row container
   const container = document.getElementById('submittal-'+type+'-rows');
-  if(container) container.innerHTML = arr.map((row,i)=>renderSubRow(jobId,type,row,i)).join('');
+  if(container) container.innerHTML = arr.map((row,i)=>renderSubRow(jobId,pageId,type,row,i)).join('');
 }
 
-function removeSubItem(jobId, type, idx){
+function removeSubItem(jobId, pageId, type, idx){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const arr = type==='paint' ? job.submittalPaint : job.submittalWC;
+  initSubmittalPages(job);
+  const page = job.submittalPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  const arr = type==='paint' ? page.paint : page.wc;
   arr.splice(idx,1); saveJobs();
   openJobDetail(jobId,'submittal');
 }
@@ -5433,22 +5533,30 @@ function removeSubItem(jobId, type, idx){
 // STATUS TAB
 // ══════════════════════════════════════════════════════════════
 function renderStatusPage(job, coHdr, coAddr, coPhone){
-  // Sync items from submittal if status arrays are empty
-  if(!job.statusPaint) job.statusPaint = (job.submittalPaint||[]).map(r=>({...r,ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''}));
-  if(!job.statusWC) job.statusWC = (job.submittalWC||[]).map(r=>({...r,samplesOrdered:'',samplesReceived:'',approved:'',wcOrdered:'',estDelivery:''}));
-  saveJobs();
+  initStatusPages(job); initSubmittalPages(job);
+  const maker = statusPageDefault;
+  const page = currentPage(job, 'statusPages', 'status', maker);
+
+  const submittalOptions = (job.submittalPages||[]).map(function(sp){
+    return '<option value="'+sp.id+'"'+(page.sourceSubmittalPageId===sp.id?' selected':'')+'>'+sp.name+'</option>';
+  }).join('');
 
   return `
+    ${renderPageTabStrip(job, 'status', 'statusPages', maker)}
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div style="font-weight:700;font-size:13px;">STATUS PAGE</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-weight:700;font-size:13px;">STATUS PAGE \u2014 ${page.name}</div>
         <div style="font-size:12px;color:var(--text3);">JOB # ${job.num||'—'} · ${job.name}</div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
-        <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.02em;box-shadow:0 1px 4px rgba(0,0,0,.15);" onclick="syncStatusFromSubmittal('${job.id}')">&#8635; Sync from Submittal</button>
-        <button class="btn-sm" onclick="printStatusPage(JOBS.find(j=>j.id==='${job.id}'))">⎙ Print</button>
-        <button class="btn-sm" onclick="addStatusItem('${job.id}','paint')">+ Paint item</button>
-        <button class="btn-sm" onclick="addStatusItem('${job.id}','wc')">+ WC item</button>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+        <select onchange="updateStatusSource('${job.id}','${page.id}',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--font);background:var(--bg2);color:var(--text);">
+          <option value="">Pull from\u2026</option>
+          ${submittalOptions}
+        </select>
+        <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.02em;box-shadow:0 1px 4px rgba(0,0,0,.15);" onclick="syncStatusFromSubmittal('${job.id}','${page.id}')">&#8635; Sync from Submittal</button>
+        <button class="btn-sm" onclick="printStatusPage(JOBS.find(j=>j.id==='${job.id}'),'${page.id}')">⎙ Print</button>
+        <button class="btn-sm" onclick="addStatusItem('${job.id}','${page.id}','paint')">+ Paint item</button>
+        <button class="btn-sm" onclick="addStatusItem('${job.id}','${page.id}','wc')">+ WC item</button>
       </div>
 
       <!-- PAINT STATUS -->
@@ -5462,9 +5570,9 @@ function renderStatusPage(job, coHdr, coAddr, coPhone){
         </tr></thead><tbody id="status-paint-body">
           ${(()=>{
             const STATUS_MIN=11;
-            const existing=(job.statusPaint||[]).slice();
+            const existing=(page.paint||[]).slice();
             while(existing.length<STATUS_MIN)existing.push({num:'',finish:'',color:'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''});
-            return existing.map((row,i)=>renderStatusRow(job.id,'paint',row,i)).join('');
+            return existing.map((row,i)=>renderStatusRow(job.id,page.id,'paint',row,i)).join('');
           })()}
         </tbody></table>
       </div>
@@ -5478,7 +5586,7 @@ function renderStatusPage(job, coHdr, coAddr, coPhone){
           <th style="width:100px;">Approved/Rejected</th><th style="width:90px;">WC Ordered</th>
           <th style="width:90px;">Est. Delivery</th><th style="width:36px;"></th>
         </tr></thead><tbody id="status-wc-body">
-          ${(job.statusWC||[]).map((row,i)=>renderStatusRow(job.id,'wc',row,i)).join('')}
+          ${(page.wc||[]).map((row,i)=>renderStatusRow(job.id,page.id,'wc',row,i)).join('')}
         </tbody></table>
       </div>
 
@@ -5491,28 +5599,28 @@ function renderStatusPage(job, coHdr, coAddr, coPhone){
     </div>`;
 }
 
-function renderStatusRow(jobId, type, row, idx){
+function renderStatusRow(jobId, pageId, type, row, idx){
   const isPaint = type==='paint';
   const col1 = row.num||'';
   const col2 = isPaint ? (row.finish||'') : (row.manufacturer||'');
   const col3 = row.color||'';
-  const f = (field,val,ph)=>`<td><input class="status-input" value="${val||''}" placeholder="${ph||''}" oninput="updateStatusField('${jobId}','${type}',${idx},'${field}',this.value)" style="width:100%;"></td>`;
+  const f = (field,val,ph)=>`<td><input class="status-input" value="${val||''}" placeholder="${ph||''}" oninput="updateStatusField('${jobId}','${pageId}','${type}',${idx},'${field}',this.value)" style="width:100%;"></td>`;
   const approvedVal = row.approved||'';
   const approvedClass = approvedVal.toUpperCase()==='APPROVED'?'status-approved':approvedVal.toUpperCase()==='REJECTED'?'status-rejected':'';
   return `<tr>
-    <td><input class="status-input" value="${col1}" placeholder="#" oninput="updateStatusField('${jobId}','${type}',${idx},'num',this.value)" style="width:46px;"></td>
-    <td><input class="status-input" value="${col2}" oninput="updateStatusField('${jobId}','${type}',${idx},'${isPaint?'finish':'manufacturer'}',this.value)"></td>
-    <td><input class="status-input" value="${col3}" oninput="updateStatusField('${jobId}','${type}',${idx},'color',this.value)"></td>
+    <td><input class="status-input" value="${col1}" placeholder="#" oninput="updateStatusField('${jobId}','${pageId}','${type}',${idx},'num',this.value)" style="width:46px;"></td>
+    <td><input class="status-input" value="${col2}" oninput="updateStatusField('${jobId}','${pageId}','${type}',${idx},'${isPaint?'finish':'manufacturer'}',this.value)"></td>
+    <td><input class="status-input" value="${col3}" oninput="updateStatusField('${jobId}','${pageId}','${type}',${idx},'color',this.value)"></td>
     ${f(isPaint?'ddsOrdered':'samplesOrdered', isPaint?row.ddsOrdered:row.samplesOrdered, 'MM/DD/YY')}
     ${f(isPaint?'ddsReceived':'samplesReceived', isPaint?row.ddsReceived:row.samplesReceived, 'MM/DD/YY')}
-    <td><select class="status-input ${approvedClass}" onchange="updateStatusField('${jobId}','${type}',${idx},'approved',this.value);updateApprovedStyle(this)" style="width:100%;cursor:pointer;">
+    <td><select class="status-input ${approvedClass}" onchange="updateStatusField('${jobId}','${pageId}','${type}',${idx},'approved',this.value);updateApprovedStyle(this)" style="width:100%;cursor:pointer;">
       <option value="" ${!approvedVal?'selected':''}>Pending</option>
       <option value="APPROVED" ${approvedVal==='APPROVED'?'selected':''}>Approved</option>
       <option value="REJECTED" ${approvedVal==='REJECTED'?'selected':''}>Rejected</option>
     </select></td>
     ${f(isPaint?'paintOrdered':'wcOrdered', isPaint?row.paintOrdered:row.wcOrdered, 'MM/DD/YY')}
     ${f('estDelivery', row.estDelivery, 'MM/DD/YY')}
-    <td><button class="btn-sm" onclick="removeStatusItem('${jobId}','${type}',${idx})">×</button></td>
+    <td><button class="btn-sm" onclick="removeStatusItem('${jobId}','${pageId}','${type}',${idx})">×</button></td>
   </tr>`;
 }
 
@@ -5520,28 +5628,46 @@ function updateApprovedStyle(el){
   const v = (el.value||'').toUpperCase();
   el.className = 'status-input ' + (v==='APPROVED'?'status-approved':v==='REJECTED'?'status-rejected':'');
 }
-function updateStatusField(jobId, type, idx, field, val){
+function updateStatusSource(jobId, pageId, sourceId){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  const arr = type==='paint' ? job.statusPaint : job.statusWC;
+  initStatusPages(job);
+  const page = job.statusPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  page.sourceSubmittalPageId = sourceId||null;
+  saveJobs();
+}
+function updateStatusField(jobId, pageId, type, idx, field, val){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  initStatusPages(job);
+  const page = job.statusPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  const arr = type==='paint' ? page.paint : page.wc;
   if(arr&&arr[idx]) arr[idx][field]=val;
   saveJobs();
 }
-function addStatusItem(jobId, type){
+function addStatusItem(jobId, pageId, type){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  initStatusPages(job);
+  const page = job.statusPages.find(function(p){return p.id===pageId;}); if(!page) return;
   const blank = type==='paint'?{num:'',finish:'',color:'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''}:{num:'',manufacturer:'',color:'',samplesOrdered:'',samplesReceived:'',approved:'',wcOrdered:'',estDelivery:''};
-  if(type==='paint'){if(!job.statusPaint)job.statusPaint=[];job.statusPaint.push(blank);}
-  else{if(!job.statusWC)job.statusWC=[];job.statusWC.push(blank);}
+  if(type==='paint'){if(!page.paint)page.paint=[];page.paint.push(blank);}
+  else{if(!page.wc)page.wc=[];page.wc.push(blank);}
   saveJobs(); openJobDetail(jobId,'status');
 }
-function removeStatusItem(jobId, type, idx){
+function removeStatusItem(jobId, pageId, type, idx){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  if(type==='paint') job.statusPaint.splice(idx,1); else job.statusWC.splice(idx,1);
+  initStatusPages(job);
+  const page = job.statusPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  if(type==='paint') page.paint.splice(idx,1); else page.wc.splice(idx,1);
   saveJobs(); openJobDetail(jobId,'status');
 }
-function syncStatusFromSubmittal(jobId){
+function syncStatusFromSubmittal(jobId, pageId){
   const job = JOBS.find(j=>j.id===jobId); if(!job) return;
-  job.statusPaint = (job.submittalPaint||[]).map(r=>({num:r.num,finish:r.finish,color:r.color,ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''}));
-  job.statusWC = (job.submittalWC||[]).map(r=>({num:r.num,manufacturer:r.manufacturer,color:r.color,samplesOrdered:'',samplesReceived:'',approved:'',wcOrdered:'',estDelivery:''}));
+  initStatusPages(job); initSubmittalPages(job);
+  const page = job.statusPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  const sourceId = page.sourceSubmittalPageId;
+  const subPage = sourceId ? job.submittalPages.find(function(p){return p.id===sourceId;}) : job.submittalPages[0];
+  if(!subPage){ alert('Pick a Submittal page to pull from first.'); return; }
+  page.paint = (subPage.paint||[]).map(r=>({num:r.num,finish:r.finish,color:r.color,ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''}));
+  page.wc = (subPage.wc||[]).map(r=>({num:r.num,manufacturer:r.manufacturer,color:r.color,samplesOrdered:'',samplesReceived:'',approved:'',wcOrdered:'',estDelivery:''}));
   saveJobs(); openJobDetail(jobId,'status');
 }
 function togglePlansHighlighted(jobId, val){
@@ -5808,7 +5934,15 @@ function renderJobDetail(){
     <!-- Tab Bar -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;">
       <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;flex-wrap:wrap;">
-        ${visibleTabs.map(x=>`<div class="job-tab ${CUR_JOB_TAB===x.t?'active':''}" data-jobid="${job.id}" data-tab="${x.t}" onclick="openJobDetail(this.dataset.jobid,this.dataset.tab)">${x.label}</div>`).join('')}
+        ${visibleTabs.map(x=>{
+          const custom = (job.tabCustom||{})[x.t] || {};
+          const label = custom.label || x.label;
+          const color = custom.color || '';
+          const isActive = CUR_JOB_TAB===x.t;
+          const styleOverride = color ? ('color:'+color+';'+(isActive?'border-bottom-color:'+color+';':'')) : '';
+          const pencil = isForemanView ? '' : '<span onclick="event.stopPropagation();openTabCustomizeMenu(event,\''+job.id+'\',\''+x.t+'\',\''+x.label.replace(/'/g,"\\'")+'\')" title="Customize tab" style="margin-left:5px;opacity:.4;font-size:9px;cursor:pointer;">\u270e</span>';
+          return '<div class="job-tab '+(isActive?'active':'')+'" data-jobid="'+job.id+'" data-tab="'+x.t+'" onclick="openJobDetail(this.dataset.jobid,this.dataset.tab)" style="'+styleOverride+'">'+label+pencil+'</div>';
+        }).join('')}
       </div>
     </div>
     ${tabContent}`;
@@ -6536,7 +6670,9 @@ function printCORLog(job, pageId){
 }
 
 // ═══════════════════════════════════════ SUBMITTAL PRINT ════════════════════════════════
-function printSubmittal(job){
+function printSubmittal(job, pageId){
+  initSubmittalPages(job);
+  const page = pageId ? job.submittalPages.find(function(p){return p.id===pageId;}) : job.submittalPages[0];
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
@@ -6545,8 +6681,8 @@ function printSubmittal(job){
   const coPhone = job.company==='ACI'?'(714) 701-1360 • Fax (714) 701-1361':'(714) 668-5250 • Fax (714) 668-5251';
   const today = new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
   const logoSrc = getCompanyLogo(job.company||'Bonas');
-  const paint = job.submittalPaint||[];
-  const wc = job.submittalWC||[];
+  const paint = (page&&page.paint)||[];
+  const wc = (page&&page.wc)||[];
   // Pad to minimum rows for blank form feel
   const PAINT_MIN = 11; const WC_MIN = 7;
 
@@ -6682,44 +6818,10 @@ function getCompanyLogo(company){
   return COMPANY_LOGOS[company]||'';
 }
 
-function syncStatusFromSubmittalAuto(jobId){
-  const job=JOBS.find(j=>j.id===jobId);if(!job)return;
-  const paint=job.submittalPaint||[];
-  const wc=job.submittalWC||[];
-  // Sync paint status — add new rows, update existing, preserve status fields
-  if(!job.statusPaint)job.statusPaint=[];
-  const STATUS_PAINT_MIN=11;
-  // Update/add from submittal
-  paint.forEach((p,i)=>{
-    if(!p.num&&!p.manufacturer&&!p.color)return; // skip blank rows
-    const existing=job.statusPaint.find(s=>s._submittalIdx===i);
-    if(existing){
-      existing.num=p.num;existing.finish=p.finish;existing.color=p.color;
-    } else {
-      job.statusPaint.push({_submittalIdx:i,num:p.num||'',finish:p.finish||'',color:p.color||'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''});
-    }
-  });
-  // Pad status paint to minimum
-  while(job.statusPaint.length<STATUS_PAINT_MIN){
-    job.statusPaint.push({num:'',finish:'',color:'',ddsOrdered:'',ddsReceived:'',approved:'',paintOrdered:'',estDelivery:''});
-  }
-  // Sync WC status
-  if(!job.statusWC)job.statusWC=[];
-  wc.forEach((w,i)=>{
-    if(!w.num&&!w.manufacturer&&!w.color)return;
-    const existing=job.statusWC.find(s=>s._submittalIdx===i);
-    if(existing){
-      existing.num=w.num;existing.manufacturer=w.manufacturer;existing.color=w.color;
-    } else {
-      job.statusWC.push({_submittalIdx:i,num:w.num||'',manufacturer:w.manufacturer||'',color:w.color||'',samplesOrdered:'',samplesReceived:'',approved:'',wcOrdered:'',estDelivery:''});
-    }
-  });
-  saveJobs();
-}
 // ═══════════════════════════════════════ COR LOG REBUILD ════════════════════════════════
 // Pre-built 50 rows, add 1/5/10, numerical order, VOID toggle per row
 
-function corLogPageDefault(){ return {name:'COR Log'}; }
+function corLogPageDefault(){ return {name:'COR Log', includeInTotal:true}; }
 function initCorLogPages(job){
   if(!job.cors) job.cors=[];
   if(!job.corLogPages || !job.corLogPages.length){
@@ -6742,6 +6844,14 @@ function jobCORTotalsForPage(job, pageId){
   const awd = entries.filter(function(c){return !c.void&&c.custAmount;}).reduce(function(s,c){return s+(c.custAmount||0);},0);
   return {req, awd, outstanding: req-awd};
 }
+function toggleCorLogIncludeInTotal(jobId, pageId, checked){
+  const job = JOBS.find(j=>j.id===jobId); if(!job) return;
+  initCorLogPages(job);
+  const page = job.corLogPages.find(function(p){return p.id===pageId;}); if(!page) return;
+  page.includeInTotal = checked;
+  saveJobs();
+  openJobDetail(jobId,'corlog');
+}
 function renderCORLog(job, coHdr, coAddr, coPhone, ct){
   initCorLogPages(job);
   const maker = corLogPageDefault;
@@ -6754,10 +6864,15 @@ function renderCORLog(job, coHdr, coAddr, coPhone, ct){
 
   return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;box-shadow:var(--shadow);">
     ${renderPageTabStrip(job, 'corlog', 'corLogPages', maker)}
+    <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-bottom:14px;cursor:pointer;background:var(--bg3);padding:7px 12px;border-radius:var(--r);">
+      <input type="checkbox" ${page.includeInTotal!==false?'checked':''} onchange="toggleCorLogIncludeInTotal('${job.id}','${page.id}',this.checked)" style="accent-color:#CC0000;cursor:pointer;">
+      Count this page's CORs toward the job's contract total
+      ${page.includeInTotal===false?'<span style="color:#CC7000;font-weight:600;">\u2014 excluded (dummy/reference log)</span>':''}
+    </label>
     <!-- Summary -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Base Contract</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(origContract)}</div></div>
-      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(pageCt.awd)}</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 COR Count</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${displayCors.length}</div></div>
       <div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3F6E;">Revised Contract (all pages)</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:#1B3F6E;">${fmtVal(revisedContract)}</div></div>
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 Requested</div><div style="font-size:18px;font-weight:800;margin-top:4px;">${fmtVal(pageCt.req)}</div></div>
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">This Page \u2014 Awarded</div><div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green);">${fmtVal(pageCt.awd)}</div></div>
@@ -7405,7 +7520,7 @@ function jobTotalCosts(job){
 }
 
 function jobCORTotals(job){
-  const cors=job.cors||[];
+  const cors=(job.cors||[]).filter(c=>corCountsTowardContract(job,c));
   const req=cors.filter(c=>!c.void).reduce((s,c)=>s+(c.total||0),0);
   const awd=cors.filter(c=>!c.void&&c.custAmount).reduce((s,c)=>s+(c.custAmount||0),0);
   return{req,awd,outstanding:req-awd};
@@ -8827,8 +8942,10 @@ function renderClosedSection(closedJobs){
 }
 
 
-function printOrder(job){
+function printOrder(job, pageId){
   if(!job){return;}
+  initSubmittalPages(job);
+  const page = pageId ? job.submittalPages.find(function(p){return p.id===pageId;}) : job.submittalPages[0];
   const gc = DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const coHdr = job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
@@ -8836,8 +8953,8 @@ function printOrder(job){
   const coPhone = job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
   const today = new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
   const logoSrc = getCompanyLogo(job.company||'Bonas');
-  const paint = (job.submittalPaint||[]).filter(r=>r.manufacturer||r.color||r.num||r.orderNote);
-  const wc = (job.submittalWC||[]).filter(r=>r.manufacturer||r.color||r.num||r.orderNote);
+  const paint = ((page&&page.paint)||[]).filter(r=>r.manufacturer||r.color||r.num||r.orderNote);
+  const wc = ((page&&page.wc)||[]).filter(r=>r.manufacturer||r.color||r.num||r.orderNote);
 
   const paintRows = paint.length ? paint.map(r=>`<tr>
     <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;">${r.num||''}</td>
@@ -9439,16 +9556,18 @@ function renderSOVLinesTable(job){
 }
 
 // ════════════════════════════════════ PRINT STATUS PAGE ══════════════════════
-function printStatusPage(job){
+function printStatusPage(job, pageId){
   if(!job)return;
+  initStatusPages(job);
+  const page = pageId ? job.statusPages.find(function(p){return p.id===pageId;}) : job.statusPages[0];
   const coHdr=job.company==='ACI'?'ARCHITECTURAL COATINGS INC.':'BONAS COMPANY';
   const coAddr=job.company==='ACI'?'1965 N. Main Street, Orange, CA. 92865':'3197-C Airport Loop Drive \u2022 Costa Mesa \u2022 CA \u2022 92626';
   const coPhone=job.company==='ACI'?'(714) 701-1360':'(714) 668-5250';
   const gc=DB.gcs.find(g=>parseInt(g.id)===parseInt(job.gcId));
   const pm=DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const paint=(job.statusPaint||[]).filter(r=>r.num||r.manufacturer||r.color);
-  const wc=(job.statusWC||[]).filter(r=>r.num||r.manufacturer||r.color);
+  const paint=((page&&page.paint)||[]).filter(r=>r.num||r.manufacturer||r.color);
+  const wc=((page&&page.wc)||[]).filter(r=>r.num||r.manufacturer||r.color);
 
   const paintRows=paint.map(r=>`<tr>
     <td style="padding:4px 7px;border:1px solid #ccc;">${r.num||''}</td>
