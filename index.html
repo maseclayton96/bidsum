@@ -9703,9 +9703,8 @@ function printFieldBudget(job, pageId){
     </tfoot>
   </table>
   <div style="margin-top:20px;font-size:9px;color:#777;">Printed ${today} \u00b7 ${coHdr}</div>
-  <script>window.onload=function(){setTimeout(function(){window.print();},400);};</script>
   </body></html>`;
-  const w=window.open('','_blank','width=1000,height=650');w.document.write(html);w.document.close();
+  const w=window.open('','_blank','width=1000,height=650');w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);
 }
 
 // ════════════════════════════════════ PROPOSAL TAB ═══════════════════════════
