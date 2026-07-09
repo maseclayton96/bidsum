@@ -40,6 +40,7 @@ export default async function handler(req, res) {
 
   try {
     await sql`ALTER TABLE ewo_records ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'`;
+    await sql`ALTER TABLE ewo_records ADD COLUMN IF NOT EXISTS submitted_by_id BIGINT`;
   } catch (e) { console.error('EWO init error:', e.message); }
 
   try {
@@ -65,7 +66,8 @@ export default async function handler(req, res) {
       const {
         job_id, company = 'Bonas', ewo_num, date, foreman,
         description, workers = [], materials = [], equipment = [],
-        sundries = '', status = 'Pending', gc_super = '', gc_notes = '', photos = []
+        sundries = '', status = 'Pending', gc_super = '', gc_notes = '', photos = [],
+        submitted_by_id = null
       } = req.body;
 
       if (!job_id || !ewo_num) {
@@ -75,12 +77,12 @@ export default async function handler(req, res) {
       const [row] = await sql`
         INSERT INTO ewo_records
           (job_id, company, ewo_num, date, foreman, description,
-           workers, materials, equipment, sundries, status, gc_super, gc_notes, photos)
+           workers, materials, equipment, sundries, status, gc_super, gc_notes, photos, submitted_by_id)
         VALUES
           (${job_id}, ${company}, ${ewo_num}, ${date || null}, ${foreman || null},
            ${description || null}, ${JSON.stringify(workers)}, ${JSON.stringify(materials)},
            ${JSON.stringify(equipment)}, ${sundries || null}, ${status},
-           ${gc_super || null}, ${gc_notes || null}, ${JSON.stringify(photos)})
+           ${gc_super || null}, ${gc_notes || null}, ${JSON.stringify(photos)}, ${submitted_by_id || null})
         RETURNING *
       `;
       return res.status(201).json(row);
