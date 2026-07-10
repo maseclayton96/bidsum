@@ -7611,6 +7611,16 @@ function jobTotalCosts(job){
   return (job.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
 }
 
+// The "Breakdown" (ohp) category is used to summarize/recap the labor+material
+// cost already counted in other categories, not to add extra cost on top of
+// them — so it's excluded when computing a COR's total dollar amount.
+function corLinesTotal(lines){
+  return (lines||[]).filter(l=>(l.category||'other')!=='ohp').reduce((s,l)=>{
+    const a=(l.qty||0)*(l.rate||0);
+    return s+(l.type==='deduct'?-a:a);
+  },0);
+}
+
 function jobCORTotals(job){
   const cors=(job.cors||[]).filter(c=>corCountsTowardContract(job,c));
   const req=cors.filter(c=>!c.void).reduce((s,c)=>s+(c.total||0),0);
@@ -7941,7 +7951,7 @@ function printCOR(jobId, corIdx){
   const today=new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
   const corNum=corIdx+1;
   const lines=cor.lines||[];
-  const total=lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  const total=corLinesTotal(lines);
 
   const categoryOrder=[];
   lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
@@ -7988,12 +7998,18 @@ function printCOR(jobId, corIdx){
       .total-row{display:flex;justify-content:flex-end;border-top:1px solid #000;padding-top:6px;margin-top:4px;}
       .total-label{font-weight:bold;font-size:12px;margin-right:20px;}
       .total-val{font-weight:bold;font-size:13px;min-width:80px;text-align:right;}
-      .footer-note{font-size:9px;color:#555;margin-top:10px;border-top:1px solid #ccc;padding-top:6px;}
+      .footer-note{font-size:9px;color:#555;margin-top:auto;border-top:1px solid #ccc;padding-top:6px;}
       .sig{margin-top:24px;}
       .sig-line{border-top:1px solid #000;width:200px;padding-top:4px;font-size:10px;}
-      @media print{body{padding:8px;}}
+      .desc-box{border:1px solid #ccc;border-radius:3px;padding:6px 8px;min-height:30px;white-space:pre-wrap;box-sizing:border-box;}
+      @page{size:letter;margin:0;}
+      html,body{margin:0;height:100%;}
+      body{box-sizing:border-box;padding:0.5in;}
+      .page{display:flex;flex-direction:column;min-height:10in;}
+      @media print{body{padding:0.5in;}}
     </style>
   </head><body>
+  <div class="page">
     <div class="header">
       <div class="co-block">
         ${logoSrc?`<img src="${logoSrc}" style="width:48px;height:48px;object-fit:contain;" alt="">`:''}
@@ -8012,7 +8028,7 @@ function printCOR(jobId, corIdx){
     <table class="info-table">
       <tr>
         <td class="info-label">CUSTOMER:</td>
-        <td colspan="3">${gc?gc.name:job.gcName||'—'}<br>${gc&&gc.street?gc.street+', '+gc.city:''}
+        <td colspan="3">${gc?gc.name:job.gcName||'—'}${gc&&gc.street?'<br>'+gc.street:''}${gc&&gc.city?'<br>'+gc.city:''}
         </td>
         <td style="width:80px;font-weight:bold;text-align:right;">JOB #:</td>
         <td style="font-weight:bold;">${job.num||'—'}</td>
@@ -8026,12 +8042,15 @@ function printCOR(jobId, corIdx){
       <tr><td colspan="6"><div class="info-divider"></div></td></tr>
       <tr>
         <td class="info-label">PROJECT:</td>
-        <td colspan="5"><strong>${job.name}</strong><br>${job.address||''} ${job.city?job.city+', CA':''}${job.zip?' '+job.zip:''}</td>
+        <td colspan="5"><strong>${job.name}</strong>${job.address?'<br>'+job.address:''}${(job.city||job.zip)?'<br>'+(job.city?job.city+', CA':'')+(job.zip?' '+job.zip:''):''}</td>
       </tr>
     </table>
     <div class="info-divider"></div>
     <div style="font-size:10px;margin:8px 0;">In regard to the above stated project, we submit the following cost.</div>
-    ${cor.desc?`<div style="font-size:10px;margin-bottom:6px;"><strong>Description of work:</strong> ${cor.desc}</div>`:''}
+    <div style="font-size:10px;margin-bottom:8px;">
+      <div style="font-weight:bold;margin-bottom:3px;">Description of work:</div>
+      <div class="desc-box">${cor.desc||''}</div>
+    </div>
     <table class="line-table">
       ${lineRows}
     </table>
@@ -8046,6 +8065,7 @@ function printCOR(jobId, corIdx){
     <div class="sig">
       <div class="sig-line">${pm?pm.first+' '+pm.last:'Project Manager'}<br>Project Manager</div>
     </div>
+  </div>
   </body></html>`;
   const win=window.open('','_blank','width=800,height=900');
   win.document.write(printHTML);
@@ -8222,7 +8242,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   const categoryLabels = {labor:'Labor', material:'Materials', ohp:'Breakdown'};
   const catLabel = (cat) => categoryLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1));
   const catTotal = (cat) => lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>s+amt(l),0);
-  const grandTotal = lines.reduce((s,l)=>s+amt(l),0);
+  const grandTotal = corLinesTotal(lines);
 
   // Sundries = 8% of straight + overtime labor (only meaningful if using the standard template)
   const laborLinesAll = lines.filter(l=>l.category==='labor');
@@ -8546,7 +8566,7 @@ function corLineUpdate(jobId, corIdx, lineIdx, field, val){
   const line = job.cors[corIdx].lines[lineIdx];
   line[field] = val;
   const lines = job.cors[corIdx].lines;
-  const total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  const total = corLinesTotal(lines);
   job.cors[corIdx].total = total;
   saveJobs();
   // Live update: grand total
@@ -8575,7 +8595,7 @@ function corLineRemove(jobId, corIdx, lineIdx){
   if(!job.cors[corIdx]) return;
   job.cors[corIdx].lines.splice(lineIdx, 1);
   const lines = job.cors[corIdx].lines;
-  job.cors[corIdx].total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  job.cors[corIdx].total = corLinesTotal(lines);
   saveJobs();
   openCORForm(jobId, corIdx);
 }
@@ -8627,7 +8647,7 @@ function corRemoveCategory(jobId, corIdx, category){
   if(!confirm('Remove this entire category and all its line items? This cannot be undone.')) return;
   job.cors[corIdx].lines = (job.cors[corIdx].lines||[]).filter(l=>(l.category||'other')!==category);
   const lines = job.cors[corIdx].lines;
-  job.cors[corIdx].total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  job.cors[corIdx].total = corLinesTotal(lines);
   saveJobs();
   openCORForm(jobId, corIdx);
 }
@@ -8706,7 +8726,7 @@ function saveCORForm(jobId, corIdx){
     sundriesLine.rate = Math.round(straightOT*0.08*100)/100;
     sundriesLine.qty  = 1;
   }
-  cor.total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  cor.total = corLinesTotal(lines);
   saveJobs('COR '+(corIdx+1)+' edit');
   showSaved('✓ COR '+(corIdx+1)+' saved');
   openCORForm(jobId, corIdx);
@@ -8881,6 +8901,14 @@ function renderForemanHome(){
     +cardsHtml;
 }
 
+function isTrackedOpenCOR(c, now){
+  if(!c || c.void || c.custAmount || c.total<=0 || !c.date) return false;
+  const date = new Date(c.date);
+  if(isNaN(date)) return false;
+  const days = Math.floor((now - date)/(1000*60*60*24));
+  return days >= 30 && c.total > 10000;
+}
+
 function renderPMHome(){
   const isForemanView = !isManagerMode() && effectiveRoleType()==='FOR';
   if(isForemanView){ renderForemanHome(); return; }
@@ -8908,14 +8936,14 @@ function renderPMHome(){
   const bonasContract  = myJobs.filter(j=>j.company==='Bonas').reduce((s,j)=>s+jobContract(j),0);
   const aciContract    = myJobs.filter(j=>j.company==='ACI').reduce((s,j)=>s+jobContract(j),0);
 
-  const openCORs = [];
+  const trackedOpenCORs = [];
   myJobs.forEach(j=>{
     if(j.status==='Closed') return; // exclude closed jobs from open CORs
     (j.cors||[]).forEach((c,ci)=>{
-      if(!c.void&&c.total>0&&!c.custAmount) openCORs.push({job:j,cor:c,corIdx:ci});
+      if(isTrackedOpenCOR(c, now)) trackedOpenCORs.push({job:j,cor:c,corIdx:ci});
     });
   });
-  const totalOpenCOR = openCORs.reduce((s,x)=>s+x.cor.total,0);
+  const totalOpenCOR = trackedOpenCORs.reduce((s,x)=>s+x.cor.total,0);
 
   const rcvdCORs = [];
   myJobs.forEach(j=>{
@@ -8932,7 +8960,7 @@ function renderPMHome(){
       const pmJobs = activeJobs.filter(j=>parseInt(j.pmId)===parseInt(pm.id));
       if(!pmJobs.length) return '';
       const pmContract = pmJobs.reduce((s,j)=>s+jobContract(j),0);
-      const pmOpenCOR  = pmJobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s2,c)=>s2+c.total,0)),0);
+      const pmOpenCOR  = pmJobs.reduce((s,j)=>s+((j.cors||[]).filter(c=>isTrackedOpenCOR(c, now)).reduce((s2,c)=>s2+c.total,0)),0);
       const ini=(pm.first[0]||'')+(pm.last[0]||'');
       return '<tr style="border-bottom:1px solid var(--border);">'
         +'<td style="padding:10px 12px;"><div style="display:flex;align-items:center;gap:10px;">'
@@ -8946,7 +8974,7 @@ function renderPMHome(){
     }).join('');
   }
 
-  const corRows = openCORs
+  const corRows = trackedOpenCORs
     .sort((a,b)=>b.cor.total-a.cor.total)
     .map(({job,cor,corIdx})=>{
       const days = cor.date?Math.floor((now-new Date(cor.date))/(1000*60*60*24)):null;
@@ -8968,7 +8996,7 @@ function renderPMHome(){
     .map(job=>{
       const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
       const ini = pm?(pm.first[0]+pm.last[0]):'—';
-      const openCOR = (job.cors||[]).filter(c=>!c.void&&c.total>0&&!c.custAmount).reduce((s,c)=>s+c.total,0);
+      const openCOR = (job.cors||[]).filter(c=>isTrackedOpenCOR(c, now)).reduce((s,c)=>s+c.total,0);
       return '<tr style="cursor:pointer;border-bottom:1px solid var(--border);" onclick="openVisibleJob(\''+job.id+'\')">'
         +'<td style="padding:9px 12px;"><span style="font-weight:700;color:#CC0000;font-size:12px;">'+(job.num||'—')+'</span></td>'
         +'<td style="padding:9px 12px;"><div style="font-weight:600;font-size:13px;">'+job.name+'</div>'
@@ -9017,7 +9045,7 @@ function renderPMHome(){
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">'
     +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Active Jobs</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">'+activeJobs.length+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">'+holdJobs.length+' on hold</div></div>'
     +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);">Contract Value</div><div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.5px;">'+fmtVal(totalContract)+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">Active: '+fmtVal(activeContract)+'</div></div>'
-    +'<div style="background:#FFF8F0;border:1px solid #FFDDAA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC7000;">Open CORs</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:#CC7000;">'+openCORs.length+'</div><div style="font-size:11px;color:#CC7000;margin-top:3px;">'+fmtVal(totalOpenCOR)+' pending</div></div>'
+    +'<div style="background:#FFF8F0;border:1px solid #FFDDAA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#CC7000;">Open CORs</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:#CC7000;">'+trackedOpenCORs.length+'</div><div style="font-size:11px;color:#CC7000;margin-top:3px;">'+fmtVal(totalOpenCOR)+' pending · 30+ days · $10k+</div></div>'
     +'<div style="background:#F0FFF4;border:1px solid #B2DFCA;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--green);">CORs Awarded</div><div style="font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.5px;color:var(--green);">'+rcvdCORs.length+'</div><div style="font-size:11px;color:var(--green);margin-top:3px;">'+fmtVal(totalRcvd)+' received</div></div>'
     +(showAll
       ?'<div style="background:#F0F7FF;border:1px solid #C0D8EE;border-radius:var(--rlg);padding:16px 20px;box-shadow:var(--shadow);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);">Bonas</div><div style="font-size:22px;font-weight:800;margin-top:6px;color:var(--blue);">'+fmtVal(bonasContract)+'</div><div style="font-size:11px;color:var(--blue);margin-top:3px;">'+allJobs.filter(j=>j.company==='Bonas'&&j.status==='Active').length+' active</div></div>'
@@ -9032,15 +9060,15 @@ function renderPMHome(){
 
     +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;">'
     +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF8F0;display:flex;align-items:center;justify-content:space-between;">'
-    +'<div style="font-size:14px;font-weight:700;color:#CC7000;">Open CORs <span style="font-size:12px;font-weight:400;margin-left:6px;">'+openCORs.length+' pending \u00b7 '+fmtVal(totalOpenCOR)+'</span></div></div>'
-    +(openCORs.length
+    +'<div style="font-size:14px;font-weight:700;color:#CC7000;">Open CORs <span style="font-size:12px;font-weight:400;margin-left:6px;">'+trackedOpenCORs.length+' pending · '+fmtVal(totalOpenCOR)+' · 30+ days / $10k</span></div></div>'
+    +(trackedOpenCORs.length
       ?'<div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table style="'+tS+'">'
        +'<thead><tr style="background:var(--bg3);">'
        +'<th style="'+th+'width:55px;">Job #</th><th style="'+th+'">Job / COR</th>'
        +(showAll?'<th style="'+th+'width:32px;">PM</th>':'')
        +'<th style="'+thR+'width:80px;">Amount</th><th style="'+th+'width:65px;">Date</th><th style="'+th+'width:50px;">Age</th>'
        +'</tr></thead><tbody>'+corRows+'</tbody></table></div>'
-      :'<div style="padding:24px;text-align:center;color:var(--text3);">No open CORs \u2014 great work!</div>')
+      :'<div style="padding:24px;text-align:center;color:var(--text3);">No qualifying open CORs — great work!</div>')
     +'</div>'
 
     +'<div style="background:var(--bg2);border:1px dashed var(--border);border-radius:var(--rlg);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:16px;">'
