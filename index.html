@@ -8050,7 +8050,20 @@ function printCOR(jobId, corIdx){
   const win=window.open('','_blank','width=800,height=900');
   win.document.write(printHTML);
   win.document.close();
-  setTimeout(()=>win.print(),500);
+  setTimeout(()=>{
+    try{
+      const body = win.document.body;
+      const maxHeightPx = 10 * 96; // ~10in usable height at 0.5in margins on 11in letter, 96dpi
+      const actualHeight = body.scrollHeight;
+      if(actualHeight > maxHeightPx){
+        const scale = Math.max(0.55, maxHeightPx / actualHeight);
+        body.style.transform = 'scale('+scale+')';
+        body.style.transformOrigin = 'top left';
+        body.style.width = (100/scale)+'%';
+      }
+    }catch(e){}
+    win.print();
+  },500);
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
@@ -8206,7 +8219,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   // renamed, added to, or removed entirely.
   const categoryOrder = [];
   lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
-  const categoryLabels = {labor:'Labor', material:'Materials', ohp:'Overhead & Profit'};
+  const categoryLabels = {labor:'Labor', material:'Materials', ohp:'Breakdown'};
   const catLabel = (cat) => categoryLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1));
   const catTotal = (cat) => lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>s+amt(l),0);
   const grandTotal = lines.reduce((s,l)=>s+amt(l),0);
@@ -8256,7 +8269,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
           <option value="deduct" ${line.type==='deduct'?'selected':''}>DEDUCT:</option>
         </select>
       </td>
-      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-weight:600;font-size:10px;color:${signAmt<0?'#CC0000':'#000'};">
+      <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-weight:600;font-size:10px;color:${signAmt<0?'#CC0000':'#000'};" id="cor-line-amt-${corIdx}-${li}">
         $${lineAmt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
       </td>
       <td style="padding:3px 4px;border:1px solid #ddd;width:22px;text-align:center;">
@@ -8283,10 +8296,9 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     : `<button class="btn-sm" onclick="openNewCOR('${job.id}')">+ New COR ›</button>`;
 
   // Editable header fields
-  const editStyle = 'border:none;font-size:10px;font-family:Arial;outline:none;background:transparent;width:100%;padding:1px 0;';
-  const editInput = (id,val,ph,type) =>
-    `<input id="${id}" type="${type||'text'}" value="${(val||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph||''}"
-      style="${editStyle}${type==='date'?'':''}">`;
+  const editStyle = 'border:none;border-bottom:none;outline:none;background:transparent;width:100%;padding:1px 0;font-size:10px;font-family:Arial;-webkit-appearance:none;appearance:none;box-shadow:none;';
+  const gcCityState = gc ? [gc.city].filter(Boolean).join(', ') : '';
+  const jobCityState = [job.city, job.zip].filter(Boolean).join(' ');
 
   return`
   <div style="max-width:820px;margin:0 auto;">
@@ -8382,9 +8394,12 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
           <input id="corf-customer" value="${(cor.overrideCustomer||gc&&gc.name||job.gcName||'').replace(/"/g,'&quot;')}"
             placeholder="Customer name"
             style="${editStyle}font-weight:500;">
-          <input id="corf-customer-addr" value="${(cor.overrideAddr||gc&&gc.street&&gc.street+', '+gc.city||'').replace(/"/g,'&quot;')}"
-            placeholder="Address"
-            style="${editStyle}color:#555;margin-top:1px;">
+          <input id="corf-customer-addr" value="${(cor.overrideAddr||gc&&gc.street||'').replace(/"/g,'&quot;')}"
+            placeholder="Street address"
+            style="${editStyle}color:#555;margin-top:2px;">
+          <input id="corf-customer-citystate" value="${(cor.overrideCityState||gcCityState||'').replace(/"/g,'&quot;')}"
+            placeholder="City, State Zip"
+            style="${editStyle}color:#555;margin-top:2px;">
         </div>
         <div style="padding:5px 8px;border-right:1px solid #ddd;font-weight:bold;color:#555;display:flex;align-items:center;">JOB #:</div>
         <div style="padding:4px 8px;display:flex;align-items:center;">
@@ -8406,8 +8421,10 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
         <div style="padding:4px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;grid-column:2/3;">
           <input id="corf-project" value="${(cor.overrideProject||job.name||'').replace(/"/g,'&quot;')}"
             placeholder="Project name" style="${editStyle}font-weight:bold;">
-          <input id="corf-project-addr" value="${(cor.overrideProjectAddr||[job.address,job.city,job.zip].filter(Boolean).join(', ')||'').replace(/"/g,'&quot;')}"
-            placeholder="Project address" style="${editStyle}color:#555;margin-top:1px;">
+          <input id="corf-project-addr" value="${(cor.overrideProjectAddr||job.address||'').replace(/"/g,'&quot;')}"
+            placeholder="Street address" style="${editStyle}color:#555;margin-top:2px;">
+          <input id="corf-project-citystate" value="${(cor.overrideProjectCityState||jobCityState||'').replace(/"/g,'&quot;')}"
+            placeholder="City, State Zip" style="${editStyle}color:#555;margin-top:2px;">
         </div>
         <div style="padding:5px 8px;border-right:1px solid #ddd;border-top:1px solid #ddd;font-weight:bold;color:#555;">PHONE #:<br>FAX #:</div>
         <div style="padding:4px 8px;border-top:1px solid #ddd;">
@@ -8430,13 +8447,11 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
       </div>
 
       <!-- Description -->
-      <div style="padding:6px 10px;border-bottom:1px solid #ddd;font-size:10px;">
-        <div style="color:#555;margin-bottom:3px;">In regard to the above stated project, we submit the following cost.</div>
-        <div style="display:flex;align-items:flex-start;gap:6px;">
-          <span style="font-weight:bold;white-space:nowrap;padding-top:2px;">Description of work:</span>
-          <input id="corf-desc" value="${(cor.desc||'').replace(/"/g,'&quot;')}" placeholder="Describe the change order work..."
-            style="flex:1;border:none;border-bottom:1px solid #bbb;font-size:10px;font-family:Arial;outline:none;padding:1px 4px;background:transparent;">
-        </div>
+      <div style="padding:8px 10px;border-bottom:1px solid #ddd;font-size:10px;">
+        <div style="color:#555;margin-bottom:4px;">In regard to the above stated project, we submit the following cost.</div>
+        <div style="font-weight:bold;margin-bottom:3px;">Description of work:</div>
+        <textarea id="corf-desc" placeholder="Describe the change order work..."
+          style="width:100%;min-height:36px;border:1px solid #ddd;border-radius:3px;font-size:10px;font-family:Arial;outline:none;padding:4px 6px;background:#fff;resize:vertical;box-sizing:border-box;">${(cor.desc||'').replace(/</g,'&lt;')}</textarea>
       </div>
 
       <!-- LINE ITEM CATEGORIES (dynamic) -->
@@ -8456,17 +8471,20 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
             <button onclick="corAddCustomLine('${job.id}',${corIdx},'${cat}')"
               style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">+ Add line</button>
           </div>
-          <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;">
+          <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;" id="cor-cat-subtotal-${corIdx}-${cat}">
             ${catLabel(cat)} Subtotal: <span style="color:${total<0?'#CC0000':'#000'};">$${Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
           </div>
         </div>`;
       }).join('') : `<div style="padding:20px 10px;text-align:center;color:#999;font-size:11px;">No line items yet. Load the standard template below, or add a category to start from scratch.</div>`}
 
       <!-- CATEGORY / TEMPLATE CONTROLS -->
-      <div style="padding:8px 10px;border-bottom:1px solid #ddd;background:#FAFAFA;display:flex;gap:8px;flex-wrap:wrap;">
-        <button onclick="corAddCategory('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;">+ Add Category</button>
-        <button onclick="corLoadTemplate('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;">\u21bb Load Labor / Material / OH+P Template</button>
-        <button onclick="corClearAllLines('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#FFF0F0;border:1px solid #FFAAAA;border-radius:3px;cursor:pointer;color:#CC0000;">Clear All Lines</button>
+      <div style="padding:10px;border-bottom:1px solid #ddd;background:#FAFAFA;">
+        ${categoryOrder.includes('ohp') ? '' : `<button onclick="corAddBreakdown('${job.id}',${corIdx})" style="display:block;width:100%;padding:10px 14px;margin-bottom:8px;background:#1B3F6E;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">+ Add Breakdown</button>`}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="corAddCategory('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;">+ Add Category</button>
+          <button onclick="corLoadTemplate('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;">\u21bb Load Labor / Material Template</button>
+          <button onclick="corClearAllLines('${job.id}',${corIdx})" style="font-size:10px;padding:4px 10px;background:#FFF0F0;border:1px solid #FFAAAA;border-radius:3px;cursor:pointer;color:#CC0000;">Clear All Lines</button>
+        </div>
       </div>
 
       <!-- Grand Total -->
@@ -8525,15 +8543,31 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
 function corLineUpdate(jobId, corIdx, lineIdx, field, val){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]||!job.cors[corIdx].lines[lineIdx]) return;
-  job.cors[corIdx].lines[lineIdx][field] = val;
-  // Recalculate total
+  const line = job.cors[corIdx].lines[lineIdx];
+  line[field] = val;
   const lines = job.cors[corIdx].lines;
   const total = lines.reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
   job.cors[corIdx].total = total;
   saveJobs();
-  // Live update the total display
+  // Live update: grand total
   const totalEl = document.getElementById('corf-grand-total');
   if(totalEl) totalEl.textContent = '$'+Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Live update: this row's amount
+  const rowAmt = (line.qty||0)*(line.rate||0);
+  const rowEl = document.getElementById('cor-line-amt-'+corIdx+'-'+lineIdx);
+  if(rowEl){
+    rowEl.textContent = '$'+Math.abs(rowAmt).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    rowEl.style.color = (line.type==='deduct'?-rowAmt:rowAmt)<0 ? '#CC0000' : '#000';
+  }
+  // Live update: this line's category subtotal
+  const cat = line.category||'other';
+  const catTotal = lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  const catLabels = {labor:'Labor', material:'Materials', ohp:'Breakdown'};
+  const catLbl = catLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1));
+  const catEl = document.getElementById('cor-cat-subtotal-'+corIdx+'-'+cat);
+  if(catEl){
+    catEl.innerHTML = catLbl+' Subtotal: <span style="color:'+(catTotal<0?'#CC0000':'#000')+';">$'+Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
+  }
 }
 
 function corLineRemove(jobId, corIdx, lineIdx){
@@ -8578,6 +8612,15 @@ function corAddCategory(jobId, corIdx){
   openCORForm(jobId, corIdx);
 }
 
+function corAddBreakdown(jobId, corIdx){
+  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors[corIdx]) return;
+  if(!job.cors[corIdx].lines) job.cors[corIdx].lines=[];
+  job.cors[corIdx].lines.push({category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'});
+  saveJobs();
+  openCORForm(jobId, corIdx);
+}
+
 function corRemoveCategory(jobId, corIdx, category){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
@@ -8602,7 +8645,7 @@ function corClearAllLines(jobId, corIdx){
 function corLoadTemplate(jobId, corIdx){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
-  if((job.cors[corIdx].lines||[]).length && !confirm('This replaces the current line items with the standard Labor / Material / Overhead & Profit template. Continue?')) return;
+  if((job.cors[corIdx].lines||[]).length && !confirm('This replaces the current line items with the standard Labor / Material template. Continue?')) return;
   const R = {
     regular:  getEffectiveCORRate(job,'regular'),
     overtime: getEffectiveCORRate(job,'overtime'),
@@ -8619,7 +8662,6 @@ function corLoadTemplate(jobId, corIdx){
     {category:'material', key:'enamel',   label:'Gallons of enamel paint @',  rate:R.enamel, qty:0, type:'add'},
     {category:'material', key:'dtm',      label:'Gallons of DTM paint @',     rate:R.dtm,    qty:0, type:'add'},
     {category:'material', key:'sundries', label:'Sundries',                   rate:0,        qty:1, type:'add', autoCalc:true},
-    {category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'},
   ];
   job.cors[corIdx].total = 0;
   saveJobs();
@@ -8642,10 +8684,12 @@ function saveCORForm(jobId, corIdx){
   // Editable override fields
   cor.overrideCustomer     = gv('corf-customer');
   cor.overrideAddr         = gv('corf-customer-addr');
+  cor.overrideCityState    = gv('corf-customer-citystate');
   cor.overrideJobNum       = gv('corf-jobnum');
   cor.overrideAttn         = gv('corf-attn');
   cor.overrideProject      = gv('corf-project');
   cor.overrideProjectAddr  = gv('corf-project-addr');
+  cor.overrideProjectCityState = gv('corf-project-citystate');
   cor.overridePhone        = gv('corf-phone');
   cor.overrideFax          = gv('corf-fax');
   cor.overrideJobsitePhone = gv('corf-jobsite-phone');
@@ -8745,8 +8789,6 @@ function openNewCOR(jobId, pageId){
       {category:'material', key:'enamel',   label:'Gallons of enamel paint @',  rate:R.enamel, qty:0, type:'add'},
       {category:'material', key:'dtm',      label:'Gallons of DTM paint @',     rate:R.dtm,    qty:0, type:'add'},
       {category:'material', key:'sundries', label:'Sundries',                   rate:0,        qty:1, type:'add', autoCalc:true},
-      // Overhead & Profit
-      {category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'},
     ],
     total: 0,
     custCONum: '', custDate: '', custAmount: 0, void: false
