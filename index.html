@@ -7966,42 +7966,42 @@ function printCOR(jobId, corIdx){
       const sign=l.type==='deduct'?'DEDUCT:':'ADD:';
       const signColor=l.type==='deduct'?'#CC0000':'#000';
       return`<tr>
-        <td style="padding:3px 6px;font-size:10px;">${l.label||l.key||''}</td>
-        <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.qty||''}</td>
-        <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.rate?'@ $'+l.rate.toFixed(2):''}</td>
-        <td style="padding:3px 6px;font-size:10px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
-        <td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:600;">$${Math.abs(lineAmt).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+        <td style="padding:5px 6px;font-size:13px;">${l.label||l.key||''}</td>
+        <td style="padding:5px 6px;font-size:13px;text-align:right;">${l.qty||''}</td>
+        <td style="padding:5px 6px;font-size:13px;text-align:right;">${l.rate?'@ $'+l.rate.toFixed(2):''}</td>
+        <td style="padding:5px 6px;font-size:13px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
+        <td style="padding:5px 6px;font-size:13px;text-align:right;font-weight:600;">$${Math.abs(lineAmt).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
       </tr>`;
     }).join('');
-    return `<tr><td colspan="5" style="padding:6px 6px 2px;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #ccc;">${catLabel(cat)}</td></tr>
+    return `<tr><td colspan="5" style="padding:8px 6px 3px;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #ccc;">${catLabel(cat)}</td></tr>
       ${rows}
-      <tr><td colspan="4" style="padding:3px 6px;font-size:10px;text-align:right;font-weight:bold;">${catLabel(cat)} Subtotal:</td><td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:bold;">$${Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
+      <tr><td colspan="4" style="padding:5px 6px;font-size:13px;text-align:right;font-weight:bold;">${catLabel(cat)} Subtotal:</td><td style="padding:5px 6px;font-size:13px;text-align:right;font-weight:bold;">$${Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
   }).join('');
 
   const printHTML=`<!DOCTYPE html><html><head>
     <title>COR #${corNum} — ${job.name}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:16px;color:#000;}
-      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px;}
-      .co-block{display:flex;align-items:center;gap:12px;}
-      .co-name{font-size:16px;font-weight:bold;letter-spacing:.5px;}
-      .co-sub{font-size:9px;color:#333;margin-top:1px;}
-      .right-block{text-align:right;font-size:10px;}
-      .doc-title{font-size:13px;font-weight:bold;text-align:center;margin:8px 0 2px;}
-      .cor-num{font-size:12px;font-weight:bold;text-align:center;margin-bottom:10px;}
-      .info-table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px;}
-      .info-table td{padding:2px 4px;vertical-align:top;}
-      .info-label{font-weight:bold;width:80px;}
-      .info-divider{border-top:1px solid #999;margin:6px 0;}
-      .line-table{width:100%;border-collapse:collapse;margin:6px 0 10px;}
-      .line-table td{padding:2px 6px;vertical-align:top;}
-      .total-row{display:flex;justify-content:flex-end;border-top:1px solid #000;padding-top:6px;margin-top:4px;}
-      .total-label{font-weight:bold;font-size:12px;margin-right:20px;}
-      .total-val{font-weight:bold;font-size:13px;min-width:80px;text-align:right;}
-      .footer-note{font-size:9px;color:#555;margin-top:auto;border-top:1px solid #ccc;padding-top:6px;}
-      .sig{margin-top:24px;}
-      .sig-line{border-top:1px solid #000;width:200px;padding-top:4px;font-size:10px;}
-      .desc-box{border:1px solid #ccc;border-radius:3px;padding:6px 8px;min-height:30px;white-space:pre-wrap;box-sizing:border-box;}
+      body{font-family:Arial,sans-serif;font-size:14px;margin:0;padding:16px;color:#000;}
+      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;}
+      .co-block{display:flex;align-items:center;gap:14px;}
+      .co-name{font-size:22px;font-weight:bold;letter-spacing:.5px;}
+      .co-sub{font-size:12px;color:#333;margin-top:2px;}
+      .right-block{text-align:right;font-size:13px;}
+      .doc-title{font-size:18px;font-weight:bold;text-align:center;margin:10px 0 3px;}
+      .cor-num{font-size:16px;font-weight:bold;text-align:center;margin-bottom:14px;}
+      .info-table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:13px;}
+      .info-table td{padding:4px 6px;vertical-align:top;}
+      .info-label{font-weight:bold;width:95px;}
+      .info-divider{border-top:1px solid #999;margin:8px 0;}
+      .line-table{width:100%;border-collapse:collapse;margin:10px 0 14px;}
+      .line-table td{padding:4px 6px;vertical-align:top;}
+      .total-row{display:flex;justify-content:flex-end;border-top:1px solid #000;padding-top:8px;margin-top:auto;}
+      .total-label{font-weight:bold;font-size:16px;margin-right:20px;}
+      .total-val{font-weight:bold;font-size:20px;min-width:100px;text-align:right;}
+      .footer-note{font-size:11px;color:#555;margin-top:10px;border-top:1px solid #ccc;padding-top:8px;}
+      .sig{margin-top:28px;}
+      .sig-line{border-top:1px solid #000;width:220px;padding-top:5px;font-size:13px;}
+      .desc-box{border:1px solid #ccc;border-radius:3px;padding:8px 10px;min-height:42px;white-space:pre-wrap;box-sizing:border-box;}
       @page{size:letter;margin:0;}
       html,body{margin:0;height:100%;}
       body{box-sizing:border-box;padding:0.5in;}
@@ -8046,9 +8046,9 @@ function printCOR(jobId, corIdx){
       </tr>
     </table>
     <div class="info-divider"></div>
-    <div style="font-size:10px;margin:8px 0;">In regard to the above stated project, we submit the following cost.</div>
-    <div style="font-size:10px;margin-bottom:8px;">
-      <div style="font-weight:bold;margin-bottom:3px;">Description of work:</div>
+    <div style="font-size:13px;margin:10px 0;">In regard to the above stated project, we submit the following cost.</div>
+    <div style="font-size:13px;margin-bottom:10px;">
+      <div style="font-weight:bold;margin-bottom:4px;">Description of work:</div>
       <div class="desc-box">${cor.desc||''}</div>
     </div>
     <table class="line-table">
