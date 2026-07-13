@@ -7621,6 +7621,31 @@ function corLinesTotal(lines){
   },0);
 }
 
+// Keeps the "Breakdown" (ohp) category's recap rows in sync: Labor/Material mirror
+// the actual category subtotals, and Overhead & Profit is the user-set percentage
+// of every other line item on the COR. Purely informational (see corLinesTotal
+// above) — used for backup when quoting a lump-sum price outside standard units.
+function corRecalcBreakdown(lines){
+  if(!lines||!lines.length) return;
+  const catSum = (cat) => lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>{
+    const a=(l.qty||0)*(l.rate||0); return s+(l.type==='deduct'?-a:a);
+  },0);
+  const laborRecap = lines.find(l=>l.category==='ohp'&&l.key==='labor_recap');
+  const materialRecap = lines.find(l=>l.category==='ohp'&&l.key==='material_recap');
+  const ohpPctLine = lines.find(l=>l.category==='ohp'&&l.key==='ohp_pct');
+  if(laborRecap){ laborRecap.qty=1; laborRecap.rate=catSum('labor'); laborRecap.type='add'; }
+  if(materialRecap){ materialRecap.qty=1; materialRecap.rate=catSum('material'); materialRecap.type='add'; }
+  if(ohpPctLine){
+    const base = lines.filter(l=>(l.category||'other')!=='ohp').reduce((s,l)=>{
+      const a=(l.qty||0)*(l.rate||0); return s+(l.type==='deduct'?-a:a);
+    },0);
+    const pct = ohpPctLine.pct!=null ? ohpPctLine.pct : 10;
+    ohpPctLine.qty=1;
+    ohpPctLine.rate=Math.round(base*pct)/100;
+    ohpPctLine.type='add';
+  }
+}
+
 function jobCORTotals(job){
   const cors=(job.cors||[]).filter(c=>corCountsTowardContract(job,c));
   const req=cors.filter(c=>!c.void).reduce((s,c)=>s+(c.total||0),0);
@@ -7951,11 +7976,12 @@ function printCOR(jobId, corIdx){
   const today=new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
   const corNum=corIdx+1;
   const lines=cor.lines||[];
+  corRecalcBreakdown(lines);
   const total=corLinesTotal(lines);
 
   const categoryOrder=[];
   lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
-  const categoryLabels={labor:'Labor', material:'Materials', ohp:'Overhead & Profit'};
+  const categoryLabels={labor:'Labor', material:'Materials', ohp:'Breakdown'};
   const catLabel=(cat)=>categoryLabels[cat]||(cat.charAt(0).toUpperCase()+cat.slice(1));
 
   const lineRows=categoryOrder.map(cat=>{
@@ -7965,10 +7991,13 @@ function printCOR(jobId, corIdx){
       const lineAmt=(l.qty||0)*(l.rate||0);
       const sign=l.type==='deduct'?'DEDUCT:':'ADD:';
       const signColor=l.type==='deduct'?'#CC0000':'#000';
+      const isPct = l.category==='ohp' && l.key==='ohp_pct';
+      const qtyCell = l.recap ? '' : (isPct ? (l.pct!=null?l.pct:10)+'%' : (l.qty||''));
+      const rateCell = l.recap ? '' : (isPct ? '' : (l.rate?'@ $'+l.rate.toFixed(2):''));
       return`<tr>
-        <td style="padding:5px 6px;font-size:13px;">${l.label||l.key||''}</td>
-        <td style="padding:5px 6px;font-size:13px;text-align:right;">${l.qty||''}</td>
-        <td style="padding:5px 6px;font-size:13px;text-align:right;">${l.rate?'@ $'+l.rate.toFixed(2):''}</td>
+        <td style="padding:5px 6px;font-size:13px;${l.recap?'font-style:italic;color:#555;':''}">${l.label||l.key||''}</td>
+        <td style="padding:5px 6px;font-size:13px;text-align:right;">${qtyCell}</td>
+        <td style="padding:5px 6px;font-size:13px;text-align:right;">${rateCell}</td>
         <td style="padding:5px 6px;font-size:13px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
         <td style="padding:5px 6px;font-size:13px;text-align:right;font-weight:600;">$${Math.abs(lineAmt).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
       </tr>`;
@@ -8217,6 +8246,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const lines = cor.lines || [];
+  corRecalcBreakdown(lines);
 
   // Get job-level rates (with defaults matching the paper form)
   if(!job.corRates) job.corRates = {};
@@ -8262,24 +8292,39 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     const lineAmt = Math.abs((line.qty||0)*(line.rate||0));
     const signAmt = amt(line);
     const isSundries = line.key === 'sundries';
+    const isRecap = !!line.recap;
+    const isPct = line.category==='ohp' && line.key==='ohp_pct';
     const inp = (field, val, ph, step, w, extra) =>
       `<input type="number" value="${val||''}" placeholder="${ph||'0'}" step="${step||'1'}" min="0"
         oninput="corLineUpdate('${job.id}',${corIdx},${li},'${field}',parseFloat(this.value)||0)"
         style="width:${w||'50px'};border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:Arial;${extra||''}">`;
     return`<tr id="cor-line-${corIdx}-${li}" style="background:${li%2===0?'#fff':'#f8f8f8'};">
       <td style="padding:3px 8px;border:1px solid #ddd;font-size:10px;">
-        <input value="${(line.label||line.key||'').replace(/"/g,'&quot;')}" oninput="corLineUpdate('${job.id}',${corIdx},${li},'label',this.value)"
-          style="width:100%;border:none;background:transparent;font-size:10px;font-family:Arial;outline:none;">
+        ${isRecap
+          ? `<span style="font-style:italic;color:#555;">${(line.label||'').replace(/</g,'&lt;')}</span>`
+          : `<input value="${(line.label||line.key||'').replace(/"/g,'&quot;')}" oninput="corLineUpdate('${job.id}',${corIdx},${li},'label',this.value)"
+              style="width:100%;border:none;background:transparent;font-size:10px;font-family:Arial;outline:none;">`}
       </td>
       <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:62px;">
         ${isSundries
           ? `<span style="font-size:10px;color:#888;font-style:italic;">auto</span>`
+          : isRecap
+          ? `<span style="font-size:10px;color:#ccc;">—</span>`
+          : isPct
+          ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;">
+               <input type="number" value="${line.pct!=null?line.pct:10}" step="0.5" min="0" max="100"
+                 oninput="corLineUpdatePct('${job.id}',${corIdx},${li},parseFloat(this.value)||0)"
+                 style="width:44px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:Arial;">
+               <span style="font-size:9px;color:#888;">%</span>
+             </div>`
           : inp('qty', line.qty, '0', isLabor?'0.25':'1', '50px')}
       </td>
       <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:80px;">
         <span style="font-size:9px;color:#888;">$</span>
         ${isSundries
           ? `<span style="font-size:10px;font-weight:600;">${sundriesAuto.toFixed(2)}</span>`
+          : (isRecap || isPct)
+          ? `<span id="cor-line-rate-${corIdx}-${li}" style="font-size:10px;font-weight:600;color:#888;font-style:italic;">${(line.rate||0).toFixed(2)}</span>`
           : inp('rate', line.rate, '0.00', '0.01', '58px')}
       </td>
       <td style="padding:3px 5px;border:1px solid #ddd;width:58px;">
@@ -8590,6 +8635,32 @@ function corLineUpdate(jobId, corIdx, lineIdx, field, val){
   }
 }
 
+function corLineUpdatePct(jobId, corIdx, lineIdx, pct){
+  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
+  if(!job.cors[corIdx]||!job.cors[corIdx].lines[lineIdx]) return;
+  const lines = job.cors[corIdx].lines;
+  lines[lineIdx].pct = pct;
+  corRecalcBreakdown(lines);
+  const line = lines[lineIdx];
+  job.cors[corIdx].total = corLinesTotal(lines);
+  saveJobs();
+  // Live update: this row's auto-computed rate + amount
+  const rateEl = document.getElementById('cor-line-rate-'+corIdx+'-'+lineIdx);
+  if(rateEl) rateEl.textContent = (line.rate||0).toFixed(2);
+  const rowAmt = (line.qty||0)*(line.rate||0);
+  const rowEl = document.getElementById('cor-line-amt-'+corIdx+'-'+lineIdx);
+  if(rowEl){
+    rowEl.textContent = '$'+Math.abs(rowAmt).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    rowEl.style.color = (line.type==='deduct'?-rowAmt:rowAmt)<0 ? '#CC0000' : '#000';
+  }
+  // Live update: Breakdown category subtotal
+  const catTotal = lines.filter(l=>(l.category||'other')==='ohp').reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
+  const catEl = document.getElementById('cor-cat-subtotal-'+corIdx+'-ohp');
+  if(catEl){
+    catEl.innerHTML = 'Breakdown Subtotal: <span style="color:'+(catTotal<0?'#CC0000':'#000')+';">$'+Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
+  }
+}
+
 function corLineRemove(jobId, corIdx, lineIdx){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
@@ -8636,7 +8707,12 @@ function corAddBreakdown(jobId, corIdx){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
   if(!job.cors[corIdx].lines) job.cors[corIdx].lines=[];
-  job.cors[corIdx].lines.push({category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'});
+  job.cors[corIdx].lines.push(
+    {category:'ohp', key:'labor_recap',    label:'Labor',              recap:true, rate:0, qty:1, type:'add'},
+    {category:'ohp', key:'material_recap', label:'Material',           recap:true, rate:0, qty:1, type:'add'},
+    {category:'ohp', key:'ohp_pct',        label:'Overhead & Profit',  pct:10,     rate:0, qty:1, type:'add'}
+  );
+  corRecalcBreakdown(job.cors[corIdx].lines);
   saveJobs();
   openCORForm(jobId, corIdx);
 }
