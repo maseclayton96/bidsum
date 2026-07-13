@@ -1,1389 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fieldstack</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=DM+Mono:wght@400;500&family=Archivo:wght@600;700;800;900&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0;}
-:root{
- --bg:#F5F4F1;--bg2:#FFFFFF;--bg3:#EFEDE9;--bg4:#E5E2DC;--bg5:#D8D4CC;
- --border:#E2DDD6;--border2:#C8C3BA;
- --text:#181714;--text2:#6A6760;--text3:#A09D97;
- --blue:#1B3F6E;--blue-bg:#DDEAF7;
- --green:#1E5C3A;--green-bg:#D9EFE3;
- --amber:#7A3E0A;--amber-bg:#FCEFD8;
- --red:#8B1A1A;--red-bg:#FAE0E0;
- --purple:#4A2080;--purple-bg:#EDE8FA;
- --teal:#0D5252;--teal-bg:#D5EFEF;
- --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
- --r:8px;--rlg:12px;--rxl:16px;
- --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
- --shadow-md:0 4px 16px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.05);
-}
-body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
 
-/* NAV */
-.nav{background:#111111;height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
-.nav-logo{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px;cursor:pointer;white-space:nowrap;}
-.nav-logo span{color:rgba(255,255,255,.4);font-weight:300;}
-.nav-breadcrumb{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;}
-.bc-sep{color:rgba(255,255,255,.25);font-size:16px;}
-.bc-item{font-size:13px;color:rgba(255,255,255,.5);cursor:pointer;white-space:nowrap;transition:color .15s;}
-.bc-item:hover{color:rgba(255,255,255,.85);}
-.bc-item.cur{color:#fff;font-weight:500;cursor:default;}
-.nav-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.btn-nav{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 14px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap;}
-.btn-nav:hover{background:rgba(255,255,255,.2);}
-.btn-nav-primary{background:#fff;border:none;color:var(--text);padding:7px 16px;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;}
-.btn-nav-primary:hover{opacity:.88;}
-
-/* PAGE */
-.page{padding:28px 20px;max-width:1320px;margin:0 auto;}
-
-/* ── HOME ── */
-.home-hero{background:#111111;border-radius:var(--rxl);padding:36px 40px;margin-bottom:24px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;}
-.hero-title{font-size:28px;font-weight:700;color:#fff;letter-spacing:-.5px;margin-bottom:4px;}
-.hero-sub{font-size:14px;color:rgba(255,255,255,.5);}
-.hero-stats{display:flex;gap:0;}
-.hstat{text-align:center;padding:10px 24px;border-left:1px solid rgba(255,255,255,.12);}
-.hstat:first-child{border-left:none;}
-.hstat-val{font-size:26px;font-weight:700;color:#fff;letter-spacing:-.5px;}
-.hstat-lbl{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
-.hstat-sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:1px;}
-.home-section{margin-bottom:28px;}
-.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:flex;align-items:center;gap:10px;}
-.section-title::after{content:'';display:inline-block;height:1px;width:60px;background:var(--border);}
-.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
-.member-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
-.member-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
-.mc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
-.mc-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;}
-.mc-series{font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px 7px;}
-.mc-name{font-size:15px;font-weight:600;letter-spacing:-.2px;margin-bottom:2px;}
-.mc-role{font-size:11px;color:var(--text3);margin-bottom:14px;}
-.mc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center;}
-.mcs-val{font-size:15px;font-weight:700;line-height:1.2;}
-.mcs-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:1px;white-space:nowrap;}
-.add-card{background:transparent;border:1.5px dashed var(--border2);border-radius:var(--rlg);padding:18px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--text3);min-height:148px;}
-.add-card:hover{background:var(--bg2);border-color:var(--border2);color:var(--text2);}
-
-/* LEADERBOARD */
-.leaderboard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);}
-.lb-row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;cursor:pointer;}
-.lb-row:last-child{border-bottom:none;}
-.lb-row:hover{background:var(--bg3);}
-.lb-rank{font-size:12px;font-weight:700;color:var(--text3);width:20px;text-align:center;flex-shrink:0;}
-.lb-rank.gold{color:#CC0000;}
-.lb-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
-.lb-name{font-size:13px;font-weight:600;flex:1;}
-.lb-series{font-family:var(--mono);font-size:10px;color:var(--text3);}
-.lb-stats{display:flex;gap:20px;flex-shrink:0;}
-.lb-stat{text-align:right;}
-.lb-stat-val{font-size:13px;font-weight:700;}
-.lb-stat-lbl{font-size:10px;color:var(--text3);}
-.lb-bar-wrap{width:80px;background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;}
-.lb-bar{height:100%;border-radius:4px;transition:width .4s;}
-
-/* PROFILE */
-.profile-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:22px 24px;margin-bottom:20px;display:flex;align-items:center;gap:18px;box-shadow:var(--shadow);}
-.profile-avatar{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex-shrink:0;}
-.profile-name{font-size:20px;font-weight:700;letter-spacing:-.3px;}
-.profile-meta{font-size:12px;color:var(--text3);margin-top:3px;}
-.profile-stats{display:flex;gap:24px;margin-left:auto;flex-shrink:0;}
-.pstat{text-align:center;}
-.pstat-val{font-size:22px;font-weight:700;letter-spacing:-.5px;}
-.pstat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:1px;}
-
-/* TABS */
-.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;}
-.tab{padding:10px 18px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:none;font-family:var(--font);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;white-space:nowrap;}
-.tab:hover{color:var(--text2);}
-.tab.active{color:#CC0000;border-bottom-color:#CC0000;font-weight:600;}
-
-/* METRICS */
-.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
-.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:14px 16px;box-shadow:var(--shadow);}
-.metric-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:5px;}
-.metric-val{font-size:22px;font-weight:700;letter-spacing:-.5px;}
-.metric-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-
-/* TABLE */
-.tw{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);}
-table{width:100%;border-collapse:collapse;}
-th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap;}
-td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-tr:last-child td{border-bottom:none;}
-tr:hover td{background:var(--bg3);}
-.bid-num{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:500;}
-
-/* BADGES */
-.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
-.badge-pending{background:var(--amber-bg);color:var(--amber);}
-.badge-submitted{background:#FFF0F0;color:#CC0000;}
-.badge-awarded{background:var(--green-bg);color:var(--green);}
-.badge-lost{background:var(--bg4);color:var(--text2);}
-.badge-nogo{background:var(--red-bg);color:var(--red);}
-.badge-awardedtogc{background:#FFF0F0;color:#CC0000;border:1px solid #FFAAAA;}
-.badge-awarded{background:var(--green-bg);color:var(--green);}
-
-/* FOLLOW-UP */
-.fu{display:inline-flex;align-items:center;gap:5px;font-size:12px;}
-.fu-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.fu-urgent{color:var(--red);}.fu-urgent .fu-dot{background:var(--red);}
-.fu-soon{color:var(--amber);}.fu-soon .fu-dot{background:#C47A12;}
-.fu-ok{color:var(--green);}.fu-ok .fu-dot{background:var(--green);}
-.fu-none{color:var(--text3);}.fu-none .fu-dot{background:var(--border2);}
-
-/* GC GRID */
-.gc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
-.gc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 18px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;}
-.gc-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
-.gc-logo{width:44px;height:44px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text2);flex-shrink:0;overflow:hidden;}
-.gc-logo img{width:100%;height:100%;object-fit:contain;}
-.gc-name{font-size:14px;font-weight:600;}
-.gc-office{font-size:11px;color:var(--blue);font-weight:500;}
-.gc-web{font-size:11px;color:var(--text3);}
-.gc-counts{display:flex;gap:10px;margin-top:5px;}
-.gc-count{font-size:11px;color:var(--text3);}
-.gc-count b{color:var(--text);font-weight:600;}
-.add-gc-card{background:transparent;border:1.5px dashed var(--border2);border-radius:var(--rlg);padding:16px 18px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--text3);min-height:82px;}
-.add-gc-card:hover{background:var(--bg2);border-color:var(--border2);color:var(--text2);}
-
-/* GC HERO */
-.gc-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow);}
-.gc-hero-logo{width:56px;height:56px;border-radius:var(--rlg);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--text2);flex-shrink:0;overflow:hidden;}
-.gc-hero-logo img{width:100%;height:100%;object-fit:contain;}
-.gc-hero-name{font-size:20px;font-weight:700;letter-spacing:-.3px;}
-.gc-hero-office{display:inline-block;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-bg);border-radius:20px;padding:2px 9px;margin-top:3px;}
-.gc-hero-web{font-size:12px;color:var(--blue);text-decoration:none;display:block;margin-top:2px;}
-.gc-hero-web:hover{text-decoration:underline;}
-
-/* CONTACTS */
-.contact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;}
-.contact-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;display:flex;align-items:flex-start;gap:10px;box-shadow:var(--shadow);}
-.contact-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
-.contact-name{font-size:13px;font-weight:600;margin-bottom:2px;}
-.contact-detail{font-size:11px;color:var(--text3);line-height:1.65;}
-.contact-email{font-size:11px;color:var(--blue);}
-.team-section{margin-bottom:22px;}
-.team-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-.team-name-lbl{font-size:13px;font-weight:600;}
-.team-sub-lbl{font-size:11px;color:var(--text3);margin-left:6px;}
-.team-actions{display:flex;gap:6px;}
-.section-divider{display:flex;align-items:center;gap:10px;margin:16px 0 12px;}
-.sdl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);white-space:nowrap;}
-.sdline{flex:1;height:1px;background:var(--border);}
-
-/* REMINDERS */
-.reminder-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:14px 18px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;box-shadow:var(--shadow);}
-.rem-stripe{width:3px;border-radius:3px;align-self:stretch;flex-shrink:0;}
-.rem-body{flex:1;min-width:0;}
-.rem-title{font-size:13px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.rem-sub{font-size:12px;color:var(--text2);}
-.rem-meta{font-size:11px;color:var(--text3);margin-top:2px;}
-.rem-right{text-align:right;flex-shrink:0;}
-.rem-days{font-size:13px;font-weight:700;}
-
-/* PDF ATTACHMENTS */
-.pdf-drop-zone{border:1.5px dashed var(--border2);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg);}
-.pdf-drop-zone:hover,.pdf-drop-zone.drag-over{background:var(--blue-bg);border-color:var(--blue);}
-.pdf-drop-text{font-size:13px;color:var(--text3);}
-.pdf-drop-sub{font-size:11px;color:var(--text3);margin-top:3px;}
-.pdf-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
-.pdf-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;display:flex;align-items:center;gap:10px;}
-.pdf-icon{font-size:18px;flex-shrink:0;}
-.pdf-name{font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pdf-date{font-size:10px;color:var(--text3);flex-shrink:0;}
-.pdf-rev{font-size:10px;font-weight:700;color:var(--blue);background:var(--blue-bg);border-radius:10px;padding:1px 7px;flex-shrink:0;}
-.pdf-dl{font-size:11px;color:var(--blue);cursor:pointer;flex-shrink:0;text-decoration:none;}
-.pdf-dl:hover{text-decoration:underline;}
-.pdf-rm{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;flex-shrink:0;padding:0 2px;}
-.pdf-rm:hover{color:var(--red);}
-
-/* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(24,23,20,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px);}
-.modal-overlay.open{display:flex;}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rxl);width:520px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-md);}
-.modal-head{padding:22px 24px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
-.modal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
-.modal-close{background:var(--bg3);border:1px solid var(--border);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:var(--text2);}
-.modal-close:hover{background:var(--bg4);}
-.modal-body{padding:0 24px;}
-.modal-foot{padding:16px 24px 22px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);margin-top:20px;}
-
-/* FORM */
-.fg{margin-bottom:13px;}
-.fg label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;}
-.fg input,.fg select,.fg textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:8px 11px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;transition:border-color .15s;}
-.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--border2);}
-.fg textarea{min-height:68px;resize:vertical;}
-.fg select option{background:var(--bg2);}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-.form-hint{font-size:11px;color:var(--text3);margin-top:3px;}
-
-/* BUTTONS */
-.btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font);transition:all .15s;}
-.btn:hover{background:var(--bg4);border-color:var(--border2);}
-.btn-primary{background:#111111;border:none;color:#fff;padding:8px 20px;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
-.btn-primary:hover{background:#333333;}
-.btn-danger{background:var(--red-bg);border:1px solid #F3BFBF;color:var(--red);padding:8px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font);margin-right:auto;}
-.btn-danger:hover{background:#F8D0D0;}
-.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;}
-.btn-sm:hover{background:var(--bg4);border-color:var(--border2);color:var(--text);}
-.btn-sm-primary{background:#111111;border:none;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);}
-
-/* FILTERS */
-.filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-.filters input[type=text]{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:13px;font-family:var(--font);color:var(--text);width:210px;outline:none;}
-.filters select{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:7px 11px;font-size:13px;font-family:var(--font);color:var(--text);outline:none;cursor:pointer;}
-
-/* EMPTY */
-.empty{text-align:center;padding:44px 24px;color:var(--text3);font-size:13px;}
-.empty-icon{font-size:28px;margin-bottom:10px;}
-.empty-text{font-weight:500;color:var(--text2);margin-bottom:4px;}
-
-
-/* ROW HIGHLIGHTS */
-tr.row-awarded-gc td{background:#FFFDE7!important;}
-tr.row-awarded-gc:hover td{background:#FFF9C4!important;}
-tr.row-awarded td{background:#E8F5E9!important;}
-tr.row-awarded:hover td{background:#C8E6C9!important;}
-
-
-/* ── CALENDAR v2 ── */
-.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.cal-month{font-size:18px;font-weight:700;letter-spacing:-.3px;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-.cal-dow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);text-align:center;padding:6px 0;}
-.cal-day{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);min-height:90px;padding:7px;cursor:pointer;transition:all .15s;position:relative;}
-.cal-day:hover{border-color:var(--border2);background:#F9F8F5;}
-.cal-day.other-month{background:var(--bg3);opacity:.5;}
-.cal-day.today{border-color:var(--text);border-width:2px;}
-.cal-day-num{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;}
-.cal-day.today .cal-day-num{color:var(--text);}
-.cal-day-today-circle{width:22px;height:22px;border-radius:50%;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-bottom:6px;}
-/* Color scheme: Black=completed, Yellow=needed, Red=overdue */
-.cal-event{font-size:10px;font-weight:600;border-radius:4px;padding:2px 6px;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:opacity .15s;display:block;}
-.cal-event:hover{opacity:.8;}
-.cal-event.ev-completed{background:#222;color:#fff;} /* Black = completed */
-.cal-event.ev-needed{background:#FFF176;color:#5C4A00;border:1px solid #F9E04B;} /* Yellow = needed */
-.cal-event.ev-overdue{background:#EF4444;color:#fff;} /* Red = overdue */
-.cal-event.ev-decision{background:var(--blue-bg);color:var(--blue);}
-.cal-day.has-items .cal-day-num::after{content:'';width:4px;height:4px;border-radius:50%;background:var(--blue);display:inline-block;margin-left:4px;vertical-align:middle;}
-.cal-legend{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
-.cal-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);}
-.cal-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
-/* Day detail popup */
-.day-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;display:none;align-items:center;justify-content:center;}
-.day-popup-overlay.open{display:flex;}
-.day-popup{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rxl);width:400px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-md);padding:22px;}
-.day-popup-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.day-popup-title{font-size:16px;font-weight:700;}
-.day-popup-close{background:var(--bg3);border:1px solid var(--border);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:var(--text2);}
-.day-popup-close:hover{background:var(--bg4);}
-.day-event-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
-.day-event-item:hover{border-color:var(--border2);background:var(--bg4);}
-.day-event-title{font-size:13px;font-weight:600;margin-bottom:2px;}
-.day-event-sub{font-size:11px;color:var(--text3);}
-
-/* CONTACT POPUP */
-.contact-popup-overlay{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;background:rgba(24,23,20,.4);}
-.contact-popup-overlay.open{display:flex;}
-.contact-popup{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rxl);padding:24px;width:340px;max-width:95vw;box-shadow:var(--shadow-md);position:relative;}
-.cp-close{position:absolute;top:14px;right:14px;background:var(--bg3);border:1px solid var(--border);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:var(--text2);}
-.cp-close:hover{background:var(--bg4);}
-.cp-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;margin:0 auto 14px;}
-.cp-name{font-size:17px;font-weight:700;text-align:center;margin-bottom:4px;}
-.cp-role{text-align:center;margin-bottom:16px;}
-.cp-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
-.cp-row:last-child{border-bottom:none;}
-.cp-lbl{font-size:11px;color:var(--text3);width:50px;flex-shrink:0;}
-
-/* CALENDAR */
-.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.cal-month{font-size:18px;font-weight:700;letter-spacing:-.3px;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-.cal-dow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);text-align:center;padding:6px 0;}
-.cal-day{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);min-height:90px;padding:7px;cursor:default;transition:border-color .15s;position:relative;}
-.cal-day.other-month{background:var(--bg3);opacity:.55;}
-.cal-day.today{border-color:var(--text);border-width:1.5px;}
-.cal-day.has-items{cursor:pointer;}
-.cal-day.has-items:hover{border-color:var(--border2);}
-.cal-day-num{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;}
-.cal-day.today .cal-day-num{color:var(--text);background:var(--text);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;margin-bottom:6px;}
-.cal-event{font-size:10px;font-weight:500;border-radius:4px;padding:2px 5px;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:opacity .15s;}
-.cal-event:hover{opacity:.8;}
-.cal-event.ev-urgent{background:var(--red-bg);color:var(--red);}
-.cal-event.ev-soon{background:var(--amber-bg);color:var(--amber);}
-.cal-event.ev-ok{background:var(--green-bg);color:var(--green);}
-.cal-event.ev-decision{background:var(--blue-bg);color:var(--blue);}
-.cal-legend{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
-.cal-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);}
-.cal-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-
-
-@media(max-width:768px){
- .hero-top{grid-template-columns:1fr;}
- .hero-right{min-height:140px;display:none;}
- .hero-left{padding:22px 18px;}
- .hero-main-title{font-size:24px;}
- .hero-stats-bar{grid-template-columns:repeat(3,1fr);}
- .hsb-stat:nth-child(4),.hsb-stat:nth-child(5){display:none;}
- .est-kpi-row{grid-template-columns:repeat(2,1fr);}
-}
-
-/* ── MOBILE ── */
-@media(max-width:768px){
- .page{padding:14px 12px;}
- .nav{padding:0 12px;height:50px;}
- .nav-logo{font-size:14px;margin-right:10px;}
- .btn-nav{padding:5px 10px;font-size:11px;}
- .btn-nav-primary{padding:6px 12px;font-size:11px;}
- .home-hero{padding:20px 18px;grid-template-columns:1fr;gap:14px;}
- .hero-stats{flex-wrap:wrap;gap:0;}
- .hstat{padding:8px 14px;min-width:80px;}
- .hstat-val{font-size:20px;}
- .hero-title{font-size:22px;}
- .member-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
- .member-card{padding:14px;}
- .mc-avatar{width:36px;height:36px;font-size:13px;}
- .mc-name{font-size:13px;}
- .mcs-val{font-size:15px;}
- .add-card{min-height:100px;font-size:12px;}
- .leaderboard .lb-stats{gap:12px;}
- .lb-bar-wrap{display:none;}
- .profile-hero{flex-wrap:wrap;gap:12px;padding:14px 16px;}
- .profile-stats{flex-wrap:wrap;gap:14px;margin-left:0;width:100%;}
- .pstat{min-width:60px;}
- .tab{padding:8px 12px;font-size:12px;}
- .metrics{grid-template-columns:repeat(2,1fr);}
- .gc-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
- .gc-card{padding:12px;}
- .contact-grid{grid-template-columns:1fr;}
- .frow,.frow3{grid-template-columns:1fr;}
- .modal{width:96vw;max-width:96vw;padding:18px 14px;}
- .modal-head{padding:16px 14px 0;}
- .modal-foot{padding:12px 14px 18px;}
- .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
- table{min-width:700px;}
- .cal-grid{gap:1px;}
- .cal-day{min-height:56px;padding:4px;}
- .cal-day-num{font-size:11px;}
- .cal-event{font-size:9px;padding:1px 3px;}
- .gc-hero{flex-wrap:wrap;gap:10px;padding:14px 16px;}
- .reminder-card{flex-wrap:wrap;gap:8px;}
- .home-section{margin-bottom:20px;}
- .filters{gap:6px;}
- .filters input[type=text]{width:140px;}
- .cal-nav{margin-bottom:10px;}
- .cal-month{font-size:15px;}
- .contact-popup{width:90vw;}
-}
-@media(max-width:480px){
- .metrics{grid-template-columns:1fr 1fr;}
- .profile-stats{grid-template-columns:repeat(2,1fr);display:grid;}
- .hero-stats{justify-content:flex-start;}
- .hstat{padding:6px 12px;}
- .hstat-val{font-size:18px;}
- .nav-breadcrumb{max-width:140px;}
- .bc-item{max-width:80px;overflow:hidden;text-overflow:ellipsis;}
-}
-
-/* ── PAINT HERO ── */
-
-
-.paint-hero-content{position:relative;z-index:2;padding:36px 40px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;}
-.paint-title{font-size:32px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:4px;text-shadow:0 2px 12px rgba(0,0,0,.4);}
-.paint-sub{font-size:14px;color:rgba(255,255,255,.65);text-shadow:0 1px 4px rgba(0,0,0,.3);}
-.paint-stats{display:flex;gap:0;background:rgba(0,0,0,.35);border-radius:var(--r);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);}
-.pstat-p{text-align:center;padding:12px 22px;border-left:1px solid rgba(255,255,255,.1);}
-.pstat-p:first-child{border-left:none;}
-.pstat-p-val{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px;}
-.pstat-p-lbl{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
-.pstat-p-sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:1px;}
-@media(max-width:768px){
- .paint-hero-content{grid-template-columns:1fr;gap:14px;padding:20px 16px;}
- .paint-stats{flex-wrap:wrap;}
- .pstat-p{padding:8px 14px;min-width:80px;}
- .paint-title{font-size:24px;}
-}
-
-/* vCard drop */
-.vcf-drop{border:1.5px dashed var(--blue);border-radius:var(--r);padding:12px 16px;text-align:center;cursor:pointer;background:var(--blue-bg);transition:all .15s;margin-bottom:12px;}
-.vcf-drop:hover{background:#C8DDEF;}
-.vcf-drop.drag-over{background:#B8D4EC;border-style:solid;}
-.vcf-label{font-size:12px;font-weight:600;color:var(--blue);}
-.vcf-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-/* PDF parse */
-.pdf-parse-zone{border:1.5px dashed var(--green);border-radius:var(--r);padding:12px 16px;text-align:center;cursor:pointer;background:var(--green-bg);transition:all .15s;margin-bottom:12px;}
-.pdf-parse-zone:hover{background:#C8E6C9;}
-.pdf-parse-zone.drag-over{background:#B8DDB8;border-style:solid;}
-.pdf-parse-label{font-size:12px;font-weight:600;color:var(--green);}
-.pdf-parse-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-.parse-spinner{display:none;font-size:12px;color:var(--text2);margin-top:8px;}
-.parse-spinner.show{display:block;}
-
-/* Inline status dropdown */
-.inline-status-sel{outline:none;appearance:none;-webkit-appearance:none;text-align:center;}
-.status-submitted{background:#FFF0F0;color:#CC0000;}
-.status-awardedtogc{background:#FFFDE7;color:#7A6200;}
-.status-awarded{background:var(--green-bg);color:var(--green);}
-.status-lost{background:var(--bg4);color:var(--text2);}
-.status-nogo{background:var(--red-bg);color:var(--red);}
-
-.pdf-menu-item:hover{background:var(--bg3);}
-.pdf-menu-item:last-child{border-bottom:none!important;}
-
-/* Drag and drop ordering */
-.draggable{cursor:grab;user-select:none;}
-.draggable:active{cursor:grabbing;}
-.drag-over-target{border:2px dashed var(--blue)!important;background:var(--blue-bg)!important;}
-.drag-handle{color:var(--text3);font-size:14px;cursor:grab;padding:0 4px;flex-shrink:0;}
-.drag-handle:hover{color:var(--text2);}
-
-/* Member card color swatches */
-.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;display:flex;align-items:center;justify-content:center;font-size:12px;}
-.color-swatch:hover{transform:scale(1.15);}
-.color-swatch.selected{border-color:var(--text)!important;transform:scale(1.1);}
-
-/* ── AUTH ── */
-.auth-overlay{position:fixed;inset:0;background:#111111;z-index:1000;display:flex;align-items:center;justify-content:center;}
-.auth-box{background:var(--bg2);border-radius:var(--rxl);padding:40px;width:380px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.4);}
-.auth-logo{font-size:28px;font-weight:800;color:var(--text);letter-spacing:-1px;margin-bottom:4px;}
-.auth-logo span{color:var(--text3);}
-.auth-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
-.auth-label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px;}
-.auth-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;margin-bottom:14px;transition:border-color .15s;letter-spacing:.15em;}
-.auth-input:focus{border-color:var(--border2);}
-.auth-btn{width:100%;background:#111111;border:none;color:#fff;padding:12px;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:4px;transition:opacity .15s;}
-.auth-btn:hover{opacity:.85;}
-.auth-error{background:var(--red-bg);border:1px solid #F3BFBF;color:var(--red);border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
-.auth-remember{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text2);cursor:pointer;}
-.auth-remember input{cursor:pointer;accent-color:var(--text);}
-.auth-user-select{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto;}
-.auth-user-btn{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s;text-align:left;}
-.auth-user-btn:hover{background:var(--bg3);border-color:var(--border2);}
-.auth-user-btn.inactive{opacity:.45;cursor:not-allowed;}
-.auth-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
-.auth-user-name{font-size:13px;font-weight:600;}
-.auth-user-role{font-size:11px;color:var(--text3);}
-.auth-back{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font);margin-top:10px;padding:0;}
-.auth-back:hover{color:var(--text);}
-/* Manager panel */
-.mgr-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow);}
-.mgr-panel-title{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-.mgr-user-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
-.mgr-user-row:last-child{border-bottom:none;}
-.mgr-user-info{flex:1;}
-.mgr-user-name{font-size:13px;font-weight:600;}
-.mgr-user-meta{font-size:11px;color:var(--text3);}
-.mgr-actions{display:flex;gap:6px;flex-shrink:0;}
-.badge-manager{background:#1B3F6E18;color:#1B3F6E;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
-.badge-employee{background:var(--bg3);color:var(--text3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
-.badge-inactive{background:var(--red-bg);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
-/* PIN change modal */
-.pin-dots{display:flex;gap:8px;justify-content:center;margin:16px 0;}
-.pin-dot{width:12px;height:12px;border-radius:50%;background:var(--border2);transition:background .15s;}
-.pin-dot.filled{background:var(--text);}
-
-/* ══ LANDING PAGE ══ */
-.landing-hero{background:#000000;border-radius:var(--rxl);padding:30px 36px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:20px;}
-.landing-company{color:#fff;}
-.landing-company-name{font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:2px;}
-.landing-company-sub{font-size:13px;color:rgba(255,255,255,.5);}
-.landing-kpis{display:flex;gap:0;}
-.lkpi{text-align:center;padding:10px 22px;border-left:1px solid rgba(255,255,255,.1);}
-.lkpi:first-child{border-left:none;}
-.lkpi-val{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;}
-.lkpi-lbl{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
-.lkpi-sub{font-size:11px;margin-top:1px;}
-.landing-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px;}
-.module-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;}
-.module-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
-.module-icon{font-size:28px;}
-.module-name{font-size:15px;font-weight:700;}
-.module-desc{font-size:12px;color:var(--text3);line-height:1.5;}
-.module-stat{font-size:12px;font-weight:600;margin-top:4px;}
-/* P&L summary */
-.pl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
-.pl-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 18px;box-shadow:var(--shadow);}
-.pl-card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:6px;}
-.pl-card-val{font-size:24px;font-weight:800;letter-spacing:-.5px;}
-.pl-card-sub{font-size:11px;color:var(--text3);margin-top:3px;}
-/* Active jobs table */
-.jobs-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);}
-.job-status-badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
-.job-active{background:#D9EFE3;color:#1E5C3A;}
-.job-complete{background:var(--bg3);color:var(--text3);}
-.job-onhold{background:#FCEFD8;color:#7A3E0A;}
-.job-closed{background:var(--bg4);color:var(--text3);}
-@media(max-width:768px){
- .landing-hero{flex-direction:column;padding:20px 18px;}
- .landing-kpis{flex-wrap:wrap;}
- .lkpi{padding:8px 14px;min-width:80px;}
- .pl-grid{grid-template-columns:1fr 1fr;}
- .landing-modules{grid-template-columns:repeat(2,1fr);}
-}
-
-.btn-nav-active{background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.3)!important;}
-
-/* ══ JOB TRACKER ══ */
-.job-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;margin-bottom:10px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
-.job-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);}
-.job-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
-.job-card-title{font-size:15px;font-weight:700;letter-spacing:-.2px;}
-.job-card-meta{font-size:12px;color:var(--text3);margin-top:2px;}
-.job-card-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding-top:10px;border-top:1px solid var(--border);}
-.jcs-val{font-size:16px;font-weight:700;}
-.jcs-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:1px;}
-.job-filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
-.job-status-active{background:#F0F0F0;color:#111;}
-.job-status-complete{background:#D9EFE3;color:#1E5C3A;}
-.job-status-onhold{background:#FFF0F0;color:#CC0000;}
-/* Job detail */
-.job-detail-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;margin-bottom:18px;box-shadow:var(--shadow);}
-.job-detail-title{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px;}
-.cost-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
-.cost-row:last-child{border-bottom:none;}
-.cost-category{font-size:13px;font-weight:600;flex:1;}
-.cost-amount{font-size:14px;font-weight:700;color:var(--text);min-width:100px;text-align:right;}
-.cost-note{font-size:11px;color:var(--text3);flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pl-positive{color:#1E5C3A;}
-.pl-negative{color:#CC0000;}
-
-/* ══ JOB TRACKER FULL ══ */
-.job-list-table{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--shadow);}
-.job-num{font-weight:700;font-size:13px;color:#CC0000;}
-.job-tab-bar{display:flex;border-bottom:2px solid var(--border);margin-bottom:18px;gap:0;}
-.job-tab{padding:10px 18px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
-.job-tab:hover{color:var(--text);}
-.job-tab.active{color:#CC0000;border-bottom-color:#CC0000;font-weight:700;}
-/* Submittal */
-.sub-section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);padding:10px 0 8px;border-bottom:2px solid var(--border);margin-bottom:0;}
-.sub-row{display:grid;align-items:center;padding:7px 8px;border-bottom:1px solid var(--border);transition:background .1s;gap:8px;}
-.sub-row:hover{background:var(--bg3);}
-.sub-row.included{background:#FFF8F0;font-weight:700;}
-.sub-row.included td,.sub-row.included div{font-weight:700;}
-.sub-row-paint{grid-template-columns:28px 60px 1fr 1fr 120px 36px;}
-.sub-row-wc{grid-template-columns:28px 60px 1fr 1fr 120px 36px;}
-.sub-check{width:16px;height:16px;cursor:pointer;accent-color:#CC0000;}
-.sub-input{background:#FFFFFF;border:1px solid var(--border);border-radius:4px;padding:4px 7px;font-size:12px;font-family:var(--font);color:var(--text);width:100%;outline:none;transition:border-color .15s;box-sizing:border-box;}
-.sub-input:focus{border-color:#CC0000;box-shadow:0 0 0 2px rgba(204,0,0,.08);}
-.sub-row.included .sub-input{font-weight:700;border-color:var(--border2);}
-.sub-row.included .sub-input{font-weight:700;}
-.sub-add-btn{display:flex;align-items:center;gap:6px;padding:8px;color:var(--text3);font-size:12px;cursor:pointer;border:none;background:none;font-family:var(--font);transition:color .15s;}
-.sub-add-btn:hover{color:#CC0000;}
-/* Status */
-.status-input{background:#FFFFFF;border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:11px;font-family:var(--font);color:var(--text);width:100%;outline:none;box-sizing:border-box;}
-.status-input:focus{border-color:#CC0000;box-shadow:0 0 0 2px rgba(204,0,0,.08);}
-.status-input.status-approved{background:#E8F7EE;border-color:#B2DFCA;color:var(--green);font-weight:700;}
-.status-input.status-rejected{background:#FFF0F0;border-color:#FFAAAA;color:#CC0000;font-weight:700;}
-.status-approved{background:#D9EFE3;color:#1E5C3A;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;}
-.status-rejected{background:#FFEAEA;color:#CC0000;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;}
-/* COR Log */
-.cor-row{display:grid;grid-template-columns:50px 80px 1fr 80px 70px 80px 80px 70px 60px;gap:6px;align-items:center;padding:7px 8px;border-bottom:1px solid var(--border);font-size:12px;}
-.cor-row:hover{background:var(--bg3);}
-.cor-num-link{color:#CC0000;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
-.cor-void{opacity:.4;text-decoration:line-through;}
-.cor-header{background:var(--bg3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);}
-/* COR detail */
-.cor-line-row{display:grid;grid-template-columns:60px 1fr 90px 80px 90px 36px;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);}
-.cor-line-row:hover{background:var(--bg3);}
-.cor-total-row{background:var(--bg3);font-weight:700;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--border);margin-top:4px;}
-/* Job header */
-.job-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;margin-bottom:18px;box-shadow:var(--shadow);}
-.job-hero-num{font-size:13px;font-weight:700;color:#CC0000;margin-bottom:2px;}
-.job-hero-name{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px;}
-.job-hero-meta{font-size:12px;color:var(--text3);}
-.job-kpis{display:flex;flex-wrap:wrap;gap:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
-.jkpi-val{font-size:15px;font-weight:700;letter-spacing:-.2px;}
-.jkpi-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
-@media(max-width:768px){
-  .cor-row{grid-template-columns:40px 70px 1fr 70px 50px;}
-  .job-kpis{grid-template-columns:repeat(3,1fr);}
-}
-
-/* ══ ACCOUNTING ══ */
-.import-zone{border:2px dashed var(--border2);border-radius:var(--rlg);padding:28px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg2);}
-.import-zone:hover{border-color:#CC0000;background:#FFF8F8;}
-.import-zone.drag-over{border-color:#CC0000;background:#FFEAEA;border-style:solid;}
-#excel-import-drop-zone.drag-over{border-color:#CC0000;background:#FFEAEA;border-style:solid;}
-.import-zone-title{font-size:14px;font-weight:700;margin-bottom:4px;}
-.import-zone-sub{font-size:12px;color:var(--text3);}
-.import-preview{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;margin-top:16px;}
-.import-row{display:grid;grid-template-columns:70px 80px 60px 80px 70px 80px 80px 50px 50px;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;align-items:center;}
-.import-row:hover{background:var(--bg3);}
-.import-header{background:var(--bg3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-size:10px;}
-.import-matched{color:var(--green);font-weight:600;}
-.import-unmatched{color:#CC0000;font-weight:600;}
-.rate-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
-.rate-row:last-child{border-bottom:none;}
-.rate-class{font-size:13px;font-weight:700;min-width:80px;}
-.rate-input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;font-size:13px;font-family:var(--font);color:var(--text);width:90px;outline:none;}
-.rate-input:focus{border-color:var(--border2);}
-.acc-nav-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
-.acc-nav-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
-.company-job-card:hover{box-shadow:var(--shadow-md)!important;transform:translateY(-3px);transition:all .15s;}
-
-/* ══ SOV ══ */
-.sov-progress{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:4px;}
-.sov-progress-fill{height:100%;background:#CC0000;border-radius:3px;transition:width .3s;}
-::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px;}
-
-/* ══ EWO TAB ══ */
-.ewo-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
-.ewo-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md);}
-.ewo-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;}
-.ewo-card-num{font-family:var(--mono);font-size:12px;font-weight:700;color:#CC0000;}
-.ewo-card-title{font-size:14px;font-weight:600;flex:1;}
-.ewo-card-meta{font-size:12px;color:var(--text3);display:flex;gap:14px;flex-wrap:wrap;}
-.ewo-status-pending{background:var(--amber-bg);color:var(--amber);}
-.ewo-status-approved{background:var(--green-bg);color:var(--green);}
-.ewo-status-void{background:var(--bg4);color:var(--text2);}
-.ewo-hours-band{display:flex;gap:0;background:var(--bg3);border-radius:var(--r);overflow:hidden;margin-top:8px;border:1px solid var(--border);}
-.ewo-hours-cell{text-align:center;padding:6px 12px;border-right:1px solid var(--border);flex:1;}
-.ewo-hours-cell:last-child{border-right:none;}
-.ewo-hours-val{font-size:14px;font-weight:700;}
-.ewo-hours-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-top:1px;}
-/* EWO form modal */
-.ewo-modal-overlay{position:fixed;inset:0;background:rgba(24,23,20,.55);z-index:300;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);}
-.ewo-modal-overlay.open{display:flex;}
-.ewo-modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rxl);width:680px;max-width:100%;margin:auto;box-shadow:var(--shadow-md);}
-.ewo-modal-head{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
-.ewo-modal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
-.ewo-modal-body{padding:0 24px 20px;}
-.ewo-section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin:14px 0 8px;}
-.ewo-worker-row{display:grid;grid-template-columns:1fr 60px 70px 70px 70px 32px;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
-.ewo-worker-row:last-child{border-bottom:none;}
-.ewo-mat-row{display:grid;grid-template-columns:60px 80px 1fr 36px;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
-.ewo-mat-row:last-child{border-bottom:none;}
-.ewo-equip-row{display:grid;grid-template-columns:1fr 100px 36px;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
-.ewo-equip-row:last-child{border-bottom:none;}
-.ewo-input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:var(--font);color:var(--text);width:100%;outline:none;}
-.ewo-input:focus{border-color:#CC0000;}
-.ewo-input-sm{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:12px;font-family:var(--font);color:var(--text);width:100%;outline:none;text-align:center;}
-.ewo-input-sm:focus{border-color:#CC0000;}
-.ewo-rm-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:0;}
-.ewo-rm-btn:hover{color:var(--red);}
-.ewo-add-btn{display:inline-flex;align-items:center;gap:4px;color:var(--text3);font-size:12px;cursor:pointer;border:none;background:none;font-family:var(--font);padding:4px 0;transition:color .15s;}
-.ewo-add-btn:hover{color:#CC0000;}
-@media(max-width:768px){
-  .ewo-worker-row{grid-template-columns:1fr 50px 55px 55px 36px;}
-  .ewo-mat-row{grid-template-columns:50px 70px 1fr 30px;}
-  .ewo-modal{width:96vw;}
-}
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-</head>
-<body>
-
-<nav class="nav">
- <div class="nav-logo" onclick="goLanding()">Field<span>stack</span></div>
- <div id="nav-module-btns" style="display:flex;align-items:center;gap:4px;margin-left:16px;flex:1;overflow:hidden;"></div>
- <div class="nav-actions" id="nav-actions" style="flex-shrink:0;margin-left:8px;"></div>
-</nav>
-
-<div id="view-as-banner" style="display:none;align-items:center;gap:14px;background:#7A3E0A;color:#fff;padding:8px 20px;font-size:12px;"></div>
-<div class="page" id="app"></div>
-
-
-<!-- AUTH OVERLAY -->
-<div id="auth-overlay" class="auth-overlay">
- <div class="auth-box">
- <!-- Step 1: Type name to find profile -->
- <div id="auth-step-select">
- <div class="auth-logo">Field<span>stack</span></div>
- <div id="auth-search-ui">
- <div class="auth-sub">Type your name or employee # to continue</div>
- <input id="auth-name-input" class="auth-input" style="letter-spacing:0;" placeholder="Name or employee #…" autocomplete="off" oninput="onAuthNameInput()" onkeydown="onAuthNameKeydown(event)">
- <div class="auth-user-select" id="auth-user-list" style="display:none;"></div>
- <div id="auth-name-hint" style="text-align:center;font-size:12px;color:var(--text3);padding:2px 0 4px;">Start typing your name or employee #</div>
- </div>
- <div id="auth-empty-state" style="display:none;"></div>
- </div>
- <!-- Step 2: Enter PIN -->
- <div id="auth-step-pin" style="display:none;">
- <div class="auth-logo">Field<span>stack</span></div>
- <div class="auth-sub" id="auth-pin-sub">Enter your PIN</div>
- <div class="auth-error" id="auth-error"></div>
- <div class="pin-dots" id="pin-dots">
- <div class="pin-dot"></div><div class="pin-dot"></div>
- <div class="pin-dot"></div><div class="pin-dot"></div>
- <div class="pin-dot"></div><div class="pin-dot"></div>
- </div>
- <input id="auth-pin-input" class="auth-input" type="password" maxlength="6" placeholder="Enter PIN" autocomplete="off" oninput="onPinInput()" onkeydown="if(event.key==='Enter')submitPin()">
- <label class="auth-remember"><input type="checkbox" id="auth-remember" checked> Remember me for 30 days</label>
- <button class="auth-btn" onclick="submitPin()">Sign in</button>
- <div style="text-align:center;"><button class="auth-back" onclick="backToSelect()">← Back</button></div>
- </div>
- <!-- Step 4: First user bootstrap -->
- <div id="auth-step-first" style="display:none;">
- <div class="auth-logo">Field<span>stack</span></div>
- <div class="auth-sub">Create your account</div>
- <div class="auth-error" id="auth-first-error"></div>
- <div style="display:flex;gap:8px;margin-bottom:14px;">
- <div style="flex:1;"><label class="auth-label">First name</label><input id="first-fname" class="auth-input" placeholder="First" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
- <div style="flex:1;"><label class="auth-label">Last name</label><input id="first-lname" class="auth-input" placeholder="Last" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
- </div>
- <div style="margin-bottom:14px;"><label class="auth-label">Role</label>
- <select id="first-type" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;">
- <option value="PM">Project Manager</option>
- <option value="EST">Estimator</option>
- <option value="SUP">Superintendent</option>
- <option value="FOR">Foreman</option>
- <option value="PC">Project Coordinator</option>
- <option value="ACC">Accounting</option>
- <option value="ACCMGR">Accounting Manager</option>
- </select>
- </div>
- <div style="margin-bottom:14px;"><label class="auth-label">Email</label><input id="first-email" class="auth-input" type="email" placeholder="you@company.com" autocomplete="off" style="letter-spacing:0;margin-bottom:0;"></div>
- <div style="margin-bottom:14px;"><label class="auth-label">PIN (4-6 digits)</label><input id="first-pin" class="auth-input" type="password" maxlength="6" placeholder="Choose a PIN" autocomplete="new-password" style="margin-bottom:0;"></div>
- <div style="margin-bottom:14px;"><label class="auth-label">Confirm PIN</label><input id="first-pin2" class="auth-input" type="password" maxlength="6" placeholder="Confirm PIN" autocomplete="new-password" style="margin-bottom:0;"></div>
- <label class="auth-remember" style="margin-bottom:16px;"><input type="checkbox" id="first-remember" checked> Remember me for 30 days</label>
- <button class="auth-btn" onclick="submitFirstUser()">Create Account & Sign In</button>
- </div>
- <!-- Step 3: First time setup (no PIN set) -->
- <div id="auth-step-setup" style="display:none;">
- <div class="auth-logo">Field<span>stack</span></div>
- <div class="auth-sub">Set up your PIN (first time)</div>
- <div class="auth-error" id="auth-setup-error"></div>
- <input id="auth-new-pin" class="auth-input" type="password" maxlength="6" placeholder="Choose a 4-6 digit PIN" autocomplete="new-password" oninput="syncPinDots('auth-new-pin','setup-dots')">
- <div class="pin-dots" id="setup-dots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
- <input id="auth-confirm-pin" class="auth-input" type="password" maxlength="6" placeholder="Confirm PIN" autocomplete="new-password" style="margin-top:8px;">
- <label class="auth-remember"><input type="checkbox" id="auth-remember-setup" checked> Remember me for 30 days</label>
- <button class="auth-btn" onclick="submitSetupPin()">Set PIN & Sign in</button>
- <div style="text-align:center;"><button class="auth-back" onclick="backToSelect()">← Back</button></div>
- </div>
- </div>
-</div>
-
-<!-- PIN CHANGE MODAL -->
-<div class="modal-overlay" id="modal-pin">
- <div class="modal" style="width:380px;">
- <div class="modal-head">
- <div class="modal-title" id="pin-modal-title">Change PIN</div>
- <div class="modal-close" onclick="closeModal('pin')">✕</div>
- </div>
- <div class="modal-body">
- <div id="pin-current-row" class="fg"><label>Current PIN</label><input id="pin-current" type="password" maxlength="6" class="auth-input" placeholder="Current PIN" autocomplete="off"></div>
- <div class="fg"><label>New PIN (4-6 digits)</label><input id="pin-new" type="password" maxlength="6" class="auth-input" placeholder="New PIN" autocomplete="new-password"></div>
- <div class="fg"><label>Confirm new PIN</label><input id="pin-confirm" type="password" maxlength="6" class="auth-input" placeholder="Confirm PIN" autocomplete="new-password"></div>
- <div id="pin-error" style="color:var(--red);font-size:12px;display:none;"></div>
- </div>
- <div class="modal-foot">
- <button class="btn" onclick="closeModal('pin')">Cancel</button>
- <button class="btn-primary" onclick="savePinChange()">Save PIN</button>
- </div>
- </div>
-</div>
-
-<!-- MEMBER MODAL -->
-<div class="modal-overlay" id="modal-member" autocomplete="off">
- <div class="modal">
- <div class="modal-head">
- <div class="modal-title" id="member-modal-title">Add team member</div>
- <div class="modal-close" onclick="closeModal('member')">✕</div>
- </div>
- <div class="modal-body">
- <div class="frow">
- <div class="fg"><label>First name</label><input id="m-first" autocomplete="off" placeholder="First name" oninput="updateCardPreview()"></div>
- <div class="fg"><label>Last name</label><input id="m-last" placeholder="Last name" oninput="updateCardPreview()" autocomplete="off"></div>
- </div>
- <div class="frow">
- <div class="fg"><label>Initials <span style="color:var(--text3);font-weight:400;">(used on bid list)</span></label>
- <input id="m-initials" autocomplete="off" placeholder="e.g. CM" maxlength="4" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase();checkInitialsDuplicate();updateCardPreview()">
- <div class="form-hint" id="initials-hint"></div>
- </div>
- <div class="fg"><label>Employee #</label><input id="m-employee-num" autocomplete="off" placeholder="e.g. 1042" oninput="checkEmployeeNumDuplicate()">
- <div class="form-hint" id="employee-num-hint"></div>
- </div>
- </div>
- <div class="frow">
- <div class="fg"><label>Role</label>
- <select id="m-type" onchange="toggleSeriesField();toggleCompanyField()">
- <option value="PM">Project Manager</option>
- <option value="EST">Estimator</option>
- <option value="SUP">Superintendent</option>
- <option value="FOR">Foreman</option>
- <option value="PC">Project Coordinator</option>
- <option value="ACC">Accounting</option>
- <option value="ACCMGR">Accounting Manager</option>
- </select>
- </div>
- <div class="fg"><label>Title / speciality</label><input id="m-title" autocomplete="off" placeholder="e.g. Senior PM"></div>
- </div>
- <div class="fg" id="company-field" style="display:none;">
-   <label>Company</label>
-   <select id="m-company">
-     <option value="">— select company —</option>
-     <option value="Bonas">Bonas Company</option>
-     <option value="ACI">Architectural Coatings Inc. (ACI)</option>
-   </select>
- </div>
- <div class="fg" id="series-field">
- <label>Bid number series</label>
- <select id="m-series">
- <option value="">— assign a series —</option>
- <option value="1000">1000 series</option>
- <option value="2000">2000 series</option>
- <option value="3000">3000 series</option>
- <option value="4000">4000 series</option>
- <option value="5000">5000 series</option>
- <option value="6000">6000 series</option>
- <option value="7000">7000 series</option>
- <option value="8000">8000 series</option>
- <option value="9000">9000 series</option>
- </select>
- <div class="form-hint" id="series-hint"></div>
- </div>
- <div class="fg"><label>Email</label><input id="m-email" type="email" autocomplete="off" placeholder="name@company.com"></div>
- <div class="fg"><label>Phone</label><input id="m-phone" autocomplete="off" placeholder="(555) 000-0000" oninput="fmtPhone(this)"></div>
- <!-- Card customization -->
- <div class="fg">
- <label>Card style <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
- <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="m-color-swatches">
- <div style="font-size:11px;color:var(--text3);width:100%;margin-bottom:2px;">Pick an avatar color:</div>
- <div class="color-swatch" data-bg="#DDEAF7" data-txt="#1B3F6E" data-grad="" onclick="selectCardColor(this)" style="background:#DDEAF7;border:2px solid #1B3F6E;" title="Blue"></div>
- <div class="color-swatch" data-bg="#D9EFE3" data-txt="#1E5C3A" data-grad="" onclick="selectCardColor(this)" style="background:#D9EFE3;border:2px solid #1E5C3A;" title="Green"></div>
- <div class="color-swatch" data-bg="#EDE8FA" data-txt="#4A2080" data-grad="" onclick="selectCardColor(this)" style="background:#EDE8FA;border:2px solid #4A2080;" title="Purple"></div>
- <div class="color-swatch" data-bg="#FCEFD8" data-txt="#7A3E0A" data-grad="" onclick="selectCardColor(this)" style="background:#FCEFD8;border:2px solid #C47A12;" title="Amber"></div>
- <div class="color-swatch" data-bg="#FAE0E0" data-txt="#8B1A1A" data-grad="" onclick="selectCardColor(this)" style="background:#FAE0E0;border:2px solid #8B1A1A;" title="Red"></div>
- <div class="color-swatch" data-bg="#D5EFEF" data-txt="#0D5252" data-grad="" onclick="selectCardColor(this)" style="background:#D5EFEF;border:2px solid #0D5252;" title="Teal"></div>
- <div class="color-swatch" data-bg="#FFF3CD" data-txt="#664D03" data-grad="" onclick="selectCardColor(this)" style="background:#FFF3CD;border:2px solid #997404;" title="Yellow"></div>
- <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1a2a4a,#2563a8)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1a2a4a,#2563a8);" title="Navy gradient"></div>
- <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#1E5C3A,#2d8a5a)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#1E5C3A,#2d8a5a);" title="Forest gradient"></div>
- <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#4A2080,#7B3FBF)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#4A2080,#7B3FBF);" title="Purple gradient"></div>
- <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#8B1A1A,#C0392B)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#8B1A1A,#C0392B);" title="Red gradient"></div>
- <div class="color-swatch" data-bg="" data-txt="#fff" data-grad="linear-gradient(135deg,#181714,#3a3632)" onclick="selectCardColor(this)" style="background:linear-gradient(135deg,#181714,#3a3632);" title="Charcoal gradient"></div>
- <div class="color-swatch selected" data-bg="" data-txt="" data-grad="" onclick="selectCardColor(this)" style="background:var(--bg3);border:2px solid var(--border2);" title="Default (auto)">✕</div>
- </div>
- <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
- <div id="m-card-preview" style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:2px solid rgba(0,0,0,.1);flex-shrink:0;background:#DDEAF7;color:#1B3F6E;">CM</div>
- <div style="font-size:11px;color:var(--text3);">Avatar preview — this circle appears on all pages</div>
- </div>
- <input type="hidden" id="m-card-bg" value="">
- <input type="hidden" id="m-card-txt" value="">
- <input type="hidden" id="m-card-grad" value="">
- </div>
- </div>
- <div class="modal-foot">
- <button class="btn-danger" id="btn-delete-member" style="display:none;" onclick="deleteMember()">Delete</button>
- <button class="btn" onclick="closeModal('member')">Cancel</button>
- <button class="btn-primary" onclick="saveMember()">Save</button>
- </div>
- </div>
-</div>
-
-<!-- GC MODAL -->
-<div class="modal-overlay" id="modal-gc" autocomplete="off">
- <div class="modal">
- <div class="modal-head">
- <div class="modal-title" id="gc-modal-title">Add General Contractor</div>
- <div class="modal-close" onclick="closeModal('gc')">✕</div>
- </div>
- <div class="modal-body">
- <div class="fg"><label>Company name</label><input id="gc-name" autocomplete="off" placeholder="Turner Construction Co."></div>
- <div class="fg"><label>Office / branch name <span style="color:var(--text3);font-weight:400;">(optional — e.g. "LA Office", "San Diego Branch")</span></label>
- <input id="gc-office" autocomplete="off" placeholder="e.g. Los Angeles Office"></div>
- <div class="fg"><label>Website</label><input id="gc-web" autocomplete="off" placeholder="www.turner.com"></div>
- <div class="fg"><label>Logo URL <span style="color:var(--text3);font-weight:400;">(optional)</span></label><input id="gc-logo" autocomplete="off" placeholder="https://...logo.png"></div>
- <div class="frow">
- <div class="fg"><label>Street address</label><input id="gc-street" autocomplete="off" placeholder="1234 Commerce Blvd"></div>
- <div class="fg"><label>City, State ZIP</label><input id="gc-city" autocomplete="off" placeholder="Los Angeles, CA 90001"></div>
- </div>
- <div class="fg"><label>Phone</label><input id="gc-phone" autocomplete="off" placeholder="(213) 555-0100" oninput="fmtPhone(this)"></div>
- </div>
- <div class="modal-foot">
- <button class="btn-danger" id="btn-delete-gc" style="display:none;" onclick="deleteGC()">Delete GC</button>
- <button class="btn" onclick="closeModal('gc')">Cancel</button>
- <button class="btn-primary" onclick="saveGC()">Save</button>
- </div>
- </div>
-</div>
-
-<!-- CONTACT MODAL -->
-<div class="modal-overlay" id="modal-contact" autocomplete="off">
- <div class="modal">
- <div class="modal-head">
- <div class="modal-title" id="contact-modal-title">Add contact</div>
- <div class="modal-close" onclick="closeModal('contact')">✕</div>
- </div>
- <div class="modal-body">
- <!-- vCard drop zone -->
- <div class="vcf-drop" id="vcf-drop-zone"
- ondragover="event.preventDefault();this.classList.add('drag-over')"
- ondragleave="this.classList.remove('drag-over')"
- ondrop="onVCFDrop(event)"
- onclick="document.getElementById('vcf-file-input').click()">
- <div class="vcf-label"> Drop Outlook / iPhone contact (.vcf) here</div>
- <div class="vcf-sub">Or click to browse — auto-fills all fields</div>
- </div>
- <input type="file" id="vcf-file-input" accept=".vcf,.vcard" style="display:none;" onchange="onVCFSelect(event)">
- <!-- Signature block parser -->
- <div style="margin-bottom:12px;">
- <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">OR paste an email signature block</div>
- <textarea id="sig-block-input" placeholder="Paste signature here e.g.&#10;Stephen Wagner&#10;Project Manager&#10;Crew Builders Inc.&#10;swagner@crewbuilders.com&#10;(619) 555-0100" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:12px;font-family:var(--font);color:var(--text);min-height:80px;resize:vertical;outline:none;" oninput="this.style.borderColor=this.value?'var(--border2)':'var(--border)'"></textarea>
- <button class="btn" style="margin-top:6px;width:100%;font-size:12px;" onclick="parseSignatureBlock()"> Parse signature with AI</button>
- <div id="sig-parse-status" style="font-size:11px;margin-top:4px;display:none;"></div>
- </div>
- <div class="frow">
- <div class="fg"><label>First name</label><input id="ct-first" autocomplete="off" placeholder="James"></div>
- <div class="fg"><label>Last name</label><input id="ct-last" autocomplete="off" placeholder="Rivera"></div>
- </div>
- <div class="frow">
- <div class="fg"><label>Role</label>
- <select id="ct-role">
- <option>Project Executive</option>
- <option>Sr. Project Manager</option>
- <option>Project Manager</option>
- <option>Asst. Project Manager</option>
- <option>Project Engineer</option>
- <option>Estimator</option>
- <option>Intern</option>
- </select>
- </div>
- <div class="fg"><label>Team group <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
- <input id="ct-team" placeholder="Type or select" list="team-datalist">
- <datalist id="team-datalist"></datalist>
- </div>
- </div>
- <div class="fg"><label>Email</label><input id="ct-email" autocomplete="off" type="email" placeholder="james@gcco.com"></div>
- <div class="frow">
- <div class="fg"><label>Phone</label><input id="ct-phone" autocomplete="off" placeholder="(213) 555-0101" oninput="fmtPhone(this)"></div>
- <div class="fg"><label>Cell</label><input id="ct-cell" autocomplete="off" placeholder="(213) 555-0102" oninput="fmtPhone(this)"></div>
- </div>
- <div class="fg"><label>LinkedIn URL <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
- <input id="ct-linkedin" autocomplete="off" placeholder="https://linkedin.com/in/name"></div>
- <div class="fg"><label>Profile photo <span style="color:var(--text3);font-weight:400;">(paste URL or drag image file)</span></label>
- <div id="ct-photo-drop" style="border:1.5px dashed var(--border2);border-radius:var(--r);padding:12px;text-align:center;cursor:pointer;transition:all .15s;position:relative;" ondragover="event.preventDefault();this.style.borderColor='var(--blue)'" ondragleave="this.style.borderColor=''" ondrop="onContactPhotoDrop(event)" onclick="document.getElementById('ct-photo-file').click()">
- <img id="ct-photo-preview" src="" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;display:none;margin:0 auto 6px;">
- <div id="ct-photo-placeholder" style="font-size:12px;color:var(--text3);"> Drag photo here or click to browse</div>
- </div>
- <input type="file" id="ct-photo-file" accept="image/*" style="display:none;" onchange="onContactPhotoSelect(event)">
- <input id="ct-photo-url" type="text" placeholder="Or paste image URL directly" style="margin-top:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:12px;font-family:var(--font);color:var(--text);width:100%;outline:none;" oninput="previewContactPhotoUrl(this.value)">
- </div>
- <div class="fg"><label>Notes</label><textarea id="ct-notes" placeholder="Any relevant notes..."></textarea></div>
- </div>
- <div class="modal-foot">
- <button class="btn-danger" id="btn-delete-contact" style="display:none;" onclick="deleteContact()">Delete</button>
- <button class="btn" onclick="closeModal('contact')">Cancel</button>
- <button class="btn-primary" onclick="saveContact()">Save</button>
- </div>
- </div>
-</div>
-
-<!-- TEAM MODAL -->
-<div class="modal-overlay" id="modal-team" autocomplete="off">
- <div class="modal" style="width:420px;">
- <div class="modal-head">
- <div class="modal-title" id="team-modal-title">Add team group</div>
- <div class="modal-close" onclick="closeModal('team')">✕</div>
- </div>
- <div class="modal-body">
- <div class="fg"><label>Team name</label><input id="team-name" autocomplete="off" placeholder="e.g. Airport Project Team"></div>
- </div>
- <div class="modal-foot">
- <button class="btn-danger" id="btn-delete-team" style="display:none;" onclick="deleteTeam()">Delete team</button>
- <button class="btn" onclick="closeModal('team')">Cancel</button>
- <button class="btn-primary" onclick="saveTeam()">Save</button>
- </div>
- </div>
-</div>
-
-<!-- BID MODAL -->
-<div class="modal-overlay" id="modal-bid" autocomplete="off">
- <div class="modal" style="width:560px;">
- <div class="modal-head">
- <div style="display:flex;align-items:center;gap:10px;"><div class="modal-title" id="bid-modal-title">New bid</div><span id="autosave-indicator" style="font-size:11px;color:var(--green);font-weight:500;opacity:0;transition:opacity .4s;">
-     <button id="undo-btn" onclick="undoLast()" disabled style="font-size:11px;padding:3px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;opacity:.35;margin-left:6px;" title="Nothing to undo">↩ Undo</button></span></div>
- <div class="modal-close" onclick="closeModal('bid')">✕</div>
- </div>
- <div class="modal-body">
- <!-- PDF Parse zone -->
- <div class="pdf-parse-zone" id="pdf-parse-zone"
- ondragover="event.preventDefault();this.classList.add('drag-over')"
- ondragleave="this.classList.remove('drag-over')"
- ondrop="onBidPDFDrop(event)"
- onclick="document.getElementById('bid-pdf-parse-input').click()">
- <div class="pdf-parse-label"> Drop bid proposal PDF here to auto-fill fields</div>
- <div class="pdf-parse-sub">Claude AI reads your PDF and extracts Bid #, GC, job name, value, contact & date</div>
- <div class="parse-spinner" id="parse-spinner">⟳ Reading PDF...</div>
- </div>
- <input type="file" id="bid-pdf-parse-input" accept=".pdf" style="display:none;" onchange="onBidPDFSelect(event)">
- <div class="frow">
- <div class="fg"><label>Bid #</label><input id="b-num" autocomplete="off" oninput="autoSaveBid()" placeholder="" onfocus="if(this.value===this.defaultValue||this.placeholder)this.select()"></div>
- <div class="fg"><label>Assigned rep</label><select id="b-rep" onchange="onRepChange();autoSaveBid()"></select></div>
- </div>
- <div class="fg" id="b-pm-row" style="display:none;">
- <label>Project Manager <span style="color:var(--text3);font-weight:400;">(select to load GCs)</span></label>
- <select id="b-pm-sel" onchange="onPMSelChange()">
- <option value="">— select PM —</option>
- </select>
- </div>
- <div class="fg"><label>General contractor</label>
- <select id="b-gc" onchange="onGCChange();autoSaveBid()">
- <option value="">— select GC —</option>
- </select>
- </div>
- <div class="fg"><label>GC contact</label>
- <select id="b-contact" onchange="autoSaveBid()"><option value="">— select GC first —</option></select>
- </div>
- <div class="fg"><label>Job name</label><input id="b-job" autocomplete="off" oninput="autoSaveBid()" placeholder="Downtown Office Tower — Electrical"></div>
- <div class="frow">
- <div class="fg"><label>Job value ($)</label><input id="b-val" autocomplete="off" type="text" oninput="autoSaveBid()" placeholder="$0" onfocus="if(this.value==='0'||this.value==='$0'||this.value==='')this.value=''" onblur="formatBidValue(this)"></div>
- <div class="fg"><label>Status</label>
- <select id="b-status" onchange="autoSaveBid()">
- <option>Submitted</option><option>Awarded to GC</option><option>Awarded</option><option>Lost</option><option>No-go</option>
- </select>
- </div>
- </div>
- <div class="fg">
- <label>Company</label>
- <select id="b-company" onchange="autoSaveBid()">
- <option value="ACI">ACI</option>
- <option value="Bonas">Bonas</option>
- </select>
- </div>
- <div class="frow">
- <div class="fg"><label>Bid date</label><input id="b-date" type="date" onchange="autoSaveBid()"></div>
- <div class="fg"><label>Follow-up in (days)</label><input id="b-followdays" autocomplete="off" type="number" oninput="autoSaveBid()" placeholder="7" min="1"></div>
- </div>
- <div class="fg"><label>Decision date <span style="color:var(--text3);font-weight:400;">(optional)</span></label><input id="b-decision" type="date" onchange="autoSaveBid()"></div>
- <div class="fg"><label>Notes</label><textarea id="b-notes" oninput="autoSaveBid()" placeholder="Key bid results, key notes..."></textarea></div>
-
- <!-- PDF ATTACHMENTS -->
- <div class="fg">
- <label>Bid documents / proposals</label>
- <div class="pdf-drop-zone" id="pdf-drop-zone" onclick="document.getElementById('pdf-file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
- <div style="font-size:24px;margin-bottom:6px;"></div>
- <div class="pdf-drop-text">Drop PDF here or click to browse</div>
- <div class="pdf-drop-sub">Multiple revisions supported — newest shown first</div>
- </div>
- <input type="file" id="pdf-file-input" accept=".pdf,.doc,.docx" multiple style="display:none;" onchange="onFileSelect(event)">
- <div class="pdf-list" id="pdf-list"></div>
- </div>
- </div>
- <div class="modal-foot">
- <button class="btn-danger" id="btn-delete-bid" style="display:none;" onclick="deleteBid()">Delete bid</button>
- <button class="btn" onclick="closeModal('bid')">Cancel</button>
- <button class="btn-primary" onclick="saveBid()">Save bid</button>
- </div>
- </div>
-</div>
-
-
-
-
-</div>
-
-</div>
-
-<!-- CHANGE ORDER MODAL -->
-<div class="modal-overlay" id="modal-co">
-  <div class="modal" style="width:440px;">
-    <div class="modal-head">
-      <div class="modal-title">Change Order</div>
-      <div class="modal-close" onclick="closeModal('co')">✕</div>
-    </div>
-    <div class="modal-body">
-      <div class="fg"><label>Description</label><input id="co-desc" autocomplete="off" placeholder="Add scope description..."></div>
-      <div class="frow">
-        <div class="fg"><label>Type</label>
-          <select id="co-type">
-            <option value="add">Addition (+)</option>
-            <option value="deduct">Deduction (-)</option>
-          </select>
-        </div>
-        <div class="fg"><label>Amount ($)</label><input id="co-amount" type="text" autocomplete="off" placeholder="0"></div>
-      </div>
-      <div class="fg"><label>Date</label><input id="co-date" type="date" autocomplete="off"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('co')">Cancel</button>
-      <button class="btn-primary" onclick="saveChangeOrder()">Save</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- JOB EDIT MODAL -->
-<div class="modal-overlay" id="modal-job">
-  <div class="modal" style="width:600px;">
-    <div class="modal-head">
-      <div class="modal-title" id="job-modal-title">New Job</div>
-      <div class="modal-close" onclick="closeModal('job')">×</div>
-    </div>
-    <div class="modal-body">
-      <div class="fg"><label>Import from Awarded Bid <span style="color:var(--text3);font-weight:400;">(optional — auto-fills form)</span></label>
-        <select id="j-bid-import" onchange="importFromBid(this.value)">
-          <option value="">— or fill manually below —</option>
-          ${DB.bids.filter(b=>b.status==='Awarded').sort((a,b2)=>b2.id-a.id).map(b=>`<option value="${b.id}">Bid #${b.num||b.id} — ${b.job||'Untitled'} (${b.gcName||''})</option>`).join('')}
-        </select>
-      </div>
-      <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
-      <div class="frow">
-        <div class="fg"><label>Job # <span style="color:var(--text3);font-weight:400;">(auto-suggested)</span></label>
-          <input id="j-num" autocomplete="off" placeholder="e.g. 5624">
-        </div>
-        <div class="fg"><label>Company</label>
-          <select id="j-company" onchange="onJobCompanyChange()">
-            <option value="Bonas">Bonas Company</option>
-            <option value="ACI">ACI</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg"><label>Job name</label><input id="j-name" autocomplete="off" placeholder="Job Name"></div>
-      <div class="frow">
-        <div class="fg"><label>GC / Customer</label>
-          <select id="j-gc"><option value="">— select GC —</option></select>
-        </div>
-        <div class="fg"><label>Contact (ATTN)</label>
-          <select id="j-contact"><option value="">— select contact —</option></select>
-        </div>
-      </div>
-      <div class="frow">
-        <div class="fg"><label>Project Manager</label>
-          <select id="j-pm"><option value="">— select PM —</option></select>
-        </div>
-        <div class="fg"><label>Superintendent</label>
-          <select id="j-super"><option value="">— none —</option></select>
-        </div>
-        <div class="fg"><label>Foreman</label>
-          <select id="j-foreman"><option value="">— none —</option></select>
-        </div>
-        <div class="fg"><label>Project Coordinator</label>
-          <select id="j-coord"><option value="">— none —</option></select>
-        </div>
-      </div>
-      <div class="fg"><label>Address</label><input id="j-address" autocomplete="off" placeholder="Street Address"></div>
-      <div class="frow">
-        <div class="fg"><label>City</label><input id="j-city" autocomplete="off" placeholder="City"></div>
-        <div class="fg" style="max-width:100px;"><label>Zip</label><input id="j-zip" autocomplete="off" placeholder="Zip"></div>
-      </div>
-      <div class="fg"><label>Contract value ($)</label>
-        <input id="j-value" type="text" autocomplete="off" placeholder="0" onfocus="if(this.value==='0')this.value=''" onblur="formatBidValue(this)">
-      </div>
-      <select id="j-status" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;font-size:13px;font-family:var(--font);color:var(--text);"><option value="Active">Active</option><option value="On Hold">On Hold</option><option value="Complete">Complete</option><option value="Closed">Closed</option></select>
-      <div class="frow">
-        <div class="fg"><label>Start date</label><input id="j-start" type="date" autocomplete="off"></div>
-        <div class="fg"><label>End date</label><input id="j-end" type="date" autocomplete="off"></div>
-      </div>
-      <div class="fg"><label>Notes</label>
-        <textarea id="j-notes" autocomplete="off" placeholder="Scope summary, key notes..." style="min-height:56px;"></textarea>
-      </div>
-      <div id="j-admin-section" style="display:none;">
-        <div style="border-top:2px solid #CC0000;margin:14px 0 10px;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#CC0000;background:var(--bg2);padding:0 8px;">Admin Only</span>
-        </div>
-        <div class="frow">
-          <div class="fg"><label>Class / Type</label><input id="j-class" autocomplete="off" placeholder="Painting, WC"></div>
-          <div class="fg"><label style="display:flex;align-items:center;gap:8px;margin-top:22px;cursor:pointer;">
-            <input type="checkbox" id="j-prelim" style="accent-color:#CC0000;width:16px;height:16px;"> Prelim Closed
-          </label></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-danger" id="btn-delete-job" style="display:none;" onclick="deleteJob()">Delete</button>
-      <button class="btn" onclick="closeModal('job')">Cancel</button>
-      <button class="btn-primary" onclick="saveJob()">Save Job</button>
-    </div>
-  </div>
-</div>
-
-<!-- COST MODAL -->
-<div class="modal-overlay" id="modal-cost">
-  <div class="modal" style="width:420px;">
-    <div class="modal-head">
-      <div class="modal-title" id="cost-modal-title">Add Cost</div>
-      <div class="modal-close" onclick="closeModal('cost')">×</div>
-    </div>
-    <div class="modal-body">
-      <div class="fg"><label>Category</label>
-        <select id="c-category">
-          <option>Labor</option>
-          <option>Overtime Labor</option>
-          <option>Fringes</option>
-          <option>Materials</option>
-          <option>Committed Materials</option>
-          <option>Subcontracts</option>
-          <option>Equipment Rental</option>
-          <option>Job Supplies</option>
-          <option>Other Job Costs</option>
-        </select>
-      </div>
-      <div class="frow">
-        <div class="fg"><label>Amount ($)</label><input id="c-amount" type="text" autocomplete="off" placeholder="0"></div>
-        <div class="fg"><label>Date</label><input id="c-date" type="date" autocomplete="off"></div>
-      </div>
-      <div class="fg"><label>Notes</label><input id="c-notes" autocomplete="off" placeholder="Description..."></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('cost')">Cancel</button>
-      <button class="btn-primary" onclick="saveCost()">Add Cost</button>
-    </div>
-  </div>
-</div>
-
-<!-- COR DETAIL MODAL -->
-<div class="modal-overlay" id="modal-cor">
-  <div class="modal" style="width:700px;max-height:90vh;overflow-y:auto;">
-    <div class="modal-head">
-      <div class="modal-title" id="cor-modal-title">Change Order Request</div>
-      <div class="modal-close" onclick="closeModal('cor')">×</div>
-    </div>
-    <div class="modal-body">
-      <div class="frow">
-        <div class="fg"><label>COR #</label><input id="cor-num" autocomplete="off" readonly style="background:var(--bg3);"></div>
-        <div class="fg"><label>Date</label><input id="cor-date" type="date" autocomplete="off"></div>
-      </div>
-      <div class="fg"><label>Description / Title</label><input id="cor-desc" autocomplete="off" placeholder="IFC SET Updates"></div>
-      <div style="margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--text2);">Line Items</div>
-      <div id="cor-lines-container"></div>
-      <button class="sub-add-btn" onclick="addCORLine()">+ Add line item</button>
-      <div class="cor-total-row" style="margin-top:10px;border-radius:var(--r);">
-        <span>TOTAL</span>
-        <span id="cor-total-display" style="font-size:16px;color:#CC0000;">$0</span>
-      </div>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:8px;">Customer Response</div>
-        <div class="frow">
-          <div class="fg"><label>Customer CO #</label><input id="cor-cust-num" autocomplete="off" placeholder="CO#"></div>
-          <div class="fg"><label>Customer Date</label><input id="cor-cust-date" type="date" autocomplete="off"></div>
-          <div class="fg"><label>Customer Amount</label><input id="cor-cust-amt" autocomplete="off" placeholder="0" oninput="updateCORTotal()"></div>
-        </div>
-      </div>
-      <div class="fg" style="margin-top:10px;">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="cor-void" onchange="updateCORTotal()" style="accent-color:#CC0000;"> Mark as VOID
-        </label>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('cor')">Cancel</button>
-      <button class="btn-primary" onclick="saveCOR()">Save COR</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- PAYROLL IMPORT MODAL -->
-<div class="modal-overlay" id="modal-import">
-  <div class="modal" style="width:900px;max-height:90vh;overflow-y:auto;">
-    <div class="modal-head">
-      <div class="modal-title" id="import-modal-title">Import Cost from Computer Ease</div>
-      <div class="modal-close" onclick="closeModal('import')">×</div>
-    </div>
-    <div class="modal-body">
-      <div id="import-step-1">
-        <div class="import-zone" id="import-drop-zone"
-          ondragover="event.preventDefault();this.classList.add('drag-over')"
-          ondragleave="this.classList.remove('drag-over')"
-          ondrop="onImportDrop(event)"
-          onclick="document.getElementById('import-file-input').click()">
-          <div class="import-zone-title">Drop Computer Ease CSV here</div>
-          <div class="import-zone-sub">or click to browse — accepts .csv files exported from Computer Ease</div>
-          <div class="import-zone-sub" style="margin-top:6px;color:var(--text3);">Expected columns: date, emp, class, department, costcode, costtype, type, hours, des1, amount</div>
-        </div>
-        <input type="file" id="import-file-input" accept=".csv" style="display:none;" onchange="onImportFileSelect(event)">
-      </div>
-      <div id="import-step-2" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div id="import-summary" style="font-size:13px;font-weight:600;"></div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn" onclick="resetImport()">← Change file</button>
-            <button class="btn-primary" id="import-confirm-btn" onclick="confirmImport()">Import Selected</button>
-          </div>
-        </div>
-        <div id="import-unmatched-warn" style="display:none;background:#FFEAEA;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;font-size:12px;color:#CC0000;margin-bottom:12px;"></div>
-        <div class="import-preview">
-          <div class="import-row import-header">
-            <div>Date</div><div>Employee</div><div>Class</div><div>Job #</div>
-            <div>Phase</div><div>Type</div><div>Hours</div><div>Rate</div><div>Amount</div>
-          </div>
-          <div id="import-rows-container" style="max-height:400px;overflow-y:auto;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- EXCEL JOB IMPORT MODAL -->
-<div class="modal-overlay" id="modal-excel-import">
-  <div class="modal" style="width:640px;max-width:94vw;">
-    <div class="modal-head">
-      <div class="modal-title">Import Job from Excel</div>
-      <div class="modal-close" onclick="closeModal('excel-import')">×</div>
-    </div>
-    <div class="modal-body">
-      <div id="excel-import-step-1">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Drop a job's Excel file (.xls/.xlsx). We'll pull the job info from the Bid Sheet and COR history from the Change Log, then show you a preview before anything is saved.</div>
-        <div id="excel-import-drop-zone" style="border:2px dashed var(--border2);border-radius:var(--rlg);padding:36px 20px;text-align:center;cursor:pointer;background:var(--bg3);" ondragover="event.preventDefault();this.classList.add('drag-over');" ondragleave="this.classList.remove('drag-over');" ondrop="onExcelFileDrop(event)" onclick="document.getElementById('excel-import-file-input').click();">
-          <div style="font-size:32px;margin-bottom:8px;">📊</div>
-          <div style="font-size:13px;font-weight:600;">Drop Excel file here, or click to browse</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px;">.xls or .xlsx</div>
-        </div>
-        <input type="file" id="excel-import-file-input" accept=".xls,.xlsx" style="display:none" onchange="onExcelFileSelect(event)">
-        <div id="excel-import-error" style="display:none;background:#FFEAEA;border:1px solid #FFAAAA;border-radius:var(--r);padding:10px 14px;font-size:12px;color:#CC0000;margin-top:12px;"></div>
-      </div>
-      <div id="excel-import-step-2" style="display:none;">
-        <div id="excel-import-preview"></div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('excel-import')">Cancel</button>
-      <button class="btn" id="excel-import-back-btn" onclick="resetExcelImport()" style="display:none;">← Choose a different file</button>
-      <button class="btn-primary" id="excel-import-confirm-btn" onclick="confirmExcelImport()" style="display:none;">Create Job</button>
-    </div>
-  </div>
-</div>
-
-<!-- LABOR RATES MODAL -->
-<div class="modal-overlay" id="modal-rates">
-  <div class="modal" style="width:480px;">
-    <div class="modal-head">
-      <div class="modal-title">Labor Rates by Class</div>
-      <div class="modal-close" onclick="closeModal('rates')">×</div>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Set hourly rates for each labor class code from Computer Ease. These are used to calculate cost when importing payroll data.</div>
-      <div id="rates-container"></div>
-      <button class="sub-add-btn" onclick="addRateRow()">+ Add class code</button>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('rates')">Cancel</button>
-      <button class="btn-primary" onclick="saveRates()">Save Rates</button>
-    </div>
-  </div>
-</div>
-
-<!-- DAY POPUP -->
-<div class="day-popup-overlay" id="day-popup-overlay" onclick="if(event.target===this)closeDayPopup()">
- <div class="day-popup">
- <div class="day-popup-head">
- <div class="day-popup-title" id="day-popup-title"></div>
- <div class="day-popup-close" onclick="closeDayPopup()">✕</div>
- </div>
- <div id="day-popup-body"></div>
- </div>
-</div>
-
-<!-- CONTACT POPUP -->
-<div class="contact-popup-overlay" id="contact-popup-overlay" onclick="if(event.target===this)closeContactPopup()">
- <div class="contact-popup">
- <div class="cp-close" onclick="closeContactPopup()">✕</div>
- <div class="cp-avatar" id="cp-avatar"></div>
- <div class="cp-name" id="cp-name"></div>
- <div class="cp-role" id="cp-role"></div>
- <div id="cp-rows"></div>
- </div>
-</div>
-<script>
 
 // ═══ ROLE MATRIX GLOBALS (must be at top — used in renderNav) ════
 const MODULES = [
@@ -1548,27 +163,6 @@ async function settingsGet(key){const r=await fetch('/api/data?table=settings&ke
 async function settingsSet(key,value){const r=await fetch('/api/data?table=settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value})});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbDelete(table,id){const r=await fetch('/api/data?table='+table+'&id='+id,{method:'DELETE'});if(!r.ok)throw new Error(await r.text());}
 
-// ── Job locking (pessimistic — see api/lock.js) ──
-async function lockStatus(jobId){
-  const r = await fetch('/api/lock?job_id='+encodeURIComponent(jobId));
-  if(!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-async function lockAction(jobId, action){
-  const body = {member_id: SESSION.user?SESSION.user.id:null, member_name: SESSION.user?(SESSION.user.first+' '+SESSION.user.last):'', action};
-  const r = await fetch('/api/lock?job_id='+encodeURIComponent(jobId), {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-  const data = await r.json().catch(()=>({}));
-  return {ok:r.ok, status:r.status, data};
-}
-function lockReleaseBeacon(jobId){
-  if(!jobId || !SESSION.user || !navigator.sendBeacon) return;
-  try{
-    const body = {member_id: SESSION.user.id, member_name: SESSION.user.first+' '+SESSION.user.last, action:'release'};
-    const blob = new Blob([JSON.stringify(body)], {type:'application/json'});
-    navigator.sendBeacon('/api/lock?job_id='+encodeURIComponent(jobId), blob);
-  }catch(e){}
-}
-
 function showLoader(msg){
  let el=document.getElementById('sb-loader');
  if(!el){el=document.createElement('div');el.id='sb-loader';el.style.cssText='position:fixed;top:54px;left:0;right:0;height:3px;background:linear-gradient(90deg,#1B3F6E,#4f6ef7,#1E5C3A);background-size:200% 100%;animation:sbload 1.2s linear infinite;z-index:999;';document.body.appendChild(el);}
@@ -1620,7 +214,6 @@ function setGCTab(t){NAV.gcTab=t;render();}
 // ═══════════════════════════════════════ RENDER ROUTER ═══════════════════════════════
 function render(){
  stopEWOPolling();
- syncJobLockForCurrentScreen();
  renderNav();
  if(NAV.screen==='landing')renderLanding();
  else if(NAV.screen==='home')renderHome();
@@ -5229,19 +3822,10 @@ function jobToBody(job){
   };
 }
 let JOBS_LOADED = false;
-// Tracks, per job id, the last body we know is safely persisted on the server
-// (JSON-serialized). saveJobs() only re-POSTs jobs whose current body differs
-// from this — so a browser tab that's been open a while and holds a stale copy
-// of some OTHER job (edited meanwhile by a different user) never re-sends that
-// stale copy and clobbers their work. Only jobs actually changed in this tab
-// get written.
-let JOB_SYNC_CACHE = {};
 async function fetchJobsFromServer(){
   try{
     const rows = await sbGet('jobs');
     JOBS = rows.map(mapJob);
-    JOB_SYNC_CACHE = {};
-    JOBS.forEach(job=>{ JOB_SYNC_CACHE[job.id] = JSON.stringify(jobToBody(job)); });
   }catch(e){
     console.error('Could not load jobs from server:', e.message);
     if(!JOBS) JOBS = [];
@@ -5258,43 +3842,12 @@ function loadJobs(){
 }
 async function saveJobs(undoLabel){
   if(undoLabel&&typeof pushUndo==='function') pushUndo(undoLabel);
-  const dirty = JOBS.filter(job=>JOB_SYNC_CACHE[job.id] !== JSON.stringify(jobToBody(job)));
-  if(!dirty.length){ clearSaveError(); return; }
+  const snapshot = JOBS.slice();
   try{
-    await Promise.all(dirty.map(async job=>{
-      const body = jobToBody(job);
-      const serialized = JSON.stringify(body);
-      await sbPost('jobs', body);
-      JOB_SYNC_CACHE[job.id] = serialized; // only marked synced once the write actually succeeds
-    }));
-    clearSaveError();
+    await Promise.all(snapshot.map(job=>sbPost('jobs', jobToBody(job))));
   }catch(e){
     console.error('Could not save jobs to server:', e.message);
-    showSaveError('Could not save your last change — check your connection and click Retry. ('+e.message+')');
   }
-}
-
-// ── Visible save-failure banner (lives outside #app so route re-renders don't wipe it) ──
-function ensureSaveBanner(){
-  let el = document.getElementById('save-error-banner');
-  if(!el){
-    el = document.createElement('div');
-    el.id = 'save-error-banner';
-    el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;display:none;align-items:center;gap:10px;background:#CC0000;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-family:Arial,sans-serif;font-size:13px;max-width:340px;';
-    el.innerHTML = '<span id="save-error-msg" style="flex:1;line-height:1.3;"></span><button id="save-error-retry" style="background:#fff;color:#CC0000;border:none;border-radius:4px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">Retry</button>';
-    document.body.appendChild(el);
-    document.getElementById('save-error-retry').onclick = ()=>saveJobs();
-  }
-  return el;
-}
-function showSaveError(msg){
-  const el = ensureSaveBanner();
-  document.getElementById('save-error-msg').textContent = msg;
-  el.style.display = 'flex';
-}
-function clearSaveError(){
-  const el = document.getElementById('save-error-banner');
-  if(el) el.style.display = 'none';
 }
 function autoCreateFromBids(){
   // Auto-create disabled — jobs are manually created only
@@ -6032,7 +4585,6 @@ function renderJobDetail(){
 
   const isForemanView = !isManagerMode()&&effectiveRoleType()==='FOR';
   if(isForemanView && !FOREMAN_JOB_TABS.includes(CUR_JOB_TAB)) CUR_JOB_TAB='overview';
-  const lockedByOther = !!(CUR_JOB_LOCK && !CUR_JOB_LOCK.mine && String(CUR_JOB_LOCK.jobId)===String(job.id));
 
   let tabContent = '';
   if(CUR_JOB_TAB==='overview') tabContent = isForemanView ? renderJobOverviewDashboardForeman(job,pm,sup,gc,contract) : renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct);
@@ -6064,7 +4616,7 @@ function renderJobDetail(){
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
           <button class="btn-sm" onclick="goJobs()">← Jobs</button>
-          ${isForemanView||lockedByOther?'':`
+          ${isForemanView?'':`
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openCostImport('${job.id}')">Import Cost</button>
           ${job.status==='Closed'?`<button class="btn-sm" style="background:#D9EFE3;color:#1E5C3A;border-color:#B2DFCA;" onclick="reopenJob('${job.id}')">↩ Reopen</button>`:`<button class="btn-sm" style="background:#FFF0F0;color:#CC0000;border-color:#FFAAAA;" onclick="closeJob('${job.id}')">✓ Close Job</button>`}
@@ -6086,13 +4638,6 @@ function renderJobDetail(){
         `}
       </div>
     </div>
-    ${lockedByOther?`
-    <div style="background:#FFF4E5;border:1px solid #FFD8A8;border-radius:var(--r);padding:10px 16px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <div style="font-size:13px;color:#8A5A00;">\ud83d\udd12 <strong>${(CUR_JOB_LOCK.memberName||'Someone').replace(/</g,'&lt;')}</strong> is currently viewing this job \u2014 read-only until they leave.</div>
-      ${isManagerMode()?`<button class="btn-sm" onclick="forceUnlockJob('${job.id}')">Force unlock</button>`:''}
-    </div>`:''}
-    <div style="position:relative;">
-    ${lockedByOther?`<div style="position:absolute;inset:0;z-index:400;background:rgba(250,250,250,.5);cursor:not-allowed;border-radius:var(--rlg);"></div>`:''}
     <!-- Tab Bar -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;">
       <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;flex-wrap:wrap;">
@@ -6107,8 +4652,7 @@ function renderJobDetail(){
         }).join('')}
       </div>
     </div>
-    ${tabContent}
-    </div>`;
+    ${tabContent}`;
   const _wjob=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));if(_wjob)maybeLoadWeather(_wjob);
 }
 
@@ -7692,29 +6236,6 @@ function corLinesTotal(lines){
   },0);
 }
 
-// Keeps the "Breakdown" (ohp) category's Overhead & Profit row in sync with the
-// user-set percentage. Labor/Material recap rows are freely editable (just seeded
-// from the real category totals when the section is first added) — only the OH&P
-// dollar amount is recomputed here, using the backed-out-margin formula:
-// OH&P = Total Value - (Total Value / (1 + pct%)) — i.e. Total Value is treated as
-// already including the margin, and this pulls out how much of it is OH&P.
-// Purely informational (see corLinesTotal above) — used for backup when quoting a
-// lump-sum price outside standard units.
-function corRecalcBreakdown(lines){
-  if(!lines||!lines.length) return;
-  const ohpPctLine = lines.find(l=>l.category==='ohp'&&l.key==='ohp_pct');
-  if(ohpPctLine){
-    const totalValue = lines.filter(l=>(l.category||'other')!=='ohp').reduce((s,l)=>{
-      const a=(l.qty||0)*(l.rate||0); return s+(l.type==='deduct'?-a:a);
-    },0);
-    const pct = ohpPctLine.pct!=null ? ohpPctLine.pct : 10;
-    const divisor = 1 + (pct/100);
-    ohpPctLine.qty=1;
-    ohpPctLine.rate = divisor ? Math.round((totalValue - totalValue/divisor)*100)/100 : 0;
-    ohpPctLine.type='add';
-  }
-}
-
 function jobCORTotals(job){
   const cors=(job.cors||[]).filter(c=>corCountsTowardContract(job,c));
   const req=cors.filter(c=>!c.void).reduce((s,c)=>s+(c.total||0),0);
@@ -7824,7 +6345,6 @@ async function deleteJob(){
   if(!confirm('Delete this job? This cannot be undone.'))return;
   const idToDelete = EDIT_JOB_ID;
   JOBS=JOBS.filter(j=>j.id!==idToDelete);
-  delete JOB_SYNC_CACHE[idToDelete];
   closeModal('job');renderJobs();
   try{ await sbDelete('jobs', idToDelete); }
   catch(e){ alert('Removed locally, but could not delete it from the server — check your connection.\n\n'+e.message); }
@@ -8046,14 +6566,12 @@ function printCOR(jobId, corIdx){
   const today=new Date().toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'});
   const corNum=corIdx+1;
   const lines=cor.lines||[];
-  corRecalcBreakdown(lines);
   const total=corLinesTotal(lines);
 
   const categoryOrder=[];
   lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
-  const categoryLabels={labor:'Labor', material:'Materials', ohp:'Breakdown'};
-  const catLabelOverrides = cor.categoryLabels||{};
-  const catLabel=(cat)=> catLabelOverrides[cat]!==undefined ? catLabelOverrides[cat] : (categoryLabels[cat]||(cat.charAt(0).toUpperCase()+cat.slice(1)));
+  const categoryLabels={labor:'Labor', material:'Materials', ohp:'Overhead & Profit'};
+  const catLabel=(cat)=>categoryLabels[cat]||(cat.charAt(0).toUpperCase()+cat.slice(1));
 
   const lineRows=categoryOrder.map(cat=>{
     const catLines=lines.filter(l=>(l.category||'other')===cat);
@@ -8062,55 +6580,45 @@ function printCOR(jobId, corIdx){
       const lineAmt=(l.qty||0)*(l.rate||0);
       const sign=l.type==='deduct'?'DEDUCT:':'ADD:';
       const signColor=l.type==='deduct'?'#CC0000':'#000';
-      const isPct = l.category==='ohp' && l.key==='ohp_pct';
-      const qtyCell = isPct ? (l.pct!=null?l.pct:10)+'%' : (l.qty||'');
-      const rateCell = isPct ? '' : (l.rate?'@ $'+l.rate.toFixed(2):'');
       return`<tr>
-        <td style="padding:5px 6px;font-size:13px;">${l.label||l.key||''}</td>
-        <td style="padding:5px 6px;font-size:13px;text-align:right;">${qtyCell}</td>
-        <td style="padding:5px 6px;font-size:13px;text-align:right;">${rateCell}</td>
-        <td style="padding:5px 6px;font-size:13px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
-        <td style="padding:5px 6px;font-size:13px;text-align:right;font-weight:600;">$${Math.abs(lineAmt).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+        <td style="padding:3px 6px;font-size:10px;">${l.label||l.key||''}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.qty||''}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:right;">${l.rate?'@ $'+l.rate.toFixed(2):''}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:center;font-weight:600;color:${signColor};">${sign}</td>
+        <td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:600;">$${Math.abs(lineAmt).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
       </tr>`;
     }).join('');
-    const headerLabel = catLabel(cat);
-    return `<tr><td colspan="5" style="padding:8px 6px 3px;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #ccc;">${headerLabel}</td></tr>
+    return `<tr><td colspan="5" style="padding:6px 6px 2px;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;border-top:1px solid #ccc;">${catLabel(cat)}</td></tr>
       ${rows}
-      <tr><td colspan="4" style="padding:5px 6px;font-size:13px;text-align:right;font-weight:bold;">${headerLabel?headerLabel+' ':''}Subtotal:</td><td style="padding:5px 6px;font-size:13px;text-align:right;font-weight:bold;">$${Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
+      <tr><td colspan="4" style="padding:3px 6px;font-size:10px;text-align:right;font-weight:bold;">${catLabel(cat)} Subtotal:</td><td style="padding:3px 6px;font-size:10px;text-align:right;font-weight:bold;">$${Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
   }).join('');
 
   const printHTML=`<!DOCTYPE html><html><head>
     <title>COR #${corNum} — ${job.name}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:14px;margin:0;padding:16px;color:#000;}
-      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;}
-      .co-block{display:flex;align-items:center;gap:14px;}
-      .co-name{font-size:22px;font-weight:bold;letter-spacing:.5px;}
-      .co-sub{font-size:12px;color:#333;margin-top:2px;}
-      .right-block{text-align:right;font-size:13px;}
-      .doc-title{font-size:18px;font-weight:bold;text-align:center;margin:10px 0 3px;}
-      .cor-num{font-size:16px;font-weight:bold;text-align:center;margin-bottom:14px;}
-      .info-table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:13px;}
-      .info-table td{padding:4px 6px;vertical-align:top;}
-      .info-label{font-weight:bold;width:95px;}
-      .info-divider{border-top:1px solid #999;margin:8px 0;}
-      .line-table{width:100%;border-collapse:collapse;margin:10px 0 14px;}
-      .line-table td{padding:4px 6px;vertical-align:top;}
-      .total-row{display:flex;justify-content:flex-end;border-top:1px solid #000;padding-top:8px;margin-top:auto;}
-      .total-label{font-weight:bold;font-size:16px;margin-right:20px;}
-      .total-val{font-weight:bold;font-size:20px;min-width:100px;text-align:right;}
-      .footer-note{font-size:11px;color:#555;margin-top:10px;border-top:1px solid #ccc;padding-top:8px;}
-      .sig{margin-top:28px;}
-      .sig-line{border-top:1px solid #000;width:220px;padding-top:5px;font-size:13px;}
-      .desc-box{border:1px solid #ccc;border-radius:3px;padding:8px 10px;min-height:42px;white-space:pre-wrap;box-sizing:border-box;}
-      @page{size:letter;margin:0;}
-      html,body{margin:0;height:100%;}
-      body{box-sizing:border-box;padding:0.5in;}
-      .page{display:flex;flex-direction:column;min-height:10in;}
-      @media print{body{padding:0.5in;}}
+      body{font-family:Arial,sans-serif;font-size:11px;margin:0;padding:16px;color:#000;}
+      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px;}
+      .co-block{display:flex;align-items:center;gap:12px;}
+      .co-name{font-size:16px;font-weight:bold;letter-spacing:.5px;}
+      .co-sub{font-size:9px;color:#333;margin-top:1px;}
+      .right-block{text-align:right;font-size:10px;}
+      .doc-title{font-size:13px;font-weight:bold;text-align:center;margin:8px 0 2px;}
+      .cor-num{font-size:12px;font-weight:bold;text-align:center;margin-bottom:10px;}
+      .info-table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px;}
+      .info-table td{padding:2px 4px;vertical-align:top;}
+      .info-label{font-weight:bold;width:80px;}
+      .info-divider{border-top:1px solid #999;margin:6px 0;}
+      .line-table{width:100%;border-collapse:collapse;margin:6px 0 10px;}
+      .line-table td{padding:2px 6px;vertical-align:top;}
+      .total-row{display:flex;justify-content:flex-end;border-top:1px solid #000;padding-top:6px;margin-top:4px;}
+      .total-label{font-weight:bold;font-size:12px;margin-right:20px;}
+      .total-val{font-weight:bold;font-size:13px;min-width:80px;text-align:right;}
+      .footer-note{font-size:9px;color:#555;margin-top:10px;border-top:1px solid #ccc;padding-top:6px;}
+      .sig{margin-top:24px;}
+      .sig-line{border-top:1px solid #000;width:200px;padding-top:4px;font-size:10px;}
+      @media print{body{padding:8px;}}
     </style>
   </head><body>
-  <div class="page">
     <div class="header">
       <div class="co-block">
         ${logoSrc?`<img src="${logoSrc}" style="width:48px;height:48px;object-fit:contain;" alt="">`:''}
@@ -8129,7 +6637,7 @@ function printCOR(jobId, corIdx){
     <table class="info-table">
       <tr>
         <td class="info-label">CUSTOMER:</td>
-        <td colspan="3">${gc?gc.name:job.gcName||'—'}${gc&&gc.street?'<br>'+gc.street:''}${gc&&gc.city?'<br>'+gc.city:''}
+        <td colspan="3">${gc?gc.name:job.gcName||'—'}<br>${gc&&gc.street?gc.street+', '+gc.city:''}
         </td>
         <td style="width:80px;font-weight:bold;text-align:right;">JOB #:</td>
         <td style="font-weight:bold;">${job.num||'—'}</td>
@@ -8143,15 +6651,12 @@ function printCOR(jobId, corIdx){
       <tr><td colspan="6"><div class="info-divider"></div></td></tr>
       <tr>
         <td class="info-label">PROJECT:</td>
-        <td colspan="5"><strong>${job.name}</strong>${job.address?'<br>'+job.address:''}${(job.city||job.zip)?'<br>'+(job.city?job.city+', CA':'')+(job.zip?' '+job.zip:''):''}</td>
+        <td colspan="5"><strong>${job.name}</strong><br>${job.address||''} ${job.city?job.city+', CA':''}${job.zip?' '+job.zip:''}</td>
       </tr>
     </table>
     <div class="info-divider"></div>
-    <div style="font-size:13px;margin:10px 0;">In regard to the above stated project, we submit the following cost.</div>
-    <div style="font-size:13px;margin-bottom:10px;">
-      <div style="font-weight:bold;margin-bottom:4px;">Description of work:</div>
-      <div class="desc-box">${cor.desc||''}</div>
-    </div>
+    <div style="font-size:10px;margin:8px 0;">In regard to the above stated project, we submit the following cost.</div>
+    ${cor.desc?`<div style="font-size:10px;margin-bottom:6px;"><strong>Description of work:</strong> ${cor.desc}</div>`:''}
     <table class="line-table">
       ${lineRows}
     </table>
@@ -8166,7 +6671,6 @@ function printCOR(jobId, corIdx){
     <div class="sig">
       <div class="sig-line">${pm?pm.first+' '+pm.last:'Project Manager'}<br>Project Manager</div>
     </div>
-  </div>
   </body></html>`;
   const win=window.open('','_blank','width=800,height=900');
   win.document.write(printHTML);
@@ -8188,9 +6692,6 @@ function printCOR(jobId, corIdx){
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
-window.addEventListener('beforeunload', function(){
-  if(CUR_JOB_LOCK && CUR_JOB_LOCK.mine) lockReleaseBeacon(CUR_JOB_LOCK.jobId);
-});
 
 function printSOV(jobId){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
@@ -8321,7 +6822,6 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   const contact = DB.contacts.find(c=>parseInt(c.id)===parseInt(job.contactId));
   const pm = DB.members.find(m=>parseInt(m.id)===parseInt(job.pmId));
   const lines = cor.lines || [];
-  corRecalcBreakdown(lines);
 
   // Get job-level rates (with defaults matching the paper form)
   if(!job.corRates) job.corRates = {};
@@ -8345,8 +6845,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
   const categoryOrder = [];
   lines.forEach(l=>{ if(!categoryOrder.includes(l.category)) categoryOrder.push(l.category||'other'); });
   const categoryLabels = {labor:'Labor', material:'Materials', ohp:'Breakdown'};
-  const catLabelOverrides = cor.categoryLabels||{};
-  const catLabel = (cat) => catLabelOverrides[cat]!==undefined ? catLabelOverrides[cat] : (categoryLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1)));
+  const catLabel = (cat) => categoryLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1));
   const catTotal = (cat) => lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>s+amt(l),0);
   const grandTotal = corLinesTotal(lines);
 
@@ -8368,7 +6867,6 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
     const lineAmt = Math.abs((line.qty||0)*(line.rate||0));
     const signAmt = amt(line);
     const isSundries = line.key === 'sundries';
-    const isPct = line.category==='ohp' && line.key==='ohp_pct';
     const inp = (field, val, ph, step, w, extra) =>
       `<input type="number" value="${val||''}" placeholder="${ph||'0'}" step="${step||'1'}" min="0"
         oninput="corLineUpdate('${job.id}',${corIdx},${li},'${field}',parseFloat(this.value)||0)"
@@ -8381,21 +6879,12 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
       <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:62px;">
         ${isSundries
           ? `<span style="font-size:10px;color:#888;font-style:italic;">auto</span>`
-          : isPct
-          ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;">
-               <input type="number" value="${line.pct!=null?line.pct:10}" step="0.5" min="0" max="100"
-                 oninput="corLineUpdatePct('${job.id}',${corIdx},${li},parseFloat(this.value)||0)"
-                 style="width:44px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;font-size:10px;text-align:right;font-family:Arial;">
-               <span style="font-size:9px;color:#888;">%</span>
-             </div>`
           : inp('qty', line.qty, '0', isLabor?'0.25':'1', '50px')}
       </td>
       <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;width:80px;">
         <span style="font-size:9px;color:#888;">$</span>
         ${isSundries
           ? `<span style="font-size:10px;font-weight:600;">${sundriesAuto.toFixed(2)}</span>`
-          : isPct
-          ? `<span id="cor-line-rate-${corIdx}-${li}" style="font-size:10px;font-weight:600;color:#888;font-style:italic;">${(line.rate||0).toFixed(2)}</span>`
           : inp('rate', line.rate, '0.00', '0.01', '58px')}
       </td>
       <td style="padding:3px 5px;border:1px solid #ddd;width:58px;">
@@ -8594,10 +7083,9 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
       ${categoryOrder.length ? categoryOrder.map(cat => {
         const catLines = lines.filter(l=>(l.category||'other')===cat);
         const total = catTotal(cat);
-        const headerLabel = catLabel(cat);
         return `<div style="padding:6px 10px;border-bottom:1px solid #ddd;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-            <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${headerLabel?headerLabel+':':''}</div>
+            <div style="font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.05em;">${catLabel(cat)}:</div>
             <button onclick="corRemoveCategory('${job.id}',${corIdx},'${cat}')" title="Remove this whole category" style="background:none;border:none;color:#999;cursor:pointer;font-size:10px;">Remove section \u00d7</button>
           </div>
           <table style="width:100%;border-collapse:collapse;">
@@ -8609,7 +7097,7 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
               style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">+ Add line</button>
           </div>
           <div style="text-align:right;font-size:10px;font-weight:bold;margin-top:4px;padding-top:4px;border-top:1px solid #eee;" id="cor-cat-subtotal-${corIdx}-${cat}">
-            ${headerLabel?headerLabel+' ':''}Subtotal: <span style="color:${total<0?'#CC0000':'#000'};">$${Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+            ${catLabel(cat)} Subtotal: <span style="color:${total<0?'#CC0000':'#000'};">$${Math.abs(total).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
           </div>
         </div>`;
       }).join('') : `<div style="padding:20px 10px;text-align:center;color:#999;font-size:11px;">No line items yet. Load the standard template below, or add a category to start from scratch.</div>`}
@@ -8700,37 +7188,10 @@ function corLineUpdate(jobId, corIdx, lineIdx, field, val){
   const cat = line.category||'other';
   const catTotal = lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
   const catLabels = {labor:'Labor', material:'Materials', ohp:'Breakdown'};
-  const catLabelOverrides = job.cors[corIdx].categoryLabels||{};
-  const catLbl = catLabelOverrides[cat]!==undefined ? catLabelOverrides[cat] : (catLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1)));
+  const catLbl = catLabels[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1));
   const catEl = document.getElementById('cor-cat-subtotal-'+corIdx+'-'+cat);
   if(catEl){
-    catEl.innerHTML = (catLbl?catLbl+' ':'')+'Subtotal: <span style="color:'+(catTotal<0?'#CC0000':'#000')+';">$'+Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
-  }
-}
-
-function corLineUpdatePct(jobId, corIdx, lineIdx, pct){
-  const job=JOBS.find(j=>j.id===jobId); if(!job) return;
-  if(!job.cors[corIdx]||!job.cors[corIdx].lines[lineIdx]) return;
-  const lines = job.cors[corIdx].lines;
-  lines[lineIdx].pct = pct;
-  corRecalcBreakdown(lines);
-  const line = lines[lineIdx];
-  job.cors[corIdx].total = corLinesTotal(lines);
-  saveJobs();
-  // Live update: this row's auto-computed rate + amount
-  const rateEl = document.getElementById('cor-line-rate-'+corIdx+'-'+lineIdx);
-  if(rateEl) rateEl.textContent = (line.rate||0).toFixed(2);
-  const rowAmt = (line.qty||0)*(line.rate||0);
-  const rowEl = document.getElementById('cor-line-amt-'+corIdx+'-'+lineIdx);
-  if(rowEl){
-    rowEl.textContent = '$'+Math.abs(rowAmt).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-    rowEl.style.color = (line.type==='deduct'?-rowAmt:rowAmt)<0 ? '#CC0000' : '#000';
-  }
-  // Live update: Breakdown category subtotal
-  const catTotal = lines.filter(l=>(l.category||'other')==='ohp').reduce((s,l)=>{const a=(l.qty||0)*(l.rate||0);return s+(l.type==='deduct'?-a:a);},0);
-  const catEl = document.getElementById('cor-cat-subtotal-'+corIdx+'-ohp');
-  if(catEl){
-    catEl.innerHTML = 'Breakdown Subtotal: <span style="color:'+(catTotal<0?'#CC0000':'#000')+';">$'+Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
+    catEl.innerHTML = catLbl+' Subtotal: <span style="color:'+(catTotal<0?'#CC0000':'#000')+';">$'+Math.abs(catTotal).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';
   }
 }
 
@@ -8765,20 +7226,13 @@ function corAddCustomLine(jobId, corIdx, category){
 }
 
 function corAddCategory(jobId, corIdx){
-  const name = prompt('Category name (e.g. "Equipment", "Subcontractor") — leave blank for a section with no header:');
-  if(name===null) return; // Cancel
+  const name = prompt('Category name (e.g. "Equipment", "Subcontractor"):');
+  if(!name||!name.trim()) return;
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
   if(!job.cors[corIdx].lines) job.cors[corIdx].lines=[];
-  const trimmed = name.trim();
-  // A blank name can't become the category key itself — an empty string collides
-  // with the "other"/uncategorized bucket used elsewhere (l.category||'other').
-  // Instead we generate a unique internal key and explicitly record that its
-  // display header should be blank, via cor.categoryLabels.
-  const catKey = trimmed ? trimmed.toLowerCase().replace(/[^a-z0-9]+/g,'_') : ('section_'+Date.now());
-  if(!job.cors[corIdx].categoryLabels) job.cors[corIdx].categoryLabels={};
-  job.cors[corIdx].categoryLabels[catKey] = trimmed; // '' is a valid, intentional blank header
-  job.cors[corIdx].lines.push({category:catKey, key:'custom', label:trimmed||'New line', rate:0, qty:0, type:'add'});
+  const catKey = name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_');
+  job.cors[corIdx].lines.push({category:catKey, key:'custom', label:name.trim(), rate:0, qty:0, type:'add'});
   saveJobs();
   openCORForm(jobId, corIdx);
 }
@@ -8787,19 +7241,7 @@ function corAddBreakdown(jobId, corIdx){
   const job=JOBS.find(j=>j.id===jobId); if(!job) return;
   if(!job.cors[corIdx]) return;
   if(!job.cors[corIdx].lines) job.cors[corIdx].lines=[];
-  const lines = job.cors[corIdx].lines;
-  const catSum = (cat) => lines.filter(l=>(l.category||'other')===cat).reduce((s,l)=>{
-    const a=(l.qty||0)*(l.rate||0); return s+(l.type==='deduct'?-a:a);
-  },0);
-  // Labor/Material are seeded from the real category totals as a starting point,
-  // but are then freely editable — useful when there's no detailed Labor/Material
-  // breakdown elsewhere on a lump-sum COR and the numbers need to be typed in by hand.
-  lines.push(
-    {category:'ohp', key:'labor_recap',    label:'Labor',              rate:catSum('labor'),    qty:1, type:'add'},
-    {category:'ohp', key:'material_recap', label:'Material',           rate:catSum('material'), qty:1, type:'add'},
-    {category:'ohp', key:'ohp_pct',        label:'Overhead & Profit',  pct:10, rate:0, qty:1, type:'add'}
-  );
-  corRecalcBreakdown(lines);
+  job.cors[corIdx].lines.push({category:'ohp', key:'custom', label:'Overhead & Profit', rate:0, qty:1, type:'add'});
   saveJobs();
   openCORForm(jobId, corIdx);
 }
@@ -8809,7 +7251,6 @@ function corRemoveCategory(jobId, corIdx, category){
   if(!job.cors[corIdx]) return;
   if(!confirm('Remove this entire category and all its line items? This cannot be undone.')) return;
   job.cors[corIdx].lines = (job.cors[corIdx].lines||[]).filter(l=>(l.category||'other')!==category);
-  if(job.cors[corIdx].categoryLabels) delete job.cors[corIdx].categoryLabels[category];
   const lines = job.cors[corIdx].lines;
   job.cors[corIdx].total = corLinesTotal(lines);
   saveJobs();
@@ -11894,106 +10335,6 @@ function startEWOPollingForHome(){
   }, 12000);
 }
 
-// ── Job locking — presence + read-only enforcement (see api/lock.js) ──
-// CUR_JOB_LOCK: {jobId, mine, memberId, memberName, lockedAt} for whichever job is
-// currently open, or null. Kept in sync with the server by syncJobLockForCurrentScreen(),
-// called once at the top of every render().
-let CUR_JOB_LOCK = null;
-let JOB_LOCK_ACQUIRING = null;
-let JOB_LOCK_POLL_TIMER = null;
-
-function stopJobLockPolling(){
-  if(JOB_LOCK_POLL_TIMER){ clearInterval(JOB_LOCK_POLL_TIMER); JOB_LOCK_POLL_TIMER=null; }
-}
-
-function startJobLockPolling(jobId){
-  stopJobLockPolling();
-  JOB_LOCK_POLL_TIMER = setInterval(async function(){
-    if(document.hidden) return;
-    if(!(NAV.screen==='jobdetail'&&String(CUR_JOB_ID)===String(jobId))){ stopJobLockPolling(); return; }
-    if(!SESSION.user) return;
-    try{
-      if(CUR_JOB_LOCK && CUR_JOB_LOCK.mine){
-        const res = await lockAction(jobId,'heartbeat');
-        if(res.status===409){
-          // Someone force-took it out from under us — drop to read-only.
-          CUR_JOB_LOCK = {jobId, mine:false, memberId:res.data.member_id, memberName:res.data.member_name, lockedAt:res.data.locked_at};
-          render();
-        }
-      } else {
-        const status = await lockStatus(jobId);
-        if(!status.locked){
-          const res = await lockAction(jobId,'acquire');
-          if(res.ok){
-            CUR_JOB_LOCK = {jobId, mine:true, memberId:SESSION.user.id, memberName:SESSION.user.first+' '+SESSION.user.last, lockedAt:res.data.locked_at};
-            render();
-          }
-        } else if(!CUR_JOB_LOCK || String(CUR_JOB_LOCK.memberId)!==String(status.member_id)){
-          CUR_JOB_LOCK = {jobId, mine:false, memberId:status.member_id, memberName:status.member_name, lockedAt:status.locked_at};
-          render();
-        }
-      }
-    }catch(e){ console.error('Job lock poll error:', e.message); }
-  }, 12000);
-}
-
-async function acquireJobLockAndRender(jobId){
-  if(!jobId || !SESSION.user){ if(JOB_LOCK_ACQUIRING===jobId) JOB_LOCK_ACQUIRING=null; return; }
-  let result = null;
-  try{
-    const res = await lockAction(jobId,'acquire');
-    if(res.status===409){
-      result = {jobId, mine:false, memberId:res.data.member_id, memberName:res.data.member_name, lockedAt:res.data.locked_at};
-    } else if(res.ok){
-      result = {jobId, mine:true, memberId:SESSION.user.id, memberName:SESSION.user.first+' '+SESSION.user.last, lockedAt:res.data.locked_at};
-    }
-  }catch(e){
-    console.error('Could not acquire job lock:', e.message);
-    result = null; // fail open — a lock-service hiccup shouldn't block editing entirely
-  }
-  if(JOB_LOCK_ACQUIRING===jobId) JOB_LOCK_ACQUIRING=null;
-  const stillWanted = NAV.screen==='jobdetail' && String(CUR_JOB_ID)===String(jobId);
-  if(!stillWanted){
-    // Navigated elsewhere while this was in flight — don't leave a lock dangling.
-    if(result && result.mine) lockAction(jobId,'release').catch(()=>{});
-    return;
-  }
-  CUR_JOB_LOCK = result;
-  startJobLockPolling(jobId);
-  render();
-}
-
-function releaseCurrentJobLock(jobId){
-  stopJobLockPolling();
-  if(CUR_JOB_LOCK && CUR_JOB_LOCK.mine && String(CUR_JOB_LOCK.jobId)===String(jobId)){
-    lockAction(jobId,'release').catch(e=>console.error('Could not release job lock:', e.message));
-  }
-  if(CUR_JOB_LOCK && String(CUR_JOB_LOCK.jobId)===String(jobId)) CUR_JOB_LOCK = null;
-}
-
-// Called once at the top of every render() — claims/releases the job lock as the
-// user navigates in and out of job detail, so no other call site needs to know about it.
-function syncJobLockForCurrentScreen(){
-  const wantJobId = (NAV.screen==='jobdetail') ? CUR_JOB_ID : null;
-  const haveJobId = CUR_JOB_LOCK ? CUR_JOB_LOCK.jobId : null;
-  if(String(haveJobId||'') === String(wantJobId||'')) return;
-  if(haveJobId) releaseCurrentJobLock(haveJobId);
-  if(wantJobId && JOB_LOCK_ACQUIRING !== wantJobId){
-    JOB_LOCK_ACQUIRING = wantJobId;
-    acquireJobLockAndRender(wantJobId);
-  }
-}
-
-async function forceUnlockJob(jobId){
-  if(!isManagerMode()) return;
-  if(!confirm('Force this job open? Anything the other person already saved is kept — they\'ll just be switched to read-only if they\'re still viewing it.')) return;
-  try{ await lockAction(jobId,'force_release'); }
-  catch(e){ console.error('Force unlock failed:', e.message); }
-  CUR_JOB_LOCK = null;
-  JOB_LOCK_ACQUIRING = null;
-  acquireJobLockAndRender(jobId);
-}
-
 
 function printEWORecord(ewoId){
   const ewo = EWO_RECORDS.find(e=>String(e.id)===String(ewoId));
@@ -12224,101 +10565,3 @@ function deleteCOR(jobId, corIdx){
   saveJobs('Delete COR');
   openJobDetail(jobId, 'corlog');
 }
-</script>
-
-<!-- EWO FORM MODAL -->
-<div class="ewo-modal-overlay" id="ewo-modal-overlay" onclick="if(event.target===this)closeEWOModal()">
-  <div class="ewo-modal">
-    <div class="ewo-modal-head">
-      <div class="ewo-modal-title" id="ewo-modal-title">New Extra Work Order</div>
-      <div class="modal-close" onclick="closeEWOModal()">✕</div>
-    </div>
-    <div class="ewo-modal-body">
-      <div class="frow">
-        <div class="fg"><label>EWO #</label><input id="ewo-num" class="ewo-input" placeholder="Auto-assigned" readonly style="background:var(--bg3);"></div>
-        <div class="fg"><label>Date</label><input id="ewo-date" type="date" class="ewo-input"></div>
-      </div>
-      <div class="fg"><label>Foreman</label><input id="ewo-foreman" class="ewo-input" placeholder="Foreman name"></div>
-      <div class="fg"><label>Description of Extra Work</label><textarea id="ewo-desc" class="ewo-input" style="min-height:72px;resize:vertical;" placeholder="Describe the extra work performed..."></textarea></div>
-
-      <div class="ewo-section-lbl">Workers & Hours</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-        <div style="display:grid;grid-template-columns:1fr 60px 70px 70px 70px 32px;gap:6px;margin-bottom:6px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Name</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">Class</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">ST</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">OT</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:center;">PT</div>
-          <div></div>
-        </div>
-        <div id="ewo-workers-container"></div>
-        <button class="ewo-add-btn" onclick="addEWOWorker()">+ Add worker</button>
-      </div>
-
-      <div class="frow" style="margin-top:10px;">
-        <div class="fg"><label>Total ST Hours</label><input id="ewo-total-st" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
-        <div class="fg"><label>Total OT Hours</label><input id="ewo-total-ot" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
-        <div class="fg"><label>Total PT Hours</label><input id="ewo-total-pt" class="ewo-input" readonly style="background:var(--bg3);font-weight:700;"></div>
-      </div>
-
-      <div class="ewo-section-lbl">Materials</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-        <div style="display:grid;grid-template-columns:60px 80px 1fr 36px;gap:6px;margin-bottom:6px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Qty</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Unit</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Description</div>
-          <div></div>
-        </div>
-        <div id="ewo-materials-container"></div>
-        <button class="ewo-add-btn" onclick="addEWOMaterial()">+ Add material</button>
-      </div>
-
-      <div class="ewo-section-lbl">Equipment</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-        <div style="display:grid;grid-template-columns:1fr 100px 36px;gap:6px;margin-bottom:6px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Description</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Hours</div>
-          <div></div>
-        </div>
-        <div id="ewo-equipment-container"></div>
-        <button class="ewo-add-btn" onclick="addEWOEquipment()">+ Add equipment</button>
-      </div>
-
-      <div class="ewo-section-lbl">Sundries / Notes</div>
-      <textarea id="ewo-sundries" class="ewo-input" style="min-height:52px;resize:vertical;" placeholder="Sundries, consumables, or additional notes..."></textarea>
-
-      <div class="ewo-section-lbl">Status</div>
-      <div class="frow">
-        <div class="fg">
-          <label>EWO Status</label>
-          <select id="ewo-status" class="ewo-input">
-            <option value="Pending">Pending (GC Signature)</option>
-            <option value="Approved">Approved / Verified</option>
-            <option value="Void">Void</option>
-          </select>
-        </div>
-        <div class="fg"><label>GC Superintendent</label><input id="ewo-gc-super" class="ewo-input" placeholder="Name of GC super who approved"></div>
-      </div>
-      <div class="fg"><label>GC Notes / Changes</label><textarea id="ewo-gc-notes" class="ewo-input" style="min-height:48px;resize:vertical;" placeholder="Any changes or comments from GC..."></textarea></div>
-
-      <!-- Photos -->
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text3);letter-spacing:.05em;margin-bottom:8px;">Photos</div>
-        <div id="ewo-photo-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:0;"></div>
-        <div style="display:flex;gap:8px;">
-          <button type="button" class="btn-sm" onclick="document.getElementById('ewo-photo-cam').click()">📷 Camera</button>
-          <button type="button" class="btn-sm" onclick="document.getElementById('ewo-photo-gal').click()">🖼 Gallery</button>
-        </div>
-        <input type="file" id="ewo-photo-cam" accept="image/*" capture="environment" multiple style="display:none" onchange="ewoModalHandlePhotos(this)">
-        <input type="file" id="ewo-photo-gal" accept="image/*" multiple style="display:none" onchange="ewoModalHandlePhotos(this)">
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
-        <button id="ewo-delete-btn" class="btn-danger" style="display:none;margin-right:auto;" onclick="deleteEWO()">Delete EWO</button>
-        <button class="btn" onclick="closeEWOModal()">Cancel</button>
-        <button class="btn-primary" onclick="saveEWO()">Save EWO</button>
-      </div>
-    </div>
-  </div>
-</div>
-</body>
-</html>

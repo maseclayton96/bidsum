@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(vercel whoami *)",
+      "Bash(vercel ls *)",
+      "Bash(vercel inspect *)",
+      "Bash(node -e ' *)",
+      "Bash(vercel env *)",
+      "Bash(node --check --input-type=module api/lock.js)",
+      "Bash(node --check api/lock.js)",
+      "Bash(curl -s \"https://bidsum-qko850bdn-claytons-projects-3523fd85.vercel.app/api/lock?job_id=__smoketest__\" -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s \"https://bidsum.vercel.app/api/lock?job_id=__smoketest__\" -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -X POST \"https://bidsum.vercel.app/api/lock?job_id=__smoketest__\" -H \"Content-Type: application/json\" -d '{\"member_id\":999,\"member_name\":\"Test User\",\"action\":\"acquire\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -X POST \"https://bidsum.vercel.app/api/lock?job_id=__smoketest__\" -H \"Content-Type: application/json\" -d '{\"member_id\":111,\"member_name\":\"Other User\",\"action\":\"acquire\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -X POST \"https://bidsum.vercel.app/api/lock?job_id=__smoketest__\" -H \"Content-Type: application/json\" -d '{\"member_id\":999,\"action\":\"release\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")"
+    ]
+  }
+}
