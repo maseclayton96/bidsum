@@ -8,6 +8,18 @@ export default async function handler(req, res) {
 
   const sql = neon(process.env.DATABASE_URL);
   const { table, id } = req.query;
+
+  if (table === 'dbsize') {
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+    try {
+      const rows = await sql`SELECT pg_database_size(current_database()) AS bytes`;
+      return res.json({ bytes: parseInt(rows[0].bytes, 10) });
+    } catch (e) {
+      console.error('dbsize error:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   const allowed = ['members','gcs','teams','contacts','bids','settings','jobs'];
   if (!allowed.includes(table)) return res.status(400).json({ error: 'Invalid table' });
 
