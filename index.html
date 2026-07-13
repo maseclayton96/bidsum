@@ -1548,6 +1548,27 @@ async function settingsGet(key){const r=await fetch('/api/data?table=settings&ke
 async function settingsSet(key,value){const r=await fetch('/api/data?table=settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value})});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbDelete(table,id){const r=await fetch('/api/data?table='+table+'&id='+id,{method:'DELETE'});if(!r.ok)throw new Error(await r.text());}
 
+// ── Job locking (pessimistic — see api/lock.js) ──
+async function lockStatus(jobId){
+  const r = await fetch('/api/lock?job_id='+encodeURIComponent(jobId));
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function lockAction(jobId, action){
+  const body = {member_id: SESSION.user?SESSION.user.id:null, member_name: SESSION.user?(SESSION.user.first+' '+SESSION.user.last):'', action};
+  const r = await fetch('/api/lock?job_id='+encodeURIComponent(jobId), {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const data = await r.json().catch(()=>({}));
+  return {ok:r.ok, status:r.status, data};
+}
+function lockReleaseBeacon(jobId){
+  if(!jobId || !SESSION.user || !navigator.sendBeacon) return;
+  try{
+    const body = {member_id: SESSION.user.id, member_name: SESSION.user.first+' '+SESSION.user.last, action:'release'};
+    const blob = new Blob([JSON.stringify(body)], {type:'application/json'});
+    navigator.sendBeacon('/api/lock?job_id='+encodeURIComponent(jobId), blob);
+  }catch(e){}
+}
+
 function showLoader(msg){
  let el=document.getElementById('sb-loader');
  if(!el){el=document.createElement('div');el.id='sb-loader';el.style.cssText='position:fixed;top:54px;left:0;right:0;height:3px;background:linear-gradient(90deg,#1B3F6E,#4f6ef7,#1E5C3A);background-size:200% 100%;animation:sbload 1.2s linear infinite;z-index:999;';document.body.appendChild(el);}
@@ -1599,6 +1620,7 @@ function setGCTab(t){NAV.gcTab=t;render();}
 // ═══════════════════════════════════════ RENDER ROUTER ═══════════════════════════════
 function render(){
  stopEWOPolling();
+ syncJobLockForCurrentScreen();
  renderNav();
  if(NAV.screen==='landing')renderLanding();
  else if(NAV.screen==='home')renderHome();
@@ -5207,10 +5229,19 @@ function jobToBody(job){
   };
 }
 let JOBS_LOADED = false;
+// Tracks, per job id, the last body we know is safely persisted on the server
+// (JSON-serialized). saveJobs() only re-POSTs jobs whose current body differs
+// from this — so a browser tab that's been open a while and holds a stale copy
+// of some OTHER job (edited meanwhile by a different user) never re-sends that
+// stale copy and clobbers their work. Only jobs actually changed in this tab
+// get written.
+let JOB_SYNC_CACHE = {};
 async function fetchJobsFromServer(){
   try{
     const rows = await sbGet('jobs');
     JOBS = rows.map(mapJob);
+    JOB_SYNC_CACHE = {};
+    JOBS.forEach(job=>{ JOB_SYNC_CACHE[job.id] = JSON.stringify(jobToBody(job)); });
   }catch(e){
     console.error('Could not load jobs from server:', e.message);
     if(!JOBS) JOBS = [];
@@ -5227,12 +5258,43 @@ function loadJobs(){
 }
 async function saveJobs(undoLabel){
   if(undoLabel&&typeof pushUndo==='function') pushUndo(undoLabel);
-  const snapshot = JOBS.slice();
+  const dirty = JOBS.filter(job=>JOB_SYNC_CACHE[job.id] !== JSON.stringify(jobToBody(job)));
+  if(!dirty.length){ clearSaveError(); return; }
   try{
-    await Promise.all(snapshot.map(job=>sbPost('jobs', jobToBody(job))));
+    await Promise.all(dirty.map(async job=>{
+      const body = jobToBody(job);
+      const serialized = JSON.stringify(body);
+      await sbPost('jobs', body);
+      JOB_SYNC_CACHE[job.id] = serialized; // only marked synced once the write actually succeeds
+    }));
+    clearSaveError();
   }catch(e){
     console.error('Could not save jobs to server:', e.message);
+    showSaveError('Could not save your last change — check your connection and click Retry. ('+e.message+')');
   }
+}
+
+// ── Visible save-failure banner (lives outside #app so route re-renders don't wipe it) ──
+function ensureSaveBanner(){
+  let el = document.getElementById('save-error-banner');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'save-error-banner';
+    el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;display:none;align-items:center;gap:10px;background:#CC0000;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-family:Arial,sans-serif;font-size:13px;max-width:340px;';
+    el.innerHTML = '<span id="save-error-msg" style="flex:1;line-height:1.3;"></span><button id="save-error-retry" style="background:#fff;color:#CC0000;border:none;border-radius:4px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">Retry</button>';
+    document.body.appendChild(el);
+    document.getElementById('save-error-retry').onclick = ()=>saveJobs();
+  }
+  return el;
+}
+function showSaveError(msg){
+  const el = ensureSaveBanner();
+  document.getElementById('save-error-msg').textContent = msg;
+  el.style.display = 'flex';
+}
+function clearSaveError(){
+  const el = document.getElementById('save-error-banner');
+  if(el) el.style.display = 'none';
 }
 function autoCreateFromBids(){
   // Auto-create disabled — jobs are manually created only
@@ -5970,6 +6032,7 @@ function renderJobDetail(){
 
   const isForemanView = !isManagerMode()&&effectiveRoleType()==='FOR';
   if(isForemanView && !FOREMAN_JOB_TABS.includes(CUR_JOB_TAB)) CUR_JOB_TAB='overview';
+  const lockedByOther = !!(CUR_JOB_LOCK && !CUR_JOB_LOCK.mine && String(CUR_JOB_LOCK.jobId)===String(job.id));
 
   let tabContent = '';
   if(CUR_JOB_TAB==='overview') tabContent = isForemanView ? renderJobOverviewDashboardForeman(job,pm,sup,gc,contract) : renderJobOverviewDashboard(job,pm,sup,gc,contract,costs,gp,margin,ct);
@@ -6001,7 +6064,7 @@ function renderJobDetail(){
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
           <button class="btn-sm" onclick="goJobs()">← Jobs</button>
-          ${isForemanView?'':`
+          ${isForemanView||lockedByOther?'':`
           <button class="btn-sm" onclick="openEditJob('${job.id}')">Edit</button>
           <button class="btn-sm" onclick="openCostImport('${job.id}')">Import Cost</button>
           ${job.status==='Closed'?`<button class="btn-sm" style="background:#D9EFE3;color:#1E5C3A;border-color:#B2DFCA;" onclick="reopenJob('${job.id}')">↩ Reopen</button>`:`<button class="btn-sm" style="background:#FFF0F0;color:#CC0000;border-color:#FFAAAA;" onclick="closeJob('${job.id}')">✓ Close Job</button>`}
@@ -6023,6 +6086,13 @@ function renderJobDetail(){
         `}
       </div>
     </div>
+    ${lockedByOther?`
+    <div style="background:#FFF4E5;border:1px solid #FFD8A8;border-radius:var(--r);padding:10px 16px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="font-size:13px;color:#8A5A00;">\ud83d\udd12 <strong>${(CUR_JOB_LOCK.memberName||'Someone').replace(/</g,'&lt;')}</strong> is currently viewing this job \u2014 read-only until they leave.</div>
+      ${isManagerMode()?`<button class="btn-sm" onclick="forceUnlockJob('${job.id}')">Force unlock</button>`:''}
+    </div>`:''}
+    <div style="position:relative;">
+    ${lockedByOther?`<div style="position:absolute;inset:0;z-index:400;background:rgba(250,250,250,.5);cursor:not-allowed;border-radius:var(--rlg);"></div>`:''}
     <!-- Tab Bar -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--rlg);border-bottom-right-radius:var(--rlg);margin-bottom:18px;">
       <div class="job-tab-bar" style="margin-bottom:0;padding:0 16px;flex-wrap:wrap;">
@@ -6037,7 +6107,8 @@ function renderJobDetail(){
         }).join('')}
       </div>
     </div>
-    ${tabContent}`;
+    ${tabContent}
+    </div>`;
   const _wjob=JOBS.find(j=>String(j.id)===String(CUR_JOB_ID));if(_wjob)maybeLoadWeather(_wjob);
 }
 
@@ -7755,6 +7826,7 @@ async function deleteJob(){
   if(!confirm('Delete this job? This cannot be undone.'))return;
   const idToDelete = EDIT_JOB_ID;
   JOBS=JOBS.filter(j=>j.id!==idToDelete);
+  delete JOB_SYNC_CACHE[idToDelete];
   closeModal('job');renderJobs();
   try{ await sbDelete('jobs', idToDelete); }
   catch(e){ alert('Removed locally, but could not delete it from the server — check your connection.\n\n'+e.message); }
@@ -8116,6 +8188,9 @@ function printCOR(jobId, corIdx){
 }
 // ═══════════════════════════════════════ INIT ════════════════════════════════════════
 initAuth();
+window.addEventListener('beforeunload', function(){
+  if(CUR_JOB_LOCK && CUR_JOB_LOCK.mine) lockReleaseBeacon(CUR_JOB_LOCK.jobId);
+});
 
 function printSOV(jobId){
   const job=JOBS.find(j=>j.id===jobId);if(!job)return;
@@ -11804,6 +11879,106 @@ function startEWOPollingForHome(){
     if(!NAV.ewoFilter) loadEWOHomeCounts(jobs);
     else loadEWOHomeList(jobs, NAV.ewoFilter);
   }, 12000);
+}
+
+// ── Job locking — presence + read-only enforcement (see api/lock.js) ──
+// CUR_JOB_LOCK: {jobId, mine, memberId, memberName, lockedAt} for whichever job is
+// currently open, or null. Kept in sync with the server by syncJobLockForCurrentScreen(),
+// called once at the top of every render().
+let CUR_JOB_LOCK = null;
+let JOB_LOCK_ACQUIRING = null;
+let JOB_LOCK_POLL_TIMER = null;
+
+function stopJobLockPolling(){
+  if(JOB_LOCK_POLL_TIMER){ clearInterval(JOB_LOCK_POLL_TIMER); JOB_LOCK_POLL_TIMER=null; }
+}
+
+function startJobLockPolling(jobId){
+  stopJobLockPolling();
+  JOB_LOCK_POLL_TIMER = setInterval(async function(){
+    if(document.hidden) return;
+    if(!(NAV.screen==='jobdetail'&&String(CUR_JOB_ID)===String(jobId))){ stopJobLockPolling(); return; }
+    if(!SESSION.user) return;
+    try{
+      if(CUR_JOB_LOCK && CUR_JOB_LOCK.mine){
+        const res = await lockAction(jobId,'heartbeat');
+        if(res.status===409){
+          // Someone force-took it out from under us — drop to read-only.
+          CUR_JOB_LOCK = {jobId, mine:false, memberId:res.data.member_id, memberName:res.data.member_name, lockedAt:res.data.locked_at};
+          render();
+        }
+      } else {
+        const status = await lockStatus(jobId);
+        if(!status.locked){
+          const res = await lockAction(jobId,'acquire');
+          if(res.ok){
+            CUR_JOB_LOCK = {jobId, mine:true, memberId:SESSION.user.id, memberName:SESSION.user.first+' '+SESSION.user.last, lockedAt:res.data.locked_at};
+            render();
+          }
+        } else if(!CUR_JOB_LOCK || String(CUR_JOB_LOCK.memberId)!==String(status.member_id)){
+          CUR_JOB_LOCK = {jobId, mine:false, memberId:status.member_id, memberName:status.member_name, lockedAt:status.locked_at};
+          render();
+        }
+      }
+    }catch(e){ console.error('Job lock poll error:', e.message); }
+  }, 12000);
+}
+
+async function acquireJobLockAndRender(jobId){
+  if(!jobId || !SESSION.user){ if(JOB_LOCK_ACQUIRING===jobId) JOB_LOCK_ACQUIRING=null; return; }
+  let result = null;
+  try{
+    const res = await lockAction(jobId,'acquire');
+    if(res.status===409){
+      result = {jobId, mine:false, memberId:res.data.member_id, memberName:res.data.member_name, lockedAt:res.data.locked_at};
+    } else if(res.ok){
+      result = {jobId, mine:true, memberId:SESSION.user.id, memberName:SESSION.user.first+' '+SESSION.user.last, lockedAt:res.data.locked_at};
+    }
+  }catch(e){
+    console.error('Could not acquire job lock:', e.message);
+    result = null; // fail open — a lock-service hiccup shouldn't block editing entirely
+  }
+  if(JOB_LOCK_ACQUIRING===jobId) JOB_LOCK_ACQUIRING=null;
+  const stillWanted = NAV.screen==='jobdetail' && String(CUR_JOB_ID)===String(jobId);
+  if(!stillWanted){
+    // Navigated elsewhere while this was in flight — don't leave a lock dangling.
+    if(result && result.mine) lockAction(jobId,'release').catch(()=>{});
+    return;
+  }
+  CUR_JOB_LOCK = result;
+  startJobLockPolling(jobId);
+  render();
+}
+
+function releaseCurrentJobLock(jobId){
+  stopJobLockPolling();
+  if(CUR_JOB_LOCK && CUR_JOB_LOCK.mine && String(CUR_JOB_LOCK.jobId)===String(jobId)){
+    lockAction(jobId,'release').catch(e=>console.error('Could not release job lock:', e.message));
+  }
+  if(CUR_JOB_LOCK && String(CUR_JOB_LOCK.jobId)===String(jobId)) CUR_JOB_LOCK = null;
+}
+
+// Called once at the top of every render() — claims/releases the job lock as the
+// user navigates in and out of job detail, so no other call site needs to know about it.
+function syncJobLockForCurrentScreen(){
+  const wantJobId = (NAV.screen==='jobdetail') ? CUR_JOB_ID : null;
+  const haveJobId = CUR_JOB_LOCK ? CUR_JOB_LOCK.jobId : null;
+  if(String(haveJobId||'') === String(wantJobId||'')) return;
+  if(haveJobId) releaseCurrentJobLock(haveJobId);
+  if(wantJobId && JOB_LOCK_ACQUIRING !== wantJobId){
+    JOB_LOCK_ACQUIRING = wantJobId;
+    acquireJobLockAndRender(wantJobId);
+  }
+}
+
+async function forceUnlockJob(jobId){
+  if(!isManagerMode()) return;
+  if(!confirm('Force this job open? Anything the other person already saved is kept — they\'ll just be switched to read-only if they\'re still viewing it.')) return;
+  try{ await lockAction(jobId,'force_release'); }
+  catch(e){ console.error('Force unlock failed:', e.message); }
+  CUR_JOB_LOCK = null;
+  JOB_LOCK_ACQUIRING = null;
+  acquireJobLockAndRender(jobId);
 }
 
 
