@@ -1549,6 +1549,15 @@ async function settingsSet(key,value){const r=await fetch('/api/data?table=setti
 async function sbDelete(table,id){const r=await fetch('/api/data?table='+table+'&id='+id,{method:'DELETE'});if(!r.ok)throw new Error(await r.text());}
 async function dbSizeGet(){const r=await fetch('/api/data?table=dbsize');if(!r.ok)throw new Error(await r.text());return r.json();}
 
+// ── Claude assistant (see api/claude.js) — draft-only / read-only, never writes data ──
+async function askClaude(task, payload){
+  const body = Object.assign({task}, payload||{});
+  const r = await fetch('/api/claude', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||'Request failed');
+  return data.text;
+}
+
 // ── Job locking (pessimistic — see api/lock.js) ──
 async function lockStatus(jobId){
   const r = await fetch('/api/lock?job_id='+encodeURIComponent(jobId));
@@ -1622,6 +1631,7 @@ function setGCTab(t){NAV.gcTab=t;render();}
 function render(){
  stopEWOPolling();
  syncJobLockForCurrentScreen();
+ if(SESSION.user && NAV.screen!=='landing') ensureAskFieldstackWidget(); else removeAskFieldstackWidget();
  renderNav();
  if(NAV.screen==='landing')renderLanding();
  else if(NAV.screen==='home')renderHome();
@@ -5297,6 +5307,104 @@ function clearSaveError(){
   const el = document.getElementById('save-error-banner');
   if(el) el.style.display = 'none';
 }
+
+// ── "Ask Fieldstack" — read-only Q&A assistant over a summary of job data ──
+let ASK_FS_MESSAGES = [];
+let ASK_FS_OPEN = false;
+
+function buildFieldstackContext(){
+  return JSON.stringify(JOBS.map(function(j){
+    const gc = DB.gcs.find(function(g){return parseInt(g.id)===parseInt(j.gcId);});
+    const pm = DB.members.find(function(m){return parseInt(m.id)===parseInt(j.pmId);});
+    const contract = jobContract(j);
+    const costs = jobTotalCosts(j);
+    const ct = jobCORTotals(j);
+    return {
+      num: j.num, name: j.name, company: j.company, status: j.status,
+      customer: gc?gc.name:(j.gcName||null), pm: pm?(pm.first+' '+pm.last):null,
+      baseContract: j.value||0, revisedContract: Math.round(contract), totalCosts: Math.round(costs),
+      grossProfit: Math.round(contract-costs),
+      corsRequested: Math.round(ct.req||0), corsAwarded: Math.round(ct.awd||0), corsOutstanding: Math.round(ct.outstanding||0),
+      start: j.start||null, end: j.end||null,
+      address: [j.address,j.city].filter(Boolean).join(', ')||null,
+    };
+  }));
+}
+
+function ensureAskFieldstackWidget(){
+  let btn = document.getElementById('ask-fs-btn');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'ask-fs-btn';
+    btn.textContent = '✨ Ask Fieldstack';
+    btn.style.cssText = 'position:fixed;bottom:16px;left:16px;z-index:9998;background:#1B3F6E;color:#fff;border:none;border-radius:24px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);font-family:Arial,sans-serif;';
+    btn.onclick = toggleAskFieldstackPanel;
+    document.body.appendChild(btn);
+  }
+  let panel = document.getElementById('ask-fs-panel');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'ask-fs-panel';
+    panel.style.cssText = 'position:fixed;bottom:64px;left:16px;z-index:9999;display:none;width:360px;max-width:calc(100vw - 32px);height:480px;max-height:calc(100vh - 100px);background:#fff;border:1px solid #ccc;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.3);flex-direction:column;overflow:hidden;font-family:Arial,sans-serif;';
+    panel.innerHTML =
+      '<div style="padding:12px 14px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;background:#1B3F6E;color:#fff;flex-shrink:0;">'
+        +'<div><div style="font-weight:700;font-size:13px;">✨ Ask Fieldstack</div>'
+        +'<div style="font-size:10px;opacity:.85;">Read-only — can\'t make changes</div></div>'
+        +'<button onclick="toggleAskFieldstackPanel()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;">×</button>'
+      +'</div>'
+      +'<div id="ask-fs-log" style="flex:1;overflow-y:auto;padding:10px 12px;font-size:12px;color:#000;"></div>'
+      +'<div style="padding:8px;border-top:1px solid #ddd;display:flex;gap:6px;flex-shrink:0;">'
+        +'<input id="ask-fs-input" placeholder="Ask about a job, COR, or budget..." style="flex:1;border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:12px;font-family:Arial;outline:none;color:#000;" onkeydown="if(event.key===\'Enter\')sendAskFieldstack()">'
+        +'<button onclick="sendAskFieldstack()" id="ask-fs-send" style="background:#1B3F6E;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;">Send</button>'
+      +'</div>';
+    document.body.appendChild(panel);
+  }
+}
+function removeAskFieldstackWidget(){
+  const btn = document.getElementById('ask-fs-btn'); if(btn) btn.remove();
+  const panel = document.getElementById('ask-fs-panel'); if(panel) panel.remove();
+  ASK_FS_OPEN = false;
+}
+function toggleAskFieldstackPanel(){
+  ensureAskFieldstackWidget();
+  ASK_FS_OPEN = !ASK_FS_OPEN;
+  document.getElementById('ask-fs-panel').style.display = ASK_FS_OPEN ? 'flex' : 'none';
+  if(ASK_FS_OPEN){ renderAskFieldstackLog(); const inp=document.getElementById('ask-fs-input'); if(inp) inp.focus(); }
+}
+function renderAskFieldstackLog(){
+  const log = document.getElementById('ask-fs-log');
+  if(!log) return;
+  if(!ASK_FS_MESSAGES.length){
+    log.innerHTML = '<div style="color:#888;font-size:11px;">Ask things like "What jobs are over budget?" or "What\'s outstanding on job 5624?"</div>';
+    return;
+  }
+  log.innerHTML = ASK_FS_MESSAGES.map(function(m){
+    const isUser = m.role==='user';
+    return '<div style="margin-bottom:10px;text-align:'+(isUser?'right':'left')+';">'
+      +'<div style="display:inline-block;max-width:88%;padding:7px 10px;border-radius:8px;background:'+(isUser?'#1B3F6E':'#F0F0F0')+';color:'+(isUser?'#fff':'#000')+';font-size:12px;white-space:pre-wrap;text-align:left;">'+(m.text||'').replace(/</g,'&lt;')+'</div>'
+      +'</div>';
+  }).join('');
+  log.scrollTop = log.scrollHeight;
+}
+async function sendAskFieldstack(){
+  const input = document.getElementById('ask-fs-input');
+  const question = input.value.trim();
+  if(!question) return;
+  input.value = '';
+  ASK_FS_MESSAGES.push({role:'user', text:question});
+  renderAskFieldstackLog();
+  const sendBtn = document.getElementById('ask-fs-send');
+  if(sendBtn){ sendBtn.disabled = true; sendBtn.textContent = '...'; }
+  try{
+    const context = buildFieldstackContext();
+    const text = await askClaude('ask', {question, context});
+    ASK_FS_MESSAGES.push({role:'assistant', text});
+  }catch(e){
+    ASK_FS_MESSAGES.push({role:'assistant', text:'⚠ '+e.message});
+  }
+  renderAskFieldstackLog();
+  if(sendBtn){ sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+}
 function autoCreateFromBids(){
   // Auto-create disabled — jobs are manually created only
   // This function kept as no-op for future use
@@ -8591,7 +8699,10 @@ function renderCORForm(job, coHdr, coAddr, coPhone, ct){
       <!-- Description -->
       <div style="padding:8px 10px;border-bottom:1px solid #ddd;font-size:10px;">
         <div style="color:#555;margin-bottom:4px;">In regard to the above stated project, we submit the following cost.</div>
-        <div style="font-weight:bold;margin-bottom:3px;">Description of work:</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+          <div style="font-weight:bold;">Description of work:</div>
+          <button id="cor-draft-desc-btn" type="button" onclick="draftCORDescription('${job.id}',${corIdx})" style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;">✨ Draft with AI</button>
+        </div>
         <textarea id="corf-desc" placeholder="Describe the change order work..."
           style="width:100%;min-height:36px;border:1px solid #ddd;border-radius:3px;font-size:10px;font-family:Arial;outline:none;padding:4px 6px;background:#fff;resize:vertical;box-sizing:border-box;">${(cor.desc||'').replace(/</g,'&lt;')}</textarea>
       </div>
@@ -8856,6 +8967,21 @@ function corLoadTemplate(jobId, corIdx){
   job.cors[corIdx].total = 0;
   saveJobs();
   openCORForm(jobId, corIdx);
+}
+
+async function draftCORDescription(jobId, corIdx){
+  const ta = document.getElementById('corf-desc');
+  if(!ta) return;
+  const notes = ta.value.trim();
+  if(!notes){ alert('Type some rough notes in the box first, then click "Draft with AI" to turn them into a professional description.'); return; }
+  const btn = document.getElementById('cor-draft-desc-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Drafting…'; }
+  try{
+    ta.value = await askClaude('draft_description', {notes});
+  }catch(e){
+    alert('Could not draft a description: '+e.message);
+  }
+  if(btn){ btn.disabled=false; btn.textContent='✨ Draft with AI'; }
 }
 
 function saveCORForm(jobId, corIdx){
@@ -12259,6 +12385,24 @@ function ewoModalRemovePhoto(i){
   ewoModalRenderPhotos();
 }
 
+async function draftEWODescription(){
+  const ta = document.getElementById('ewo-desc');
+  if(!ta) return;
+  const notes = ta.value.trim();
+  if(!notes && !EWO_MODAL_PHOTOS.length){
+    alert('Type some rough notes and/or attach a job-site photo first, then click "Draft with AI".');
+    return;
+  }
+  const btn = document.getElementById('ewo-draft-desc-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Drafting…'; }
+  try{
+    ta.value = await askClaude('draft_description', {notes, images: EWO_MODAL_PHOTOS});
+  }catch(e){
+    alert('Could not draft a description: '+e.message);
+  }
+  if(btn){ btn.disabled=false; btn.textContent='✨ Draft with AI'; }
+}
+
 function deleteCOR(jobId, corIdx){
   const job = JOBS.find(j=>j.id===jobId);
   if(!job || !job.cors) return;
@@ -12285,7 +12429,9 @@ function deleteCOR(jobId, corIdx){
         <div class="fg"><label>Date</label><input id="ewo-date" type="date" class="ewo-input"></div>
       </div>
       <div class="fg"><label>Foreman</label><input id="ewo-foreman" class="ewo-input" placeholder="Foreman name"></div>
-      <div class="fg"><label>Description of Extra Work</label><textarea id="ewo-desc" class="ewo-input" style="min-height:72px;resize:vertical;" placeholder="Describe the extra work performed..."></textarea></div>
+      <div class="fg"><label style="display:flex;align-items:center;justify-content:space-between;">Description of Extra Work
+        <button id="ewo-draft-desc-btn" type="button" onclick="draftEWODescription()" style="font-size:9px;padding:2px 8px;background:#EDF2FF;border:1px solid #C5D0E5;border-radius:3px;cursor:pointer;color:#1B3F6E;font-weight:400;text-transform:none;letter-spacing:normal;">✨ Draft with AI</button>
+      </label><textarea id="ewo-desc" class="ewo-input" style="min-height:72px;resize:vertical;" placeholder="Describe the extra work performed..."></textarea></div>
 
       <div class="ewo-section-lbl">Workers & Hours</div>
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
